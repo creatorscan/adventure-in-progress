@@ -30,10 +30,10 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Estimate the new decision boundaries and perform forward pass through Neural Network.\n"
             "Usage:  dbnvts2-forward [options] <pos-model-in> <neg-model-in>"
-            " <back-nnet-in> <pos2neg-prior-in> <var-scale-in> <feature-rspecifier>"
+            " <back-nnet-in> <pos2neg-prior-in> <var-scale-in> <llr-scale-in> <feature-rspecifier>"
             " <noise-model-rspecifier> <feature-wspecifier>\n"
             "e.g.: \n"
-            " dbnvts2-forward pos.mdl neg.mdl nnet.back pos2neg.stats var_scale.stats "
+            " dbnvts2-forward pos.mdl neg.mdl nnet.back pos2neg.stats var_scale.stats llr_scale.stats"
             "ark:features.ark ark:noise_params.ark ark:mlpoutput.ark\n";
 
     ParseOptions po(usage);
@@ -75,6 +75,10 @@ int main(int argc, char *argv[]) {
     po.Register("use-var-scale", &use_var_scale,
                 "Apply the variance scale to the new weight estimation");
 
+    bool use_llr_scale = false;
+    po.Register("use-llr-scale", &use_llr_scale,
+                "Apply the LLR scale to the generative log likelihood ratio");
+
     std::string class_frame_counts;
     po.Register("class-frame-counts", &class_frame_counts,
                 "Counts of frames for posterior division by class-priors");
@@ -98,16 +102,16 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 8) {
+    if (po.NumArgs() != 9) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string pos_model_filename = po.GetArg(1), neg_model_filename = po
         .GetArg(2), nnet_filename = po.GetArg(3), pos2neg_prior_filename = po
-        .GetArg(4), var_scale_filename = po.GetArg(5), feature_rspecifier = po
-        .GetArg(6), noise_params_rspecifier = po.GetArg(7), feature_wspecifier =
-        po.GetArg(8);
+        .GetArg(4), var_scale_filename = po.GetArg(5), llr_scale_filename = po
+        .GetArg(6), feature_rspecifier = po.GetArg(7), noise_params_rspecifier =
+        po.GetArg(8), feature_wspecifier = po.GetArg(9);
 
     // positive AM Gmm
     AmDiagGmm pos_am_gmm;
@@ -125,6 +129,9 @@ int main(int argc, char *argv[]) {
       neg_am_gmm.Read(ki.Stream(), binary);
     }
 
+    KALDI_ASSERT(pos_am_gmm.NumPdfs() == neg_am_gmm.NumPdfs());
+    int32 num_pdfs = pos_am_gmm.NumPdfs();
+
     // noisy models
     AmDiagGmm pos_noise_am, neg_noise_am;
 
@@ -132,12 +139,17 @@ int main(int argc, char *argv[]) {
     nnet_back.Read(nnet_filename);
 
     // positive to negative prior ratio
-    Vector<double> pos2neg_log_prior_ratio(pos_am_gmm.Dim(), kSetZero);
+    Vector<double> pos2neg_log_prior_ratio(num_pdfs, kSetZero);
+    Matrix<double> prior_stats;
     {
       bool binary;
       Input ki(pos2neg_prior_filename, &binary);
-      pos2neg_log_prior_ratio.Read(ki.Stream(), binary);
-      KALDI_ASSERT( pos2neg_log_prior_ratio.Dim() == pos_am_gmm.NumPdfs());
+      prior_stats.Read(ki.Stream(), binary);
+      KALDI_ASSERT(
+          prior_stats.NumRows()==2 && prior_stats.NumCols()==num_pdfs);
+    }
+    for (int32 i = 0; i < num_pdfs; ++i) {
+      pos2neg_log_prior_ratio(i) = log(prior_stats(0, i) / prior_stats(1, i));
     }
 
     // variance scale factors
@@ -146,11 +158,20 @@ int main(int argc, char *argv[]) {
       bool binary;
       Input ki(var_scale_filename, &binary);
       var_scale.Read(ki.Stream(), binary);
-      KALDI_ASSERT(var_scale.Dim() == pos_am_gmm.NumPdfs());
+      KALDI_ASSERT(var_scale.Dim() == num_pdfs);
     }
-    if(!use_var_scale){
-      for(int32 i=0;i<var_scale.Dim(); ++i){
-        var_scale(i)=1.0;
+
+    // log likelihood ratio scale factors
+    Vector<double> llr_scale;
+    {
+      bool binary;
+      Input ki(llr_scale_filename, &binary);
+      llr_scale.Read(ki.Stream(), binary);
+      KALDI_ASSERT(llr_scale.Dim() == num_pdfs);
+    }
+    if (!use_llr_scale) {
+      for (int32 i = 0; i < num_pdfs; ++i) {
+        llr_scale(i) = 1.0;
       }
     }
 
@@ -231,14 +252,16 @@ int main(int argc, char *argv[]) {
         InterpolateVariance(positive_var_weight, pos_noise_am, neg_noise_am);
       }
 
-      /*if (use_var_scale) {
+      // post compensation scaling
+      if (use_var_scale) {
         ScaleVariance(var_scale, pos_noise_am, neg_noise_am);
-      }*/
+      }
 
       // forward through the new generative front end
       Matrix<BaseFloat> mat(feat.NumRows(), pos_noise_am.NumPdfs(), kSetZero);
       ComputeGaussianLogLikelihoodRatio(feat, pos_noise_am, neg_noise_am,
-                                        pos2neg_log_prior_ratio, var_scale, mat);
+                                        pos2neg_log_prior_ratio, llr_scale,
+                                        mat);
 
       //check for NaN/inf
       for (int32 r = 0; r < mat.NumRows(); r++) {

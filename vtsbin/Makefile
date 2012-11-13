@@ -9,7 +9,8 @@ BINFILES = vts-model-decode vts-compute-mono-post vts-init-noise dbnvts-init-mod
 		   dbnvts-est-gmm vts-compute-likes vts-est-noise vts-align-compiled vts-apply-global-cmvn \
 		   dbnvts-test-kl copy-feats-to-matlab compute-utt-noise vts-noise-decode compute-average-noise \
 		   vtsbnd-acc-stats vtsbnd-forward dbnvts2-acc-stats dbnvts2-neg-gauss dbnvts2-forward \
-		   dbnvts2-test-kl dbnvts2-test-gmm dbnvts-sum-accs
+		   dbnvts2-test-kl dbnvts2-test-gmm dbnvts2-sum-accs dbnvts2-sum-priors kl-divergence-gauss \
+		   dbnvts2-forward-clean
  
 OBJFILES =
 

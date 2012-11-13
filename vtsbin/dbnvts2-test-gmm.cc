@@ -26,9 +26,9 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Test whether the positive and negative Gmms give the same decision as the hidden unit.\n"
             "Usage:  dbnvts2-test-gmm [options] <pos-model-in> <neg-model-in> "
-            "<pos2neg-log-prior-in> <var-scale-in> <bl-acts-rspecifier> <feature-rspecifier> <stats-out>\n"
+            "<pos2neg-log-prior-in> <var-scale-in> <llr-scale-in> <bl-acts-rspecifier> <feature-rspecifier> <stats-out>\n"
             "e.g.: \n"
-            " dbnvts2-test-gmm pos.mdl neg.modl pos2neg_log.stats var_scale.stats ark:bl_acts.ark ark:feat.ark error.stats\n";
+            " dbnvts2-test-gmm pos.mdl neg.modl pos2neg_log.stats var_scale.stats llr_scale.stats ark:bl_acts.ark ark:feat.ark error.stats\n";
 
     ParseOptions po(usage);
 
@@ -55,6 +55,10 @@ int main(int argc, char *argv[]) {
     po.Register("use-var-scale", &use_var_scale,
                 "Apply the variance scale to the new weight estimation");
 
+    bool use_llr_scale = false;
+    po.Register("use-llr-scale", &use_llr_scale,
+                "Apply the LLR scale to the generative log likelihood ratio");
+
     int32 num_frames = 9;
     po.Register("num-frames", &num_frames,
                 "Number of frames for the input feature");
@@ -72,15 +76,16 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 7) {
+    if (po.NumArgs() != 8) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string pos_model_filename = po.GetArg(1), neg_model_filename = po
         .GetArg(2), pos2neg_prior_filename = po.GetArg(3), var_scale_filename =
-        po.GetArg(4), blacts_rspecifier = po.GetArg(5), feature_rspecifier = po
-        .GetArg(6), stats_out_filename = po.GetArg(7);
+        po.GetArg(4), llr_scale_filename = po.GetArg(5), blacts_rspecifier = po
+        .GetArg(6), feature_rspecifier = po.GetArg(7), stats_out_filename = po
+        .GetArg(8);
 
     // positive AM Gmm
     AmDiagGmm pos_am_gmm;
@@ -100,13 +105,20 @@ int main(int argc, char *argv[]) {
 
     KALDI_ASSERT( pos_am_gmm.NumPdfs() == neg_am_gmm.NumPdfs());
 
+    int32 num_pdfs = pos_am_gmm.NumPdfs();
+
     // positive to negative prior ratio
-    Vector<double> pos2neg_log_prior_ratio(pos_am_gmm.NumPdfs(), kSetZero);
+    Vector<double> pos2neg_log_prior_ratio(num_pdfs, kSetZero);
+    Matrix<double> prior_stats;
     {
       bool binary;
       Input ki(pos2neg_prior_filename, &binary);
-      pos2neg_log_prior_ratio.Read(ki.Stream(), binary);
-      KALDI_ASSERT( pos2neg_log_prior_ratio.Dim() == pos_am_gmm.NumPdfs());
+      prior_stats.Read(ki.Stream(), binary);
+      KALDI_ASSERT(
+          prior_stats.NumRows()==2 && prior_stats.NumCols()==num_pdfs);
+    }
+    for (int32 i = 0; i < num_pdfs; ++i) {
+      pos2neg_log_prior_ratio(i) = log(prior_stats(0, i) / prior_stats(1, i));
     }
 
     // var-scale
@@ -115,14 +127,29 @@ int main(int argc, char *argv[]) {
       bool binary;
       Input ki(var_scale_filename, &binary);
       var_scale.Read(ki.Stream(), binary);
-      KALDI_ASSERT(var_scale.Dim() == pos_am_gmm.NumPdfs());
+      KALDI_ASSERT(var_scale.Dim() == num_pdfs);
     }
-    /*
-    if (!use_var_scale) {
-      for (int32 i = 0; i < var_scale.Dim(); ++i) {
-        var_scale(i) = 1.0;
+    AmDiagGmm scaled_pos_am_gmm, scaled_neg_am_gmm;
+    scaled_pos_am_gmm.CopyFromAmDiagGmm(pos_am_gmm);
+    scaled_neg_am_gmm.CopyFromAmDiagGmm(neg_am_gmm);
+
+    if (use_var_scale) {
+      ScaleVariance(var_scale, scaled_pos_am_gmm, scaled_neg_am_gmm);
+    }
+
+    // llr-scale
+    Vector<double> llr_scale;
+    {
+      bool binary;
+      Input ki(llr_scale_filename, &binary);
+      llr_scale.Read(ki.Stream(), binary);
+      KALDI_ASSERT(llr_scale.Dim() == num_pdfs);
+    }
+    if (!use_llr_scale) {
+      for (int32 i = 0; i < num_pdfs; ++i) {
+        llr_scale(i) = 1.0;
       }
-    }*/
+    }
 
     AmDiagGmm noise_pos_am_gmm, noise_neg_am_gmm;
 
@@ -135,14 +162,15 @@ int main(int argc, char *argv[]) {
     RandomAccessBaseFloatMatrixReader blacts_reader(blacts_rspecifier);
 
     int32 num_done = 0;
+
     /*
      * stats(0, :): nnet_act >= 0.0 && pos_llh >= neg_llh
      * stats(1, :): nnet_act >= 0.0 && pos_llh < neg_llh
      * stats(2, :): nnet_act < 0.0 && pos_llh >= neg_llh
      * stats(3, :): nnet_act < 0.0 && pos_llh < neg_llh
      */
-    Matrix<BaseFloat> ori_stats(4, pos_am_gmm.NumPdfs(), kSetZero);
-    Matrix<BaseFloat> vts_stats(4, pos_am_gmm.NumPdfs(), kSetZero);
+    Matrix<BaseFloat> ori_stats(4, num_pdfs, kSetZero);
+    Matrix<BaseFloat> vts_stats(4, num_pdfs, kSetZero);
     // iterate over all the feature files
     for (; !feature_reader.Done(); feature_reader.Next()) {
       // read the features
@@ -156,14 +184,15 @@ int main(int argc, char *argv[]) {
       const Matrix<BaseFloat> &mat = blacts_reader.Value(key);
 
       // forward through the new generative front end
-      Matrix<BaseFloat> new_mat(feat.NumRows(), pos_am_gmm.NumPdfs(), kSetZero);
-      ComputeGaussianLogLikelihoodRatio(feat, pos_am_gmm, neg_am_gmm,
-                                        pos2neg_log_prior_ratio, var_scale,
+      Matrix<BaseFloat> new_mat(feat.NumRows(), num_pdfs, kSetZero);
+      ComputeGaussianLogLikelihoodRatio(feat, scaled_pos_am_gmm,
+                                        scaled_neg_am_gmm,
+                                        pos2neg_log_prior_ratio, llr_scale,
                                         new_mat);
 
       // evaluate each frame
       for (int32 i = 0; i < feat.NumRows(); ++i) {
-        for (int32 pdf = 0; pdf < pos_am_gmm.NumPdfs(); ++pdf) {
+        for (int32 pdf = 0; pdf < num_pdfs; ++pdf) {
 
           if (mat(i, pdf) >= 0.0) {
             if (new_mat(i, pdf) >= 0.0) {
@@ -200,11 +229,17 @@ int main(int argc, char *argv[]) {
 
         // compensate the postive and negative gmm models
         noise_pos_am_gmm.CopyFromAmDiagGmm(pos_am_gmm);
+        noise_neg_am_gmm.CopyFromAmDiagGmm(neg_am_gmm);
+
+        // pre-compensation variance scaling
+        /*if(use_var_scale) {
+         ScaleVariance(var_scale, noise_pos_am_gmm, noise_neg_am_gmm);
+         }*/
+
         CompensateMultiFrameGmm(mu_h, mu_z, var_z, true, num_cepstral, num_fbank,
             dct_mat, inv_dct_mat, num_frames,
             noise_pos_am_gmm);
 
-        noise_neg_am_gmm.CopyFromAmDiagGmm(neg_am_gmm);
         CompensateMultiFrameGmm(mu_h, mu_z, var_z, true, num_cepstral, num_fbank,
             dct_mat, inv_dct_mat, num_frames,
             noise_neg_am_gmm);
@@ -214,17 +249,18 @@ int main(int argc, char *argv[]) {
           InterpolateVariance(positive_var_weight, noise_pos_am_gmm, noise_neg_am_gmm);
         }
 
+        // the scaling is done after compensation
         if(use_var_scale) {
-         ScaleVariance(var_scale, noise_pos_am_gmm, noise_neg_am_gmm);
-         }
+          ScaleVariance(var_scale, noise_pos_am_gmm, noise_neg_am_gmm);
+        }
 
         new_mat.SetZero();
         ComputeGaussianLogLikelihoodRatio(feat, noise_pos_am_gmm, noise_neg_am_gmm,
-            pos2neg_log_prior_ratio, var_scale, new_mat);
+            pos2neg_log_prior_ratio, llr_scale, new_mat);
 
         // evaluate each frame
         for (int32 i = 0; i < feat.NumRows(); ++i) {
-          for (int32 pdf = 0; pdf < pos_am_gmm.NumPdfs(); ++pdf) {
+          for (int32 pdf = 0; pdf < num_pdfs; ++pdf) {
 
             if (mat(i, pdf) >= 0.0) {
               if (new_mat(i, pdf) >= 0.0) {
@@ -262,7 +298,17 @@ int main(int argc, char *argv[]) {
       ori_stats.Write(ko.Stream(), binary);
       vts_stats.Write(ko.Stream(), binary);
     }
-    KALDI_LOG<< "Write stats out.";
+    KALDI_LOG<< "Write final stats out.";
+
+    KALDI_LOG<< "Average Error Statistics: ";
+    KALDI_LOG<< "Original: " << (ori_stats.Row(1)).Sum() / ori_stats.NumCols() << ", "
+    << (ori_stats.Row(2)).Sum() / ori_stats.NumCols() << "("
+    << (ori_stats.Row(1)).Sum() * 100.0 / ori_stats.Sum() << "%, "
+    << (ori_stats.Row(2)).Sum() * 100.0 / ori_stats.Sum() << "%)";
+    KALDI_LOG<< "VTS: " << (vts_stats.Row(1)).Sum() / vts_stats.NumCols() << ", "
+    << (vts_stats.Row(2)).Sum() / vts_stats.NumCols() << "("
+    << (vts_stats.Row(1)).Sum() * 100.0 / vts_stats.Sum() << "%, "
+    << (vts_stats.Row(2)).Sum() * 100.0 / vts_stats.Sum() << "%)";
 
     return 1;
   } catch (const std::exception &e) {
