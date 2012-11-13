@@ -1,5 +1,5 @@
 /*
- * dbnvts2-forward.cc
+ * vtsbin/dbnvts2-forward.cc
  *
  *  Created on: Nov 9, 2012
  *      Author: Troy Lee (troy.lee2008@gmail.com)
