@@ -36,6 +36,14 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+    std::string clean_type = "clean1";
+    po.Register("clean-type", &clean_type,
+                "Filename prefix for the clean act data");
+
+    std::string noise_type = "n1_snr20";
+    po.Register("noise-type", &noise_type,
+                "Filename prefix for the noisy data");
+
     bool hard_decision = true;
     po.Register(
         "hard-decision", &hard_decision,
@@ -52,7 +60,6 @@ int main(int argc, char *argv[]) {
     bool silent = false;
     po.Register("silent", &silent, "Don't print any messages");
 
-
     po.Read(argc, argv);
 
     if (po.NumArgs() != 5) {
@@ -60,9 +67,9 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    std::string  gmm_model_filename =
-        po.GetArg(1), feature_rspecifier = po.GetArg(2), act_rspecifier = po.GetArg(3), pos_accs_wxfilename =
-        po.GetArg(4), neg_accs_wxfilename = po.GetArg(5);
+    std::string gmm_model_filename = po.GetArg(1), feature_rspecifier = po
+        .GetArg(2), act_rspecifier = po.GetArg(3), pos_accs_wxfilename = po
+        .GetArg(4), neg_accs_wxfilename = po.GetArg(5);
 
     AmDiagGmm am_gmm;
     {
@@ -79,8 +86,6 @@ int main(int argc, char *argv[]) {
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     RandomAccessBaseFloatMatrixReader act_reader(act_rspecifier);
 
-
-
     Timer tim;
     if (!silent)
       KALDI_LOG<< "ACCUMULATION STARTED";
@@ -90,14 +95,17 @@ int main(int argc, char *argv[]) {
     // iterate over all the feature files
     for (; !feature_reader.Done(); feature_reader.Next()) {
       // read
-      std::string key = feature_reader.Key();
+      std::string noise_key = feature_reader.Key();
       const Matrix<BaseFloat> &feats = feature_reader.Value();
 
-      if(!act_reader.HasKey(key)){
-        KALDI_WARN << "No activations found for the feature: " << key << ", skipped!";
+      std::string clean_key = noise_key;
+      clean_key.replace(0, noise_type.length(), clean_type);
+
+      if (!act_reader.HasKey(clean_key)) {
+        KALDI_WARN<< "No activations found for the feature: " << noise_key << ", skipped!";
         continue;
       }
-      const Matrix<BaseFloat> &acts = act_reader.Value(key);
+      const Matrix<BaseFloat> &acts = act_reader.Value(clean_key);
 
       //accumulate statistics
       for (int32 r = 0; r < acts.NumRows(); r++) {
