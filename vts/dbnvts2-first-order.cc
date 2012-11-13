@@ -60,16 +60,19 @@ void ConvertWeightToOriginalSpace(int32 num_frames,
  *
  * The param neg_am_gmm must be initialized the same as pos_am_gmm.
  *
+ * llh_scale to make sure not only the sign but also the value is the same
+ * as the logistic regression.
+ *
  */
 void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
                                   const Vector<BaseFloat> &bias,
                                   const Vector<double> &pos2neg_log_prior_ratio,
                                   AmDiagGmm &neg_am_gmm,
-                                  Vector<double> &var_scale) {
+                                  Vector<double> &var_scale,
+                                  Vector<double> &llr_scale) {
 
   int32 feat_dim = weight.NumCols();
-  Vector<double> cur_weight(feat_dim, kSetZero);
-  Vector<double> w_mu(feat_dim, kSetZero), pos_mean(feat_dim, kSetZero);
+  Vector<double> w_mu(feat_dim, kSetZero);
   Vector<double> w_w(feat_dim, kSetZero);
   double coef = 0.0, w2, wpos;
 
@@ -86,29 +89,26 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
     w_w.AddVec2(1.0, weight.Row(pdf));
     w2 = w_w.Sum();
 
-    int32 num_gauss = gmm->NumGauss();
-    for (int32 g = 0; g < num_gauss; ++g) {
+    KALDI_ASSERT(gmm->NumGauss()==1);
+    // compute the var scale first
 
-      pos_mean.CopyRowFromMat(ngmm.means_, g);  // keep a copy of the pos_mean
+    w_mu.CopyRowFromMat(weight, pdf);
+    w_mu.MulElements(ngmm.means_.Row(0));  // w .* mu_pos
+    wpos = w_mu.Sum() + bias(pdf);  // w .* mu_pos + b
 
-      // compute the var scale first
+    w_mu.CopyFromVec(w_w);
+    w_mu.MulElements(ngmm.vars_.Row(0));  // w_T * var_pos * w
 
-      w_mu.CopyRowFromMat(weight, pdf);
-      w_mu.MulElements(ngmm.means_.Row(g));  // w .* mu_pos
-      wpos = w_mu.Sum() + bias(pdf);  // w .* mu_pos + b
+    var_scale(pdf) = ((wpos * wpos / w2) - 0.5 * pos2neg_log_prior_ratio(pdf))
+        / ((wpos * wpos * w_mu.Sum()) / (w2 * w2));
 
-      w_mu.CopyFromVec(w_w);
-      w_mu.MulElements(ngmm.vars_.Row(g));  // w_T * var_pos * w
+    llr_scale(pdf) = 0.5 * w2 / wpos; // w_T * w / (2 * (w_T * mu_pos + b))
 
-      var_scale(pdf) = ((wpos * wpos / w2) - 0.5 * pos2neg_log_prior_ratio(pdf))
-          / ((wpos * wpos * w_mu.Sum()) / (w2 * w2));
+    coef = 2 * var_scale(pdf) * wpos / w2;
+    w_mu.CopyRowFromMat(weight, pdf);  // w
+    w_mu.MulElements(ngmm.vars_.Row(0));  // w .* var_pos
+    (ngmm.means_.Row(0)).AddVec(-coef, w_mu);  // mu_pos - w .* var_pos
 
-      coef = 2 * var_scale(pdf) * wpos / w2;
-      w_mu.CopyRowFromMat(weight, pdf);  // w
-      w_mu.MulElements(ngmm.vars_.Row(g));  // w .* var_pos
-      (ngmm.means_.Row(g)).AddVec(-coef, w_mu);  // mu_pos - w .* var_pos
-
-    }
     ngmm.CopyToDiagGmm(gmm);
     gmm->ComputeGconsts();
 
@@ -263,15 +263,17 @@ void ScaleVariance(const Vector<double> &var_scale, AmDiagGmm &pos_am_gmm,
 void ComputeGaussianLogLikelihoodRatio(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
     const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
-    const Vector<double> &var_scale, Matrix<BaseFloat> &llr) {
-  int32 num_pdf = pos_am_gmm.NumPdfs();
-  int32 num_frames = feats.NumRows();
+    const Vector<double> &llr_scale,
+    Matrix<BaseFloat> &llr) {
+  int32 num_pdfs = pos_am_gmm.NumPdfs();
   Vector<double> tmp(pos_am_gmm.Dim());
+
+  // compute the weight and bias from Gaussians
 
   Matrix<BaseFloat> weights(pos_am_gmm.NumPdfs(), pos_am_gmm.Dim(), kSetZero);
   Vector<BaseFloat> bias(pos_am_gmm.NumPdfs(), kSetZero);
 
-  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
+  for (int32 pdf = 0; pdf < num_pdfs; ++pdf) {
     const DiagGmm *pos_gmm = &(pos_am_gmm.GetPdf(pdf));
     DiagGmmNormal pos_ngmm(*pos_gmm);
     KALDI_ASSERT(pos_gmm->NumGauss()==1);
@@ -294,8 +296,10 @@ void ComputeGaussianLogLikelihoodRatio(
   }
 
   llr.SetZero();
-  llr.AddMatMat(1.0, feats, kNoTrans, weights, kTrans, 0.0);
   llr.AddVecToRows(1.0, bias);
+  llr.AddMatMat(1.0, feats, kNoTrans, weights, kTrans, 1.0);
+
+  llr.MulColsVec(Vector<BaseFloat>(llr_scale));
 
 //  for (int32 t = 0; t < num_frames; ++t) {
 //    for (int32 pdf = 0; pdf < num_pdf; ++pdf) {

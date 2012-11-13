@@ -47,7 +47,8 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
                                   const Vector<BaseFloat> &bias,
                                   const Vector<double> &pos2neg_log_prior_ratio,
                                   AmDiagGmm &neg_am_gmm,
-                                  Vector<double> &var_scale);
+                                  Vector<double> &var_scale,
+                                  Vector<double> &llr_scale);
 
 ///*
 // * The negative mean is the reflection of the positive mean against the
@@ -88,7 +89,8 @@ void ScaleVariance(const Vector<double> &var_scale, AmDiagGmm &pos_am_gmm,
 void ComputeGaussianLogLikelihoodRatio(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
     const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
-    const Vector<double> &var_scale, Matrix<BaseFloat> &llr);
+    const Vector<double> &llr_scale,
+    Matrix<BaseFloat> &llr);
 
 }
 
