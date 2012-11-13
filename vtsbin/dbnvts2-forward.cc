@@ -75,6 +75,11 @@ int main(int argc, char *argv[]) {
     po.Register("use-var-scale", &use_var_scale,
                 "Apply the variance scale to the new weight estimation");
 
+    bool post_var_scale = true;
+    po.Register(
+        "post-var-scale", &post_var_scale,
+        "Whether the variance scaling is applied before compensation or after");
+
     bool use_llr_scale = false;
     po.Register("use-llr-scale", &use_llr_scale,
                 "Apply the LLR scale to the generative log likelihood ratio");
@@ -236,13 +241,19 @@ int main(int argc, char *argv[]) {
         KALDI_LOG << "Convoluational Noise Mean: " << mu_h;
       }
 
-        // compensate the postive and negative gmm models
+      // compensate the postive and negative gmm models
       pos_noise_am.CopyFromAmDiagGmm(pos_am_gmm);
+      neg_noise_am.CopyFromAmDiagGmm(neg_am_gmm);
+
+      if(use_var_scale && !post_var_scale){
+        ScaleVariance(var_scale, pos_noise_am, neg_noise_am);
+      }
+
       CompensateMultiFrameGmm(mu_h, mu_z, var_z, compensate_var, num_cepstral,
                               num_fbank, dct_mat, inv_dct_mat, num_frames,
                               pos_noise_am);
 
-      neg_noise_am.CopyFromAmDiagGmm(neg_am_gmm);
+
       CompensateMultiFrameGmm(mu_h, mu_z, var_z, compensate_var, num_cepstral,
                               num_fbank, dct_mat, inv_dct_mat, num_frames,
                               neg_noise_am);
@@ -253,7 +264,7 @@ int main(int argc, char *argv[]) {
       }
 
       // post compensation scaling
-      if (use_var_scale) {
+      if (use_var_scale && post_var_scale) {
         ScaleVariance(var_scale, pos_noise_am, neg_noise_am);
       }
 
