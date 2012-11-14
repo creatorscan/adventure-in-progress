@@ -1,5 +1,5 @@
 /*
- * vtsbin/dbnvts2-forward-clean.cc
+ * vtsbin/dbnvts2-joint-forward-clean.cc
  *
  *  Created on: Nov 13, 2012
  *      Author: Troy Lee (troy.lee2008@gmail.com)
@@ -7,10 +7,11 @@
  *  Converting the discriminative logistic linear regression into Naive
  *  Bayes based generative classifier.
  *
- *  The input features are original MFCC without normalization, normalization
- *  is taken into consideration when generating the pos and neg models.
+ *  Jointly compensate both the global and component dependent parameters.
  *
  *  This takes only the clean feature, just for testing the conversion purpose.
+ *
+ *  The input to this tool must be the output of vts-apply-global-cmvn
  *
  */
 
@@ -21,9 +22,40 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "util/timer.h"
+#include "gmm/am-diag-gmm.h"
+#include "gmm/diag-gmm-normal.h"
 
 #include "vts/vts-first-order.h"
 #include "vts/dbnvts2-first-order.h"
+
+namespace kaldi {
+
+void GmmToNormalizedGmm(const Vector<double> &mean, const Vector<double> &std,
+                        AmDiagGmm &am_gmm) {
+
+  Vector<double> inv_std(std);
+  inv_std.InvertElements();
+  Vector<double> inv_std2(inv_std);
+  inv_std2.ApplyPow(2.0);
+
+  // iterate all the GMMs
+  int32 num_pdf = am_gmm.NumPdfs();
+  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
+    // iterate all the Gaussians
+    DiagGmm *gmm = &(am_gmm.GetPdf(pdf));
+    DiagGmmNormal ngmm(*gmm);
+
+    ngmm.means_.AddVecToRows(-1.0, mean);  // m_x - mu_x
+    ngmm.means_.MulColsVec(inv_std);  // (m_x - mu_x) / std_x
+
+    ngmm.vars_.MulColsVec(inv_std2);  // v_y = v_x / (std_x * std_x)
+
+    ngmm.CopyToDiagGmm(gmm);
+    gmm->ComputeGconsts();
+  }
+}
+
+}
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
@@ -32,11 +64,11 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Estimate the new decision boundaries and perform forward pass through Neural Network.\n"
             "Usage:  dbnvts2-forward-clean [options] <pos-model-in> <neg-model-in>"
-            " <back-nnet-in> <pos2neg-prior-in> <var-scale-in> <llr-scale-in> <feature-rspecifier>"
+            " <back-nnet-in> <pos2neg-prior-in> <var-scale-in> <llr-scale-in> <global-cmvn-rspecifier> <feature-rspecifier>"
             " <feature-wspecifier>\n"
             "e.g.: \n"
-            " dbnvts2-forward-clean pos.mdl neg.mdl nnet.back pos2neg.stats var_scale.stats llr_scale.stats"
-            "ark:features.ark ark:mlpoutput.ark\n";
+            " dbnvts2-joint-forward-clean pos.mdl neg.mdl nnet.back pos2neg.stats var_scale.stats llr_scale.stats"
+            " ark:global_cmvn.ark ark:features.ark ark:mlpoutput.ark\n";
 
     ParseOptions po(usage);
 
@@ -86,7 +118,7 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 8) {
+    if (po.NumArgs() != 9) {
       po.PrintUsage();
       exit(1);
     }
@@ -94,8 +126,8 @@ int main(int argc, char *argv[]) {
     std::string pos_model_filename = po.GetArg(1), neg_model_filename = po
         .GetArg(2), nnet_filename = po.GetArg(3), pos2neg_prior_filename = po
         .GetArg(4), var_scale_filename = po.GetArg(5), llr_scale_filename = po
-        .GetArg(6), feature_rspecifier = po.GetArg(7), feature_wspecifier = po
-        .GetArg(8);
+        .GetArg(6), cmvn_rspecifier = po.GetArg(7), feature_rspecifier = po
+        .GetArg(8), feature_wspecifier = po.GetArg(9);
 
     // positive AM Gmm
     AmDiagGmm pos_am_gmm;
@@ -115,6 +147,31 @@ int main(int argc, char *argv[]) {
 
     KALDI_ASSERT(pos_am_gmm.NumPdfs() == neg_am_gmm.NumPdfs());
     int32 num_pdfs = pos_am_gmm.NumPdfs();
+
+    RandomAccessDoubleMatrixReader cmvn_reader(cmvn_rspecifier);
+
+    if (!cmvn_reader.HasKey("global")) {
+      KALDI_ERR<< "No normalization statistics available for key "
+      << "'global', producing no output for this utterance";
+    }
+
+    // read in the statistics
+    const Matrix<double> &cmvn_stats = cmvn_reader.Value("global");
+    // generate the mean and covariance from the statistics
+    int32 feat_dim = cmvn_stats.NumCols() - 1;
+    double counts = cmvn_stats(0, feat_dim);
+    Vector<double> mean(feat_dim, kSetZero), var(feat_dim, kSetZero);
+    for (int32 i = 0; i < feat_dim; ++i) {
+      mean(i) = cmvn_stats(0, i) / counts;
+      var(i) = (cmvn_stats(1, i) / counts) - mean(i) * mean(i);
+    }
+    Vector<double> expand_mean(pos_am_gmm.Dim()), expand_std(pos_am_gmm.Dim());
+    for(int32 i=0; i<pos_am_gmm.Dim(); ++i){
+      expand_mean(i) = mean(i%feat_dim);
+      expand_std(i) = sqrt(var(i%feat_dim));
+    }
+    GmmToNormalizedGmm(expand_mean, expand_std, pos_am_gmm);
+    GmmToNormalizedGmm(expand_mean, expand_std, neg_am_gmm);
 
     Nnet nnet_back;
     nnet_back.Read(nnet_filename);
