@@ -92,6 +92,18 @@ void ComputeGaussianLogLikelihoodRatio(
     const Vector<double> &llr_scale,
     Matrix<BaseFloat> &llr);
 
+/*
+ * Compute the log likelihood ratio of two single Gaussian based AM models.
+ *
+ * Gaussians can have different variances.
+ *
+ */
+void ComputeGaussianLogLikelihoodRatio_General(
+    const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
+    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale,
+    Matrix<BaseFloat> &llr);
+
 }
 
 #endif /* VTS_DBNVTS2_FIRST_ORDER_H_ */

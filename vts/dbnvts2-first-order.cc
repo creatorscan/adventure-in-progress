@@ -102,7 +102,7 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
     var_scale(pdf) = ((wpos * wpos / w2) - 0.5 * pos2neg_log_prior_ratio(pdf))
         / ((wpos * wpos * w_mu.Sum()) / (w2 * w2));
 
-    llr_scale(pdf) = 0.5 * w2 / wpos; // w_T * w / (2 * (w_T * mu_pos + b))
+    llr_scale(pdf) = 0.5 * w2 / wpos;  // w_T * w / (2 * (w_T * mu_pos + b))
 
     coef = 2 * var_scale(pdf) * wpos / w2;
     w_mu.CopyRowFromMat(weight, pdf);  // w
@@ -263,8 +263,7 @@ void ScaleVariance(const Vector<double> &var_scale, AmDiagGmm &pos_am_gmm,
 void ComputeGaussianLogLikelihoodRatio(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
     const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
-    const Vector<double> &llr_scale,
-    Matrix<BaseFloat> &llr) {
+    const Vector<double> &llr_scale, Matrix<BaseFloat> &llr) {
   int32 num_pdfs = pos_am_gmm.NumPdfs();
   Vector<double> tmp(pos_am_gmm.Dim());
 
@@ -327,6 +326,56 @@ void ComputeGaussianLogLikelihoodRatio(
 //    }
 //  }
 
+}
+
+/*
+ * Compute the log likelihood ratio of two single Gaussian based AM models.
+ *
+ */
+void ComputeGaussianLogLikelihoodRatio_General(
+    const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
+    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale, Matrix<BaseFloat> &llr) {
+  int32 num_pdfs = pos_am_gmm.NumPdfs();
+  Vector<double> tmp(pos_am_gmm.Dim());
+
+  // compute the weight and bias from Gaussians
+
+  Matrix<BaseFloat> weights(pos_am_gmm.NumPdfs(), pos_am_gmm.Dim(), kSetZero);
+  Vector<BaseFloat> bias(pos_am_gmm.NumPdfs(), kSetZero);
+
+  for (int32 pdf = 0; pdf < num_pdfs; ++pdf) {
+    const DiagGmm *pos_gmm = &(pos_am_gmm.GetPdf(pdf));
+    DiagGmmNormal pos_ngmm(*pos_gmm);
+    KALDI_ASSERT(pos_gmm->NumGauss()==1);
+
+    const DiagGmm *neg_gmm = &(neg_am_gmm.GetPdf(pdf));
+    DiagGmmNormal neg_ngmm(*neg_gmm);
+    KALDI_ASSERT(neg_gmm->NumGauss()==1);
+
+    double pconst = pos2neg_log_prior_ratio(pdf);
+    tmp.CopyRowFromMat(pos_ngmm.vars_, 0);
+    tmp.DivElements(neg_ngmm.vars_.Row(0));
+    pconst -= (0.5 * tmp.SumLog());
+
+    for (int32 t = 0; t < feats.NumRows(); ++t) {
+      llr(t, pdf) = pconst;
+
+      tmp.CopyRowFromMat(feats, t);
+      tmp.AddVec(-1.0, pos_ngmm.means_.Row(0));
+      tmp.ApplyPow(2.0);
+      tmp.DivElements(pos_ngmm.vars_.Row(0));
+      llr(t, pdf) -= (0.5 * tmp.Sum());
+
+      tmp.CopyRowFromMat(feats, t);
+      tmp.AddVec(-1.0, neg_ngmm.means_.Row(0));
+      tmp.ApplyPow(2.0);
+      tmp.DivElements(neg_ngmm.vars_.Row(0));
+      llr(t, pdf) += (0.5 * tmp.Sum());
+
+      llr(t, pdf) *= llr_scale(pdf);
+    }
+  }
 }
 
 }
