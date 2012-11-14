@@ -241,18 +241,17 @@ int main(int argc, char *argv[]) {
         KALDI_LOG << "Convoluational Noise Mean: " << mu_h;
       }
 
-      // compensate the postive and negative gmm models
+        // compensate the postive and negative gmm models
       pos_noise_am.CopyFromAmDiagGmm(pos_am_gmm);
       neg_noise_am.CopyFromAmDiagGmm(neg_am_gmm);
 
-      if(use_var_scale && !post_var_scale){
+      if (use_var_scale && !post_var_scale) {
         ScaleVariance(var_scale, pos_noise_am, neg_noise_am);
       }
 
       CompensateMultiFrameGmm(mu_h, mu_z, var_z, compensate_var, num_cepstral,
                               num_fbank, dct_mat, inv_dct_mat, num_frames,
                               pos_noise_am);
-
 
       CompensateMultiFrameGmm(mu_h, mu_z, var_z, compensate_var, num_cepstral,
                               num_fbank, dct_mat, inv_dct_mat, num_frames,
@@ -270,9 +269,16 @@ int main(int argc, char *argv[]) {
 
       // forward through the new generative front end
       Matrix<BaseFloat> mat(feat.NumRows(), pos_noise_am.NumPdfs(), kSetZero);
-      ComputeGaussianLogLikelihoodRatio(feat, pos_noise_am, neg_noise_am,
-                                        pos2neg_log_prior_ratio, llr_scale,
-                                        mat);
+      if (shared_var) {
+        ComputeGaussianLogLikelihoodRatio(feat, pos_noise_am, neg_noise_am,
+                                          pos2neg_log_prior_ratio, llr_scale,
+                                          mat);
+      } else {
+        ComputeGaussianLogLikelihoodRatio_General(feat, pos_noise_am,
+                                                  neg_noise_am,
+                                                  pos2neg_log_prior_ratio,
+                                                  llr_scale, mat);
+      }
 
       //check for NaN/inf
       for (int32 r = 0; r < mat.NumRows(); r++) {
