@@ -331,6 +331,63 @@ void ComputeGaussianLogLikelihoodRatio(
 /*
  * Compute the log likelihood ratio of two single Gaussian based AM models.
  *
+ * Assumptions:
+ *  1. Pos and neg share the same diagonal covariance.
+ *
+ *  Also interpolate with the original weights.
+ *
+ */
+void ComputeGaussianLogLikelihoodRatio_Interpolate(
+    const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
+    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale, const Matrix<BaseFloat> &ori_weights,
+    const Vector<BaseFloat> &ori_bias, BaseFloat new_ratio, Matrix<BaseFloat> &llr) {
+  int32 num_pdfs = pos_am_gmm.NumPdfs();
+  Vector<double> tmp(pos_am_gmm.Dim());
+
+  // compute the weight and bias from Gaussians
+
+  Matrix<BaseFloat> weights(pos_am_gmm.NumPdfs(), pos_am_gmm.Dim(), kSetZero);
+  Vector<BaseFloat> bias(pos_am_gmm.NumPdfs(), kSetZero);
+
+  for (int32 pdf = 0; pdf < num_pdfs; ++pdf) {
+    const DiagGmm *pos_gmm = &(pos_am_gmm.GetPdf(pdf));
+    DiagGmmNormal pos_ngmm(*pos_gmm);
+    KALDI_ASSERT(pos_gmm->NumGauss()==1);
+
+    const DiagGmm *neg_gmm = &(neg_am_gmm.GetPdf(pdf));
+    DiagGmmNormal neg_ngmm(*neg_gmm);
+    KALDI_ASSERT(neg_gmm->NumGauss()==1);
+
+    SubVector<BaseFloat> w(weights, pdf);
+    w.CopyRowFromMat(pos_ngmm.means_, 0);
+    w.AddVec(-1.0, neg_ngmm.means_.Row(0));
+    w.DivElements(pos_ngmm.vars_.Row(0));
+
+    tmp.SetZero();
+    tmp.AddVec2(1.0, pos_ngmm.means_.Row(0));
+    tmp.AddVec2(-1.0, neg_ngmm.means_.Row(0));
+    tmp.DivElements(pos_ngmm.vars_.Row(0));
+
+    bias(pdf) = -0.5 * tmp.Sum() + pos2neg_log_prior_ratio(pdf);
+  }
+
+  // interpolate
+  weights.Scale(new_ratio);
+  weights.AddMat(1-new_ratio, ori_weights);
+  bias.Scale(new_ratio);
+  bias.AddVec(1-new_ratio, ori_bias);
+
+  llr.SetZero();
+  llr.AddVecToRows(1.0, bias);
+  llr.AddMatMat(1.0, feats, kNoTrans, weights, kTrans, 1.0);
+
+  llr.MulColsVec(Vector<BaseFloat>(llr_scale));
+}
+
+/*
+ * Compute the log likelihood ratio of two single Gaussian based AM models.
+ *
  */
 void ComputeGaussianLogLikelihoodRatio_General(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,

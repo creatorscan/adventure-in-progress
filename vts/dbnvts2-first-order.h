@@ -93,6 +93,15 @@ void ComputeGaussianLogLikelihoodRatio(
     Matrix<BaseFloat> &llr);
 
 /*
+ * with interpolation .
+ */
+void ComputeGaussianLogLikelihoodRatio_Interpolate(
+    const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
+    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale, const Matrix<BaseFloat> &ori_weights,
+    const Vector<BaseFloat> &ori_bias, BaseFloat new_ratio, Matrix<BaseFloat> &llr);
+
+/*
  * Compute the log likelihood ratio of two single Gaussian based AM models.
  *
  * Gaussians can have different variances.
