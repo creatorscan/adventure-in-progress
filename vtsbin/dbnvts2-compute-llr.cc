@@ -80,6 +80,7 @@ int main(int argc, char *argv[]) {
       neg_am_gmm.Read(ki.Stream(), binary);
     }
 
+
     KALDI_ASSERT(pos_am_gmm.NumPdfs() == neg_am_gmm.NumPdfs());
     int32 num_pdfs = pos_am_gmm.NumPdfs();
 
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]) {
     }
 
     // log likelihood ratio scale factors, dummy one
-    Vector<double> llr_scale;
+    Vector<double> llr_scale(num_pdfs);
     for (int32 i = 0; i < num_pdfs; ++i) {
       llr_scale(i) = 1.0;
     }
@@ -134,7 +135,7 @@ int main(int argc, char *argv[]) {
       const Matrix<BaseFloat> &feat = feature_reader.Value();
 
       // forward through the new generative front end
-      Matrix<BaseFloat> mat(feat.NumRows(), pos_noise_am.NumPdfs(), kSetZero);
+      Matrix<BaseFloat> mat(feat.NumRows(), num_pdfs, kSetZero);
 
       if (do_vts) {
         // read noise parameters
@@ -168,12 +169,14 @@ int main(int argc, char *argv[]) {
             neg_noise_am,
             pos2neg_log_prior_ratio,
             llr_scale, mat);
+
       } else {
 
         ComputeGaussianLogLikelihoodRatio_General(feat, pos_am_gmm,
             neg_am_gmm,
             pos2neg_log_prior_ratio,
             llr_scale, mat);
+
       }
 
           // write
