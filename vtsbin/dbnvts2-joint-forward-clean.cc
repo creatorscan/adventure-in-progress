@@ -1,7 +1,7 @@
 /*
  * vtsbin/dbnvts2-joint-forward-clean.cc
  *
- *  Created on: Nov 13, 2012
+ *  Created on: Nov 14, 2012
  *      Author: Troy Lee (troy.lee2008@gmail.com)
  *
  *  Converting the discriminative logistic linear regression into Naive
@@ -27,35 +27,6 @@
 
 #include "vts/vts-first-order.h"
 #include "vts/dbnvts2-first-order.h"
-
-namespace kaldi {
-
-void GmmToNormalizedGmm(const Vector<double> &mean, const Vector<double> &std,
-                        AmDiagGmm &am_gmm) {
-
-  Vector<double> inv_std(std);
-  inv_std.InvertElements();
-  Vector<double> inv_std2(inv_std);
-  inv_std2.ApplyPow(2.0);
-
-  // iterate all the GMMs
-  int32 num_pdf = am_gmm.NumPdfs();
-  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
-    // iterate all the Gaussians
-    DiagGmm *gmm = &(am_gmm.GetPdf(pdf));
-    DiagGmmNormal ngmm(*gmm);
-
-    ngmm.means_.AddVecToRows(-1.0, mean);  // m_x - mu_x
-    ngmm.means_.MulColsVec(inv_std);  // (m_x - mu_x) / std_x
-
-    ngmm.vars_.MulColsVec(inv_std2);  // v_y = v_x / (std_x * std_x)
-
-    ngmm.CopyToDiagGmm(gmm);
-    gmm->ComputeGconsts();
-  }
-}
-
-}
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
