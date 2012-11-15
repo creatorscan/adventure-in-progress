@@ -21,55 +21,6 @@
 
 namespace kaldi {
 
-// in-place change from original feature GMM to normalized feature GMM
-void GmmToNormalizedGmm(const Vector<double> &mean, const Vector<double> &std,
-                        AmDiagGmm &am_gmm) {
-
-  Vector<double> inv_std(std);
-  inv_std.InvertElements();
-  Vector<double> inv_std2(inv_std);
-  inv_std2.ApplyPow(2.0);
-
-  // iterate all the GMMs
-  int32 num_pdf = am_gmm.NumPdfs();
-  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
-    // iterate all the Gaussians
-    DiagGmm *gmm = &(am_gmm.GetPdf(pdf));
-    DiagGmmNormal ngmm(*gmm);
-
-    ngmm.means_.AddVecToRows(-1.0, mean);  // m_x - mu_x
-    ngmm.means_.MulColsVec(inv_std);  // (m_x - mu_x) / std_x
-
-    ngmm.vars_.MulColsVec(inv_std2);  // v_y = v_x / (std_x * std_x)
-
-    ngmm.CopyToDiagGmm(gmm);
-    gmm->ComputeGconsts();
-  }
-}
-
-// in-place change from normalized feature GMM to original feature GMM
-void NormalizedGmmToGmm(const Vector<double> &mean, const Vector<double> &std,
-                        AmDiagGmm &am_gmm) {
-
-  Vector<double> std2(std);
-  std2.ApplyPow(2.0);
-
-  // iterate all the GMMs
-  int32 num_pdf = am_gmm.NumPdfs();
-  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
-    // iterate all the Gaussians
-    DiagGmm *gmm = &(am_gmm.GetPdf(pdf));
-    DiagGmmNormal ngmm(*gmm);
-
-    ngmm.means_.MulColsVec(std);  // m_y * std_x
-    ngmm.means_.AddVecToRows(1.0, mean);  // m_y * std_x + mu_x
-
-    ngmm.vars_.MulColsVec(std2);  // v_y * (std_x * std_x)
-
-    ngmm.CopyToDiagGmm(gmm);
-    gmm->ComputeGconsts();
-  }
-}
 
 /*
  * The negative mean is the reflection of the positive mean against the

@@ -30,20 +30,7 @@ namespace kaldi {
 
 
 
-/*
- * Due to the feature normalization required for nnet,
- * we have to convert the GMMs estimated from the normalized features
- * back to the original features;
- * and also from the original features to the normalized ones.
- */
 
-// in-place change from original feature GMM to normalized feature GMM
-void GmmToNormalizedGmm(const Vector<double> &mean, const Vector<double> &std,
-                        AmDiagGmm &am_gmm);
-
-// in-place change from normalized feature GMM to original feature GMM
-void NormalizedGmmToGmm(const Vector<double> &mean, const Vector<double> &std,
-                        AmDiagGmm &am_gmm);
 
 /*
  * Compute the negative GMM based on the positive GMM and the decision boundary.
