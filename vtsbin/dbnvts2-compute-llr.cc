@@ -7,10 +7,7 @@
  * Compute the log likelihood ratios between positive and negative models.
  *
  */
-#include <limits>
 
-#include "nnet/nnet-nnet.h"
-#include "nnet/nnet-loss.h"
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "util/timer.h"
