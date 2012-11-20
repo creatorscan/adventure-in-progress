@@ -30,7 +30,8 @@ const struct Component::key_value Component::kMarkerMap[] = { {
     Component::kBiasedLinearity, "<biasedlinearity>" }, { Component::kSigmoid,
     "<sigmoid>" }, { Component::kSoftmax, "<softmax>" }, { Component::kRbm,
     "<rbm>" }, { Component::kExpand, "<expand>" },
-    { Component::kCopy, "<copy>" }, { Component::kDropoutBL, "<dropoutbl>" } };
+    { Component::kCopy, "<copy>" }, { Component::kDropoutBL, "<dropoutbl>" },
+    { Component::kRelu, "<relu>"}, {Component::kSoftRelu, "<softrelu>"}};
 
 const char* Component::TypeToMarker(ComponentType t) {
   int32 N = sizeof(kMarkerMap) / sizeof(kMarkerMap[0]);

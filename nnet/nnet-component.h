@@ -63,6 +63,8 @@ class Component {
     kActivationFunction = 0x0200, 
     kSoftmax, 
     kSigmoid,
+    kRelu,
+    kSoftRelu,
 
     kTranform =  0x0400,
     kRbm,
