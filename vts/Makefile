@@ -6,7 +6,8 @@ include ../kaldi.mk
 
 TESTFILES = 
 
-OBJFILES = vts-first-order.o dbnvts-first-order.o vtsbnd-first-order.o dbnvts2-first-order.o
+OBJFILES = vts-first-order.o dbnvts-first-order.o vtsbnd-first-order.o dbnvts2-first-order.o vts-accum-diag-gmm.o \
+		   vts-accum-am-diag-gmm.o
 
 LIBFILE = kaldi-vts.a
 
