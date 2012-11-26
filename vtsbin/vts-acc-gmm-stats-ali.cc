@@ -163,16 +163,19 @@ int main(int argc, char *argv[]) {
                                                         1.0);
       }
 
-      KALDI_LOG<< "Loglike from accumulation: " << tot_like_this_file;
-
       tot_like += tot_like_this_file;
       ++num_success;
+
+      if(num_success % 100 == 0){
+        KALDI_LOG << "Done " << num_success << " files, log-like for " << key
+            << " is " << tot_like_this_file << " over " << features.NumRows() << " frames.";
+      }
 
     }
 
     KALDI_LOG<< "Done " << num_success << " utterances, failed for "
     << num_fail;
-    KALDI_LOG<< "Overall log-likelihood increase per file is "
+    KALDI_LOG<< "Overall log-likelihood per file is "
     << (tot_like / num_success) << " over " << num_success << " files.";
 
     {

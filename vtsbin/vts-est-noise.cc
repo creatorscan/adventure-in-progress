@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     DoubleVectorWriter noiseparams_writer(noise_out_wspecifier);
 
     int num_success = 0, num_fail = 0;
-    BaseFloat tot_update = 0.0;
+    BaseFloat tot_update = 0.0, new_like = 0.0;
 
     Matrix<double> dct_mat, inv_dct_mat;
     GenerateDCTmatrix(num_cepstral, num_fbank, ceplifter, &dct_mat,
@@ -184,8 +184,6 @@ int main(int argc, char *argv[]) {
                                                                    gamma_p,
                                                                    gamma_q);
 
-      KALDI_LOG << "Loglike from accumulation: " << tot_like_this_file;
-
       bool new_mean_estimate = false;
       bool new_var_estimate = false;
 
@@ -227,7 +225,7 @@ int main(int argc, char *argv[]) {
       if (!new_mean_estimate && !new_var_estimate){
         KALDI_WARN << "No updates for " << key;
       } else {
-        BaseFloat new_like = ComputeLogLikelihood(noise_am_gmm,
+        new_like = ComputeLogLikelihood(noise_am_gmm,
                                        trans_model,
                                        alignment,
                                        features);
@@ -248,12 +246,17 @@ int main(int argc, char *argv[]) {
 
       ++num_success;
 
+      if(num_success % 100 == 0){
+        KALDI_LOG << "Done " << num_success << " utterances. Log-likelihood increase for " << key
+            << " is " << (new_like - tot_like_this_file) << " over " << features.NumRows() << " frames.";
+      }
+
     }
 
     KALDI_LOG << "Done " << num_success << " utterances, failed for "
         << num_fail;
     KALDI_LOG << "Overall log-likelihood increase per file is "
-        << - (tot_update / num_success) << " over " << num_success << " files.";
+        << (tot_update / num_success) << " over " << num_success << " files.";
 
     return (num_success != 0 ? 0 : 1);
   } catch (const std::exception &e) {

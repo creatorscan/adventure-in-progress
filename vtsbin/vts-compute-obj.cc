@@ -155,6 +155,10 @@ int main(int argc, char *argv[]) {
       tot_frames += features.NumRows();
       ++num_success;
 
+      if(num_success%100==0){
+        KALDI_LOG << "Done " << num_success << " files.";
+      }
+
     }
 
     KALDI_LOG<< "Done " << num_success << " utterances, failed for "
