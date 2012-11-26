@@ -21,6 +21,7 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Do Maximum Likelihood re-estimation of GMM-based acoustic model in VAT\n"
         "Usage:  vts-gmm-est [options] <model-in> <stats-in> <model-out>\n"
+        "Warning: The objective value changes computed in this tool is not implemented yet.\n"
         "e.g.: vts-gmm-est 1.mdl 1.acc 2.mdl\n";
 
     bool binary_write = true;
