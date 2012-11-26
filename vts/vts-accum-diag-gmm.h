@@ -35,12 +35,22 @@ struct VtsDiagGmmOptions {
   /// It is in double since the variance is computed in double precision.
   double min_variance;
   bool remove_low_count_gaussians;
+  /// Diagonal loading to ensure the Hessian matrix to be negative definite
+  /// Refer to Ozlem Kalinli's Noise Adaptive Training for robust ASR
+  double diagonal_loading;
+  /// Limit the change amount of the log(variance)
+  double stigma;
+  /// Learning rate for the variance
+  double variance_lrate;
   VtsDiagGmmOptions() {
     // don't set var floor vector by default.
     min_gaussian_weight     = 1.0e-05;
     min_gaussian_occupancy  = 10.0;
     min_variance            = 0.001;
     remove_low_count_gaussians = true;
+    diagonal_loading        = 1.0;
+    stigma                  = 1.0;
+    variance_lrate          = 1.0;
   }
   void Register(ParseOptions *po) {
     std::string module = "MleDiagGmmOptions: ";
@@ -52,6 +62,9 @@ struct VtsDiagGmmOptions {
                  module+"Variance floor (absolute variance).");
     po->Register("remove-low-count-gaussians", &remove_low_count_gaussians,
                  module+"If true, remove Gaussians that fall below the floors.");
+    po->Register("diagonal-loading", &diagonal_loading, module+"Ensure the negative definiteness for the Hessian.");
+    po->Register("stigma", &stigma, module+"Limit the change of the log variance.");
+    po->Register("variance-lrate", &variance_lrate, module+"Learning rate for the variance.");
   }
 };
 

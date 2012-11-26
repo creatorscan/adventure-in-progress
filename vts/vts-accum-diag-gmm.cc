@@ -255,13 +255,13 @@ void VtsAccumDiagGmm::Add(double scale, const VtsAccumDiagGmm &acc) {
   }
 }
 
-
-BaseFloat VtsAccumDiagGmm::AccumulateFromDiag(const DiagGmm &clean_gmm,
-                               const DiagGmm &noisy_gmm,
-                               const std::vector<Matrix<double> > &Jx,
-                               int32 offset,
-                               const VectorBase<BaseFloat> &data,
-                               BaseFloat frame_posterior) {
+BaseFloat VtsAccumDiagGmm::AccumulateFromDiag(
+    const DiagGmm &clean_gmm,
+    const DiagGmm &noisy_gmm,
+    const std::vector<Matrix<double> > &Jx,
+    int32 offset,
+    const VectorBase<BaseFloat> &data,
+    BaseFloat frame_posterior) {
   KALDI_ASSERT(noisy_gmm.NumGauss() == NumGauss());
   KALDI_ASSERT(noisy_gmm.Dim() == Dim());
   KALDI_ASSERT(static_cast<int32>(data.Dim()) == Dim());
@@ -279,42 +279,52 @@ BaseFloat VtsAccumDiagGmm::AccumulateFromDiag(const DiagGmm &clean_gmm,
   /*
    * Starting accumulate the necessary statistics for mean update
    */
-  if(flags_ & kGmmMeans){
+  if (flags_ & kGmmMeans) {
     int32 num_gauss = NumGauss();
 
     // for mean update only noise model is needed
     DiagGmmNormal ngmm_noisy(noisy_gmm);
 
     // iterate through each Gaussian
-    for(int32 g=0; g<num_gauss; ++g){
+    for (int32 g = 0; g < num_gauss; ++g) {
       // inverse variance
       Vector<double> inv_var(ngmm_noisy.vars_.Row(g));
       inv_var.InvertElements();
 
-      Matrix<double> Jx_sm(Jx[offset+g]);
+      Matrix<double> Jx_sm(Jx[offset + g]);
 
       Vector<double> y_mu(data);
-      y_mu.AddVec(-1.0, ngmm_noisy.means_.Row(g)); // y - mu
+      y_mu.AddVec(-1.0, ngmm_noisy.means_.Row(g));  // y - mu
 
       Matrix<double> tmp_mat(num_cepstral_, num_cepstral_);
       // static
-      tmp_mat.CopyFromMat(Jx_sm, kTrans); // Jx^T
-      tmp_mat.MulColsVec(SubVector<double>(inv_var, 0, num_cepstral_)); // Jx^T * inv_var
-      SubMatrix<double> cur_mu_ms(mu_ms_, g*num_cepstral_, num_cepstral_, 0, num_cepstral_);
-      cur_mu_ms.AddMatMat(post_d(g), tmp_mat, kNoTrans, Jx_sm, kNoTrans, 1.0); // gamma * Jx^T * inv_var * Jx
-      mu_vs_.Row(g).AddMatVec(post_d(g), tmp_mat, kNoTrans, SubVector<double>(y_mu, 0, num_cepstral_), 1.0); // gamma * Jx^T * inv_var * (y - mu)
+      tmp_mat.CopyFromMat(Jx_sm, kTrans);  // Jx^T
+      tmp_mat.MulColsVec(SubVector<double>(inv_var, 0, num_cepstral_));  // Jx^T * inv_var
+      SubMatrix<double> cur_mu_ms(mu_ms_, g * num_cepstral_, num_cepstral_, 0,
+                                  num_cepstral_);
+      cur_mu_ms.AddMatMat(post_d(g), tmp_mat, kNoTrans, Jx_sm, kNoTrans, 1.0);  // gamma * Jx^T * inv_var * Jx
+      mu_vs_.Row(g).AddMatVec(post_d(g), tmp_mat, kNoTrans,
+                              SubVector<double>(y_mu, 0, num_cepstral_), 1.0);  // gamma * Jx^T * inv_var * (y - mu)
       // delta
       tmp_mat.CopyFromMat(Jx_sm, kTrans);
-      tmp_mat.MulColsVec(SubVector<double>(inv_var, num_cepstral_, num_cepstral_));
-      SubMatrix<double> cur_mu_md(mu_md_, g*num_cepstral_, num_cepstral_, 0, num_cepstral_);
+      tmp_mat.MulColsVec(
+          SubVector<double>(inv_var, num_cepstral_, num_cepstral_));
+      SubMatrix<double> cur_mu_md(mu_md_, g * num_cepstral_, num_cepstral_, 0,
+                                  num_cepstral_);
       cur_mu_md.AddMatMat(post_d(g), tmp_mat, kNoTrans, Jx_sm, kNoTrans, 1.0);
-      mu_vd_.Row(g).AddMatVec(post_d(g), tmp_mat, kNoTrans, SubVector<double>(y_mu, num_cepstral_, num_cepstral_), 1.0);
+      mu_vd_.Row(g).AddMatVec(
+          post_d(g), tmp_mat, kNoTrans,
+          SubVector<double>(y_mu, num_cepstral_, num_cepstral_), 1.0);
       // accelerate
       tmp_mat.CopyFromMat(Jx_sm, kTrans);
-      tmp_mat.MulColsVec(SubVector<double>(inv_var, num_cepstral_ << 1, num_cepstral_));
-      SubMatrix<double> cur_mu_ma(mu_ma_, g*num_cepstral_, num_cepstral_, 0, num_cepstral_);
+      tmp_mat.MulColsVec(
+          SubVector<double>(inv_var, num_cepstral_ << 1, num_cepstral_));
+      SubMatrix<double> cur_mu_ma(mu_ma_, g * num_cepstral_, num_cepstral_, 0,
+                                  num_cepstral_);
       cur_mu_ma.AddMatMat(post_d(g), tmp_mat, kNoTrans, Jx_sm, kNoTrans, 1.0);
-      mu_va_.Row(g).AddMatVec(post_d(g), tmp_mat, kNoTrans, SubVector<double>(y_mu, num_cepstral_<<1, num_cepstral_), 1.0);
+      mu_va_.Row(g).AddMatVec(
+          post_d(g), tmp_mat, kNoTrans,
+          SubVector<double>(y_mu, num_cepstral_ << 1, num_cepstral_), 1.0);
 
     }
 
@@ -322,95 +332,129 @@ BaseFloat VtsAccumDiagGmm::AccumulateFromDiag(const DiagGmm &clean_gmm,
      * Starting accumulate statistics for variance
      * don't allow update variance only
      */
-    if(flags_ & kGmmVariances){
+    if (flags_ & kGmmVariances) {
 
       // variance stats needs the clean model variance
       DiagGmmNormal ngmm_clean(clean_gmm);
 
       // iterate through each Gaussian
-      for(int32 g=0; g<num_gauss; ++g){
+      for (int32 g = 0; g < num_gauss; ++g) {
         // inverse variance
         Vector<double> inv_var(ngmm_noisy.vars_.Row(g));
         inv_var.InvertElements();
 
-        Matrix<double> Jx_sm2(Jx[offset+g]);
-        Jx_sm2.ApplyPow(2.0); // Jx^2
+        Matrix<double> Jx_sm2(Jx[offset + g]);
+        Jx_sm2.ApplyPow(2.0);  // Jx^2
 
-        Vector<double> y_mu_inv2(data); // y
-        y_mu_inv2.AddVec(-1.0, ngmm_noisy.means_.Row(g)); // y - mu
-        y_mu_inv2.MulElements(inv_var); // (y - mu)/var
-        y_mu_inv2.ApplyPow(2.0); // ((y - mu)/var)^2
+        Vector<double> y_mu_inv2(data);  // y
+        y_mu_inv2.AddVec(-1.0, ngmm_noisy.means_.Row(g));  // y - mu
+        y_mu_inv2.MulElements(inv_var);  // (y - mu)/var
+        y_mu_inv2.ApplyPow(2.0);  // ((y - mu)/var)^2
 
         Vector<double> tmp_vec(num_cepstral_), cur_jac(num_cepstral_);
-        Matrix<double> tmp_mat(num_cepstral_, num_cepstral_), tmp_mat2(num_cepstral_, num_cepstral_);
+        Matrix<double> tmp_mat(num_cepstral_, num_cepstral_), tmp_mat2(
+            num_cepstral_, num_cepstral_);
 
         // static - Jacobian
         tmp_vec.CopyFromVec(SubVector<double>(inv_var, 0, num_cepstral_));
         tmp_vec.AddVec(-1.0, SubVector<double>(y_mu_inv2, 0, num_cepstral_));
         cur_jac.AddMatVec(1.0, Jx_sm2, kTrans, tmp_vec, 0.0);
-        cur_jac.MulElements(SubVector<double>(ngmm_clean.vars_.Row(g), 0, num_cepstral_));
+        cur_jac.MulElements(
+            SubVector<double>(ngmm_clean.vars_.Row(g), 0, num_cepstral_));
         var_js_.Row(g).AddVec(post_d(g), cur_jac);
         // static - Hessian
         tmp_vec.SetZero();
         tmp_vec.AddVec(-1.0, SubVector<double>(inv_var, 0, num_cepstral_));
         tmp_vec.AddVec(2.0, SubVector<double>(y_mu_inv2, 0, num_cepstral_));
-        tmp_vec.MulElements(SubVector<double>(inv_var, 0, num_cepstral_)); //
-        tmp_mat.CopyFromMat(Jx_sm2); //
-        tmp_mat.MulRowsVec(tmp_vec); // diag(tmp_vec) * tmp_mat
+        tmp_vec.MulElements(SubVector<double>(inv_var, 0, num_cepstral_));  //
+        tmp_mat.CopyFromMat(Jx_sm2);  //
+        tmp_mat.MulRowsVec(tmp_vec);  // diag(tmp_vec) * tmp_mat
         tmp_mat2.AddMatMat(1.0, Jx_sm2, kTrans, tmp_mat, kNoTrans, 0.0);
         tmp_mat.SetZero();
-        tmp_mat.AddVecVec(1.0, SubVector<double>(ngmm_clean.vars_.Row(g), 0, num_cepstral_), SubVector<double>(ngmm_clean.vars_.Row(g), 0, num_cepstral_));
+        tmp_mat.AddVecVec(
+            1.0, SubVector<double>(ngmm_clean.vars_.Row(g), 0, num_cepstral_),
+            SubVector<double>(ngmm_clean.vars_.Row(g), 0, num_cepstral_));
         tmp_mat.MulElements(tmp_mat2);
         tmp_mat2.SetZero();
-        tmp_mat2.CopyDiagFromVec(cur_jac); // deal with the extra term for diagonal
+        tmp_mat2.CopyDiagFromVec(cur_jac);  // deal with the extra term for diagonal
         tmp_mat.AddMat(1.0, tmp_mat2, kNoTrans);
-        SubMatrix<double> cur_var_hs(var_hs_, g*num_cepstral_, num_cepstral_, 0, num_cepstral_);
+        SubMatrix<double> cur_var_hs(var_hs_, g * num_cepstral_, num_cepstral_,
+                                     0, num_cepstral_);
         cur_var_hs.AddMat(post_d(g), tmp_mat);
 
         // delta - Jacobian
-        tmp_vec.CopyFromVec(SubVector<double>(inv_var, num_cepstral_, num_cepstral_));
-        tmp_vec.AddVec(-1.0, SubVector<double>(y_mu_inv2, num_cepstral_, num_cepstral_));
+        tmp_vec.CopyFromVec(
+            SubVector<double>(inv_var, num_cepstral_, num_cepstral_));
+        tmp_vec.AddVec(
+            -1.0, SubVector<double>(y_mu_inv2, num_cepstral_, num_cepstral_));
         cur_jac.AddMatVec(1.0, Jx_sm2, kTrans, tmp_vec, 0.0);
-        cur_jac.MulElements(SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_, num_cepstral_));
+        cur_jac.MulElements(
+            SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_,
+                              num_cepstral_));
         var_jd_.Row(g).AddVec(post_d(g), cur_jac);
         // delta - Hessian
         tmp_vec.SetZero();
-        tmp_vec.AddVec(-1.0, SubVector<double>(inv_var, num_cepstral_, num_cepstral_));
-        tmp_vec.AddVec(2.0, SubVector<double>(y_mu_inv2, num_cepstral_, num_cepstral_));
-        tmp_vec.MulElements(SubVector<double>(inv_var, num_cepstral_, num_cepstral_)); //
-        tmp_mat.CopyFromMat(Jx_sm2); //
-        tmp_mat.MulRowsVec(tmp_vec); // diag(tmp_vec) * tmp_mat
+        tmp_vec.AddVec(
+            -1.0, SubVector<double>(inv_var, num_cepstral_, num_cepstral_));
+        tmp_vec.AddVec(
+            2.0, SubVector<double>(y_mu_inv2, num_cepstral_, num_cepstral_));
+        tmp_vec.MulElements(
+            SubVector<double>(inv_var, num_cepstral_, num_cepstral_));  //
+        tmp_mat.CopyFromMat(Jx_sm2);  //
+        tmp_mat.MulRowsVec(tmp_vec);  // diag(tmp_vec) * tmp_mat
         tmp_mat2.AddMatMat(1.0, Jx_sm2, kTrans, tmp_mat, kNoTrans, 0.0);
         tmp_mat.SetZero();
-        tmp_mat.AddVecVec(1.0, SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_, num_cepstral_), SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_, num_cepstral_));
+        tmp_mat.AddVecVec(
+            1.0,
+            SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_,
+                              num_cepstral_),
+            SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_,
+                              num_cepstral_));
         tmp_mat.MulElements(tmp_mat2);
         tmp_mat2.SetZero();
-        tmp_mat2.CopyDiagFromVec(cur_jac); // deal with the extra term for diagonal
+        tmp_mat2.CopyDiagFromVec(cur_jac);  // deal with the extra term for diagonal
         tmp_mat.AddMat(1.0, tmp_mat2, kNoTrans);
-        SubMatrix<double> cur_var_hd(var_hd_, g*num_cepstral_, num_cepstral_, 0, num_cepstral_);
+        SubMatrix<double> cur_var_hd(var_hd_, g * num_cepstral_, num_cepstral_,
+                                     0, num_cepstral_);
         cur_var_hd.AddMat(post_d(g), tmp_mat);
 
         // accelerate - Jacobian
-        tmp_vec.CopyFromVec(SubVector<double>(inv_var, num_cepstral_<<1, num_cepstral_));
-        tmp_vec.AddVec(-1.0, SubVector<double>(y_mu_inv2, num_cepstral_<<1, num_cepstral_));
+        tmp_vec.CopyFromVec(
+            SubVector<double>(inv_var, num_cepstral_ << 1, num_cepstral_));
+        tmp_vec.AddVec(
+            -1.0,
+            SubVector<double>(y_mu_inv2, num_cepstral_ << 1, num_cepstral_));
         cur_jac.AddMatVec(1.0, Jx_sm2, kTrans, tmp_vec, 0.0);
-        cur_jac.MulElements(SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_<<1, num_cepstral_));
+        cur_jac.MulElements(
+            SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_ << 1,
+                              num_cepstral_));
         var_ja_.Row(g).AddVec(post_d(g), cur_jac);
         // accelerate - Hessian
         tmp_vec.SetZero();
-        tmp_vec.AddVec(-1.0, SubVector<double>(inv_var, num_cepstral_<<1, num_cepstral_));
-        tmp_vec.AddVec(2.0, SubVector<double>(y_mu_inv2, num_cepstral_<<1, num_cepstral_));
-        tmp_vec.MulElements(SubVector<double>(inv_var, num_cepstral_<<1, num_cepstral_)); //
-        tmp_mat.CopyFromMat(Jx_sm2); //
-        tmp_mat.MulRowsVec(tmp_vec); // diag(tmp_vec) * tmp_mat
+        tmp_vec.AddVec(
+            -1.0,
+            SubVector<double>(inv_var, num_cepstral_ << 1, num_cepstral_));
+        tmp_vec.AddVec(
+            2.0,
+            SubVector<double>(y_mu_inv2, num_cepstral_ << 1, num_cepstral_));
+        tmp_vec.MulElements(
+            SubVector<double>(inv_var, num_cepstral_ << 1, num_cepstral_));  //
+        tmp_mat.CopyFromMat(Jx_sm2);  //
+        tmp_mat.MulRowsVec(tmp_vec);  // diag(tmp_vec) * tmp_mat
         tmp_mat2.AddMatMat(1.0, Jx_sm2, kTrans, tmp_mat, kNoTrans, 0.0);
         tmp_mat.SetZero();
-        tmp_mat.AddVecVec(1.0, SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_<<1, num_cepstral_), SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_<<1, num_cepstral_));
+        tmp_mat.AddVecVec(
+            1.0,
+            SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_ << 1,
+                              num_cepstral_),
+            SubVector<double>(ngmm_clean.vars_.Row(g), num_cepstral_ << 1,
+                              num_cepstral_));
         tmp_mat.MulElements(tmp_mat2);
         tmp_mat2.SetZero();
-        tmp_mat2.CopyDiagFromVec(cur_jac); // deal with the extra term for diagonal
+        tmp_mat2.CopyDiagFromVec(cur_jac);  // deal with the extra term for diagonal
         tmp_mat.AddMat(1.0, tmp_mat2, kNoTrans);
-        SubMatrix<double> cur_var_ha(var_ha_, g*num_cepstral_, num_cepstral_, 0, num_cepstral_);
+        SubMatrix<double> cur_var_ha(var_ha_, g * num_cepstral_, num_cepstral_,
+                                     0, num_cepstral_);
         cur_var_ha.AddMat(post_d(g), tmp_mat);
 
       }
@@ -508,14 +552,21 @@ void VtsDiagGmmUpdate(const VtsDiagGmmOptions &config,
         // original variance
         Vector<double> var(ngmm.vars_.Row(i));
 
+        // diagonal loading matrix
+        Matrix<double> dload(num_cepstral, num_cepstral);
+        dload.SetUnit();
+        dload.Scale(config.diagonal_loading);
+
         // static
         SubVector<double> s_update(var_update, 0, num_cepstral);
         tmp_mat.CopyFromMat(
             SubMatrix<double>(diaggmm_acc.var_hs(), i * num_cepstral,
                               num_cepstral,
                               0, num_cepstral));
+        tmp_mat.AddMat(-1.0, dload);
         tmp_mat.Invert();
-        s_update.AddMatVec(1.0, tmp_mat, kNoTrans, diaggmm_acc.var_js().Row(i),
+        s_update.AddMatVec(config.variance_lrate, tmp_mat, kNoTrans,
+                           diaggmm_acc.var_js().Row(i),
                            0.0);
         // delta
         SubVector<double> d_update(var_update, num_cepstral, num_cepstral);
@@ -523,8 +574,10 @@ void VtsDiagGmmUpdate(const VtsDiagGmmOptions &config,
             SubMatrix<double>(diaggmm_acc.var_hd(), i * num_cepstral,
                               num_cepstral,
                               0, num_cepstral));
+        tmp_mat.AddMat(-1.0, dload);
         tmp_mat.Invert();
-        d_update.AddMatVec(1.0, tmp_mat, kNoTrans, diaggmm_acc.var_jd().Row(i),
+        d_update.AddMatVec(config.variance_lrate, tmp_mat, kNoTrans,
+                           diaggmm_acc.var_jd().Row(i),
                            0.0);
         // accelerate
         SubVector<double> a_update(var_update, num_cepstral << 1, num_cepstral);
@@ -532,11 +585,21 @@ void VtsDiagGmmUpdate(const VtsDiagGmmOptions &config,
             SubMatrix<double>(diaggmm_acc.var_ha(), i * num_cepstral,
                               num_cepstral,
                               0, num_cepstral));
+        tmp_mat.AddMat(-1.0, dload);
         tmp_mat.Invert();
-        a_update.AddMatVec(1.0, tmp_mat, kNoTrans, diaggmm_acc.var_ja().Row(i),
+        a_update.AddMatVec(config.variance_lrate, tmp_mat, kNoTrans,
+                           diaggmm_acc.var_ja().Row(i),
                            0.0);
 
-        //TODO:: add some gradient learning rate and regularization if needed
+        // Limit the variance change
+        for (int32 k = 0; k < var_update.Dim(); ++k) {
+          if (var_update(k) > config.stigma) {
+            var_update(k) = config.stigma;
+          }
+          if (var_update(k) < -config.stigma) {
+            var_update(k) = -config.stigma;
+          }
+        }
         var_update.ApplyExp();
         var_update.InvertElements();
         var.MulElements(var_update);
@@ -578,31 +641,30 @@ void VtsDiagGmmUpdate(const VtsDiagGmmOptions &config,
     }
   }
 
-  // copy to natural representation according to flags
+        // copy to natural representation according to flags
   ngmm.CopyToDiagGmm(gmm, flags);
 
   gmm->ComputeGconsts();
-  BaseFloat obj_new = 0.0; //TODO:: compute objective
+  BaseFloat obj_new = 0.0;  //TODO:: compute objective
 
-  if(obj_change_out){
-    KALDI_WARN << "Objective change has not been implemented yet, which will always be 0.";
+  if (obj_change_out) {
+    KALDI_WARN<< "Objective change has not been implemented yet, which will always be 0.";
     *obj_change_out = (obj_new - obj_old);
   }
 
-  if(count_out) {
+  if (count_out) {
     *count_out = occ_sum;
   }
 
-  if(to_remove.size() > 0) {
+  if (to_remove.size() > 0) {
     gmm->RemoveComponents(to_remove, true /*renormalize weights */);
     gmm->ComputeGconsts();
   }
 
-  if(tot_floored > 0) {
-    KALDI_WARN << tot_floored << " variances floored in " << gauss_floored
-        << " Gaussians.";
+  if (tot_floored > 0) {
+    KALDI_WARN<< tot_floored << " variances floored in " << gauss_floored
+    << " Gaussians.";
   }
 }
-
 
 }  // End namespace kaldi
