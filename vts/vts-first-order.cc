@@ -71,7 +71,6 @@ void NormalizedGmmToGmm(const Vector<double> &mean, const Vector<double> &std,
   }
 }
 
-
 /*
  * Compute the KL-divergence of two diagonal Gaussians.
  * Refer to: http://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
@@ -120,8 +119,8 @@ bool ReadBiasedLinearityLayer(std::istream &is, bool binary,
   Component::ComponentType comp_type = Component::MarkerToType(token);
 
   if (comp_type != Component::kBiasedLinearity) {
-    KALDI_ERR << "Layer type error! '<biasedlinearity>' is expected, but got '"
-        << token << "'";
+    KALDI_ERR<< "Layer type error! '<biasedlinearity>' is expected, but got '"
+    << token << "'";
   }
 
   ReadBasicType(is, binary, &dim_out);
@@ -164,9 +163,10 @@ void WriteBiasedLinearityLayer(std::ostream &os, bool binary,
  * Generate the DCT and inverse DCT transforms with/without the Cepstral liftering.
  */
 void GenerateDCTmatrix(int32 num_cepstral, int32 num_fbank, BaseFloat ceplifter,
-                       Matrix<double> *dct_mat, Matrix<double> *inv_dct_mat) {
+                       Matrix<double> *dct_mat,
+                       Matrix<double> *inv_dct_mat) {
   if (g_kaldi_verbose_level >= 1) {
-    KALDI_LOG << "Generate DCT matrics ...";
+    KALDI_LOG<< "Generate DCT matrics ...";
   }
 
   // compute the DCT matrix, in HTK C0 is the last component, i.e. C1, C2, ..., C12, C0
@@ -192,14 +192,14 @@ void GenerateDCTmatrix(int32 num_cepstral, int32 num_fbank, BaseFloat ceplifter,
   // although in stardard DCT, for the 0th elements, the constant should be
   // sqrt(1.0 / static_cast<double>(num_fbank))
   for (int32 j = 0; j < num_fbank; ++j)
-    (*dct_mat)(num_cepstral - 1, j) = normalizer;
+  (*dct_mat)(num_cepstral - 1, j) = normalizer;
 
   for (int32 k = 1; k < num_cepstral; ++k) {
     ceplifter_vec(k - 1) = 1.0
-        + 0.5 * ceplifter * sin(static_cast<double>(M_PI) * k / ceplifter);
+    + 0.5 * ceplifter * sin(static_cast<double>(M_PI) * k / ceplifter);
     for (int32 n = 0; n < num_fbank; ++n)
-      (*dct_mat)(k - 1, n) = normalizer
-          * cos(static_cast<double>(M_PI) / num_fbank * (n + 0.5) * k);
+    (*dct_mat)(k - 1, n) = normalizer
+    * cos(static_cast<double>(M_PI) / num_fbank * (n + 0.5) * k);
   }
 
   if (g_kaldi_verbose_level >= 2) {
@@ -236,9 +236,9 @@ void GenerateDCTmatrix(int32 num_cepstral, int32 num_fbank, BaseFloat ceplifter,
   }
 }
 
-/*
- * Get the global index of the first Gaussian of a given pdf.
- */
+    /*
+     * Get the global index of the first Gaussian of a given pdf.
+     */
 int32 GetGaussianOffset(const AmDiagGmm &am_gmm, int32 pdf_id) {
   int32 idx = 0;
   for (int32 i = 0; i < pdf_id && i < am_gmm.NumPdfs(); ++i) {
@@ -248,67 +248,72 @@ int32 GetGaussianOffset(const AmDiagGmm &am_gmm, int32 pdf_id) {
 }
 
 void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
-                               int32 feat_dim, int32 num_static,
-                               int32 noise_frames, Vector<double> *mu_h,
-                               Vector<double> *mu_z, Vector<double> *var_z) {
+                               int32 feat_dim,
+                               int32 num_static,
+                               int32 noise_frames,
+                               Vector<double> *mu_h,
+                               Vector<double> *mu_z,
+                               Vector<double> *var_z) {
   if (g_kaldi_verbose_level >= 1)
-    KALDI_LOG << "Estimating initial noise model...";
+    KALDI_LOG<< "Estimating initial noise model...";
 
-  KALDI_ASSERT(
-      (mu_h->Dim() == feat_dim) && (mu_z->Dim() == feat_dim) && (var_z->Dim() == feat_dim));
-  mu_h->SetZero();  // the convolutional noise, initialized to be 0
-  mu_z->SetZero();  // the additive noise mean, only static part to be estimated
-  var_z->SetZero();  // the additive noise covariance, diagonal, to be estimated
+    KALDI_ASSERT(
+        (mu_h->Dim() == feat_dim) && (mu_z->Dim() == feat_dim) && (var_z->Dim() == feat_dim));
+    mu_h->SetZero();  // the convolutional noise, initialized to be 0
+    mu_z->SetZero();// the additive noise mean, only static part to be estimated
+    var_z->SetZero();// the additive noise covariance, diagonal, to be estimated
 
-  Vector<double> mean_obs(feat_dim);  // mean of
-  Vector<double> x2(feat_dim);  // x^2 stats
-  int32 i, tot_frames;
-  // accumulate the starting stats
-  for (i = 0; i < noise_frames && i < features.NumRows(); ++i) {
-    mu_z->AddVec(1.0, features.Row(i));
-    var_z->AddVec2(1.0, features.Row(i));
-  }
-  tot_frames = i;
-  // accumulate the ending stats
-  i = features.NumRows() - noise_frames;
-  if (i < 0)
+    Vector<double> mean_obs(feat_dim);// mean of
+    Vector<double> x2(feat_dim);// x^2 stats
+    int32 i, tot_frames;
+    // accumulate the starting stats
+    for (i = 0; i < noise_frames && i < features.NumRows(); ++i) {
+      mu_z->AddVec(1.0, features.Row(i));
+      var_z->AddVec2(1.0, features.Row(i));
+    }
+    tot_frames = i;
+    // accumulate the ending stats
+    i = features.NumRows() - noise_frames;
+    if (i < 0)
     i = 0;
-  for (; i < features.NumRows(); ++i, ++tot_frames) {
-    mu_z->AddVec(1.0, features.Row(i));
-    var_z->AddVec2(1.0, features.Row(i));
-  }
-  mu_z->Scale(1.0 / tot_frames);
-  var_z->Scale(1.0 / tot_frames);
-  var_z->AddVec2(-1.0, *mu_z);
+    for (; i < features.NumRows(); ++i, ++tot_frames) {
+      mu_z->AddVec(1.0, features.Row(i));
+      var_z->AddVec2(1.0, features.Row(i));
+    }
+    mu_z->Scale(1.0 / tot_frames);
+    var_z->Scale(1.0 / tot_frames);
+    var_z->AddVec2(-1.0, *mu_z);
 
-  ///////////////////////////////////////////////////
-  // As we assume the additive noise has 0 delta and delta-delta mean
-  for (i = num_static; i < feat_dim; ++i)
+    ///////////////////////////////////////////////////
+    // As we assume the additive noise has 0 delta and delta-delta mean
+    for (i = num_static; i < feat_dim; ++i)
     (*mu_z)(i) = 0.0;
 
-  ///////////////////////////////////////////////////
-  // If we assume the additive noise only, the convoluational noise, mean_h, is set to 0
-  if (g_kaldi_verbose_level >= 1)
+    ///////////////////////////////////////////////////
+    // If we assume the additive noise only, the convoluational noise, mean_h, is set to 0
+    if (g_kaldi_verbose_level >= 1)
     KALDI_LOG << "Initial model estimation done!";
-}
+  }
 
-/*
- * Compensate a single Diagonal Gaussian using estimated noise parameters.
- *
- * mean is the clean mean to be compensated;
- * cov is the diagonal elements for the Diagonal Gaussian covariance with clean
- * values to be compensated.
- *
- * Matrix Jx and Jz are used to keep gradients.
- *
- */
+    /*
+     * Compensate a single Diagonal Gaussian using estimated noise parameters.
+     *
+     * mean is the clean mean to be compensated;
+     * cov is the diagonal elements for the Diagonal Gaussian covariance with clean
+     * values to be compensated.
+     *
+     * Matrix Jx and Jz are used to keep gradients.
+     *
+     */
 void CompensateDiagGaussian(const Vector<double> &mu_h,
                             const Vector<double> &mu_z,
                             const Vector<double> &var_z, int32 num_cepstral,
-                            int32 num_fbank, const Matrix<double> &dct_mat,
+                            int32 num_fbank,
+                            const Matrix<double> &dct_mat,
                             const Matrix<double> &inv_dct_mat,
                             Vector<double> &mean, Vector<double> &cov,
-                            Matrix<double> &Jx, Matrix<double> &Jz) {
+                            Matrix<double> &Jx,
+                            Matrix<double> &Jz) {
   // compute the necessary transforms
   Vector<double> mu_y_s(num_cepstral);
   Vector<double> tmp_fbank(num_fbank);
@@ -344,7 +349,7 @@ void CompensateDiagGaussian(const Vector<double> &mu_h,
 
   // compute and update mean
   if (g_kaldi_verbose_level >= 9) {
-    KALDI_LOG << "Mean Before: " << mean;
+    KALDI_LOG<< "Mean Before: " << mean;
   }
   Vector<double> tmp_mu(num_cepstral);
   SubVector<double> mu_s(mean, 0, num_cepstral);
@@ -356,12 +361,12 @@ void CompensateDiagGaussian(const Vector<double> &mu_h,
   tmp_mu.CopyFromVec(mu_acc);
   mu_acc.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
   if (g_kaldi_verbose_level >= 9) {
-    KALDI_LOG << "Mean After: " << mean;
+    KALDI_LOG<< "Mean After: " << mean;
   }
 
-  // compute and update covariance
+    // compute and update covariance
   if (g_kaldi_verbose_level >= 9) {
-    KALDI_LOG << "Covarianc Before: " << cov;
+    KALDI_LOG<< "Covarianc Before: " << cov;
   }
   for (int32 ii = 0; ii < 3; ++ii) {
     Matrix<double> tmp_var1(Jx), tmp_var2(Jz), new_var(num_cepstral,
@@ -378,21 +383,24 @@ void CompensateDiagGaussian(const Vector<double> &mu_h,
     x_var.CopyDiagFromMat(new_var);
   }
   if (g_kaldi_verbose_level >= 9) {
-    KALDI_LOG << "Covariance After: " << cov;
+    KALDI_LOG<< "Covariance After: " << cov;
   }
 }
 
-/*
- * Do the compensation using the current noise model parameters.
- * Also keep the statistics of the Jx, and Jz for next iteration of noise estimation.
- *
- * noise_am_gmm is initialized as the clean model.
- *
- */
+    /*
+     * Do the compensation using the current noise model parameters.
+     * Also keep the statistics of the Jx, and Jz for next iteration of noise estimation.
+     *
+     * noise_am_gmm is initialized as the clean model.
+     *
+     */
 void CompensateModel(const Vector<double> &mu_h, const Vector<double> &mu_z,
-                     const Vector<double> &var_z, int32 num_cepstral,
-                     int32 num_fbank, const Matrix<double> &dct_mat,
-                     const Matrix<double> &inv_dct_mat, AmDiagGmm &noise_am_gmm,
+                     const Vector<double> &var_z,
+                     int32 num_cepstral,
+                     int32 num_fbank,
+                     const Matrix<double> &dct_mat,
+                     const Matrix<double> &inv_dct_mat,
+                     AmDiagGmm &noise_am_gmm,
                      std::vector<Matrix<double> > &Jx,
                      std::vector<Matrix<double> > &Jz) {
 
@@ -413,8 +421,10 @@ void CompensateModel(const Vector<double> &mu_h, const Vector<double> &mu_z,
       Vector<double> cur_mean(ngmm.means_.Row(g));
       Vector<double> cur_var(ngmm.vars_.Row(g));
       CompensateDiagGaussian(mu_h, mu_z, var_z, num_cepstral, num_fbank,
-                             dct_mat, inv_dct_mat, cur_mean, cur_var,
-                             Jx[tot_gauss_id], Jz[tot_gauss_id]);
+                             dct_mat,
+                             inv_dct_mat, cur_mean, cur_var,
+                             Jx[tot_gauss_id],
+                             Jz[tot_gauss_id]);
       ngmm.means_.CopyRowFromVec(cur_mean, g);
       ngmm.vars_.CopyRowFromVec(cur_var, g);
     }
@@ -503,29 +513,38 @@ BaseFloat ComputeLogLikelihood(const AmDiagGmm &am_gmm,
 bool BackOff(const AmDiagGmm &clean_am_gmm, const TransitionModel &trans_model,
              const std::vector<int32> &alignment,
              const Matrix<BaseFloat> &features, int32 num_cepstral,
-             int32 num_fbank, const Matrix<double> &dct_mat,
-             const Matrix<double> &inv_dct_mat, const Vector<double> &mu_h0,
-             const Vector<double> &mu_z0, const Vector<double> &var_z0,
-             Vector<double> &mu_h, bool update_mu_h, Vector<double> &mu_z,
-             bool update_mu_z, Vector<double> &var_z, bool update_var_z,
-             AmDiagGmm &noise_am_gmm, std::vector<Matrix<double> > &Jx,
+             int32 num_fbank,
+             const Matrix<double> &dct_mat,
+             const Matrix<double> &inv_dct_mat,
+             const Vector<double> &mu_h0,
+             const Vector<double> &mu_z0,
+             const Vector<double> &var_z0,
+             Vector<double> &mu_h,
+             bool update_mu_h, Vector<double> &mu_z,
+             bool update_mu_z,
+             Vector<double> &var_z, bool update_var_z,
+             AmDiagGmm &noise_am_gmm,
+             std::vector<Matrix<double> > &Jx,
              std::vector<Matrix<double> > &Jz) {
 
   bool new_estimate = true;
 
   BaseFloat pre_log_likes = ComputeLogLikelihood(noise_am_gmm, trans_model,
-                                                 alignment, features);
+                                                 alignment,
+                                                 features);
   BaseFloat cur_log_likes, ratio = 1.0, delta = 0.5;
   cur_log_likes = pre_log_likes;
   Vector<double> cur_mu_h(mu_h), cur_mu_z(mu_z), cur_var_z(var_z);
 
-  KALDI_LOG << "Begining back-off: [" << (update_mu_h ? "mu_h, " : "")
-      << (update_mu_z ? "mu_z, " : "") << (update_var_z ? "var_z, " : "")
-      << "]";
-  KALDI_LOG << "Initial Log Likelihood: " << pre_log_likes;
-  /*KALDI_LOG << "Initial mu_h: " << mu_h0;
-   KALDI_LOG << "Initial mu_z: " << mu_z0;
-   KALDI_LOG << "Initial var_z: " << var_z0;*/
+  if (g_kaldi_verbose_level >= 1) {
+    KALDI_LOG<< "Begining back-off: [" << (update_mu_h ? "mu_h, " : "")
+    << (update_mu_z ? "mu_z, " : "") << (update_var_z ? "var_z, " : "")
+    << "]";
+    KALDI_LOG << "Initial Log Likelihood: " << pre_log_likes;
+    /*KALDI_LOG << "Initial mu_h: " << mu_h0;
+     KALDI_LOG << "Initial mu_z: " << mu_z0;
+     KALDI_LOG << "Initial var_z: " << var_z0;*/
+  }
 
   do {
 
@@ -548,23 +567,25 @@ bool BackOff(const AmDiagGmm &clean_am_gmm, const TransitionModel &trans_model,
       cur_var_z.AddVec(1 - ratio, var_z0);
     }
 
-    if (g_kaldi_verbose_level >= 1) {
-      KALDI_LOG << "Current mu_h: " << cur_mu_h;
+    if (g_kaldi_verbose_level >= 2) {
+      KALDI_LOG<< "Current mu_h: " << cur_mu_h;
       KALDI_LOG << "Current mu_z: " << cur_mu_z;
       KALDI_LOG << "Current var_z: " << cur_var_z;
     }
 
-    // re-initialize it with clean model
+      // re-initialize it with clean model
     noise_am_gmm.CopyFromAmDiagGmm(clean_am_gmm);
 
     CompensateModel(cur_mu_h, cur_mu_z, cur_var_z, num_cepstral, num_fbank,
-                    dct_mat, inv_dct_mat, noise_am_gmm, Jx, Jz);
+                    dct_mat,
+                    inv_dct_mat, noise_am_gmm, Jx, Jz);
 
     cur_log_likes = ComputeLogLikelihood(noise_am_gmm, trans_model, alignment,
                                          features);
 
-    KALDI_LOG << "New estimation ratio: " << ratio << ", Log Likelihood: "
-        << cur_log_likes;
+    if (g_kaldi_verbose_level >= 1)
+      KALDI_LOG<< "New estimation ratio: " << ratio << ", Log Likelihood: "
+      << cur_log_likes;
 
     ratio *= delta;
     if (ratio < 1e-3) {
@@ -601,245 +622,248 @@ void EstimateStaticNoiseMean(const AmDiagGmm &noise_am_gmm,
                              SubVector<double> &mu_z_s) {
 
   if (g_kaldi_verbose_level >= 1)
-    KALDI_LOG << "Estimate static noise mean staring ...";
+    KALDI_LOG<< "Estimate static noise mean staring ...";
 
-  // Limit the change of the mean
-  double stigma = static_cast<double>(max_magnitude);
-  bool update = true;
+    // Limit the change of the mean
+    double stigma = static_cast<double>(max_magnitude);
+    bool update = true;
 
-  Vector<double> d(num_cepstral), u(num_cepstral);
-  Matrix<double> E(num_cepstral, num_cepstral), F(num_cepstral, num_cepstral);
-  Matrix<double> V(num_cepstral, num_cepstral), W(num_cepstral, num_cepstral);
+    Vector<double> d(num_cepstral), u(num_cepstral);
+    Matrix<double> E(num_cepstral, num_cepstral), F(num_cepstral, num_cepstral);
+    Matrix<double> V(num_cepstral, num_cepstral), W(num_cepstral, num_cepstral);
 
-  // iterate all the Gaussians in the HMM
-  for (int32 pdf_id = 0, tot_gauss_id = 0; pdf_id < noise_am_gmm.NumPdfs();
-      ++pdf_id) {
-    const DiagGmm *gmm = &(noise_am_gmm.GetPdf(pdf_id));
-    DiagGmmNormal ngmm(*gmm);
+    // iterate all the Gaussians in the HMM
+    for (int32 pdf_id = 0, tot_gauss_id = 0; pdf_id < noise_am_gmm.NumPdfs();
+        ++pdf_id) {
+      const DiagGmm *gmm = &(noise_am_gmm.GetPdf(pdf_id));
+      DiagGmmNormal ngmm(*gmm);
 
-    int32 num_gauss = gmm->NumGauss();
-    for (int32 g = 0; g < num_gauss; ++g, ++tot_gauss_id) {
+      int32 num_gauss = gmm->NumGauss();
+      for (int32 g = 0; g < num_gauss; ++g, ++tot_gauss_id) {
 
-      // only when the posterior is above 0, will it affect the estimation
-      if (gamma(tot_gauss_id) > 0.0) {
-        Vector<double> g_mu(
-            SubVector<double>(ngmm.means_.Row(g), 0, num_cepstral));  // f(mu_x, mu_h, mu_z)
-        Vector<double> g_var(
-            SubVector<double>(ngmm.vars_.Row(g), 0, num_cepstral));
-        g_var.InvertElements();  // inv_var_y
+        // only when the posterior is above 0, will it affect the estimation
+        if (gamma(tot_gauss_id) > 0.0) {
+          Vector<double> g_mu(
+              SubVector<double>(ngmm.means_.Row(g), 0, num_cepstral));  // f(mu_x, mu_h, mu_z)
+          Vector<double> g_var(
+              SubVector<double>(ngmm.vars_.Row(g), 0, num_cepstral));
+          g_var.InvertElements();// inv_var_y
 
-        g_mu.AddMatVec(-1.0, Jx[tot_gauss_id], kNoTrans, mu_h_s, 1.0);  // f(mu_x, mu_h, mu_z) - Jx * mu_h
-        g_mu.AddMatVec(-1.0, Jz[tot_gauss_id], kNoTrans, mu_z_s, 1.0);  // f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z
-        g_mu.Scale(-1.0 * gamma(tot_gauss_id));  // - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma
-        g_mu.AddVec(
-            1.0, SubVector<double>(gamma_p.Row(tot_gauss_id), 0, num_cepstral));  // gamma_p - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma
+          g_mu.AddMatVec(-1.0, Jx[tot_gauss_id], kNoTrans, mu_h_s, 1.0);// f(mu_x, mu_h, mu_z) - Jx * mu_h
+          g_mu.AddMatVec(-1.0, Jz[tot_gauss_id], kNoTrans, mu_z_s, 1.0);// f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z
+          g_mu.Scale(-1.0 * gamma(tot_gauss_id));// - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma
+          g_mu.AddVec(
+              1.0, SubVector<double>(gamma_p.Row(tot_gauss_id), 0, num_cepstral));// gamma_p - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma
 
-        Matrix<double> tmp_x(Jx[tot_gauss_id], kTrans),  // Jx_T
-        tmp_z(Jz[tot_gauss_id], kTrans);  // Jz_T
-        tmp_x.MulColsVec(g_var);  // Jx_T * inv_var_y
-        tmp_z.MulColsVec(g_var);  // Jz_T * inv_var_y
+          Matrix<double> tmp_x(Jx[tot_gauss_id], kTrans),// Jx_T
+          tmp_z(Jz[tot_gauss_id], kTrans);// Jz_T
+          tmp_x.MulColsVec(g_var);// Jx_T * inv_var_y
+          tmp_z.MulColsVec(g_var);// Jz_T * inv_var_y
 
-        d.AddMatVec(1.0, tmp_z, kNoTrans, g_mu, 1.0);  // Jz_T * inv_var_y * { gamma_p - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma }
-        E.AddMatMat(gamma(tot_gauss_id), tmp_z, kNoTrans, Jz[tot_gauss_id],
-                    kNoTrans, 1.0);  // Jz_T * inv_var_y * Jz * gamma
-        F.AddMatMat(gamma(tot_gauss_id), tmp_z, kNoTrans, Jx[tot_gauss_id],
-                    kNoTrans, 1.0);  // Jz_T * inv_var_y * Jx * gamma
+          d.AddMatVec(1.0, tmp_z, kNoTrans, g_mu, 1.0);// Jz_T * inv_var_y * { gamma_p - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma }
+          E.AddMatMat(gamma(tot_gauss_id), tmp_z, kNoTrans, Jz[tot_gauss_id],
+              kNoTrans, 1.0);// Jz_T * inv_var_y * Jz * gamma
+          F.AddMatMat(gamma(tot_gauss_id), tmp_z, kNoTrans, Jx[tot_gauss_id],
+              kNoTrans, 1.0);// Jz_T * inv_var_y * Jx * gamma
 
-        u.AddMatVec(1.0, tmp_x, kNoTrans, g_mu, 1.0);  // Jx_T * inv_var_y * { gamma_p - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma }
-        V.AddMatMat(gamma(tot_gauss_id), tmp_x, kNoTrans, Jz[tot_gauss_id],
-                    kNoTrans, 1.0);  // Jx_T * inv_var_y * Jz * gamma
-        W.AddMatMat(gamma(tot_gauss_id), tmp_x, kNoTrans, Jx[tot_gauss_id],
-                    kNoTrans, 1.0);  // Jx_T * inv_var_y * Jx * gamma
+          u.AddMatVec(1.0, tmp_x, kNoTrans, g_mu, 1.0);// Jx_T * inv_var_y * { gamma_p - [ f(mu_x, mu_h, mu_z) - Jx * mu_h - Jz * mu_z ] * gamma }
+          V.AddMatMat(gamma(tot_gauss_id), tmp_x, kNoTrans, Jz[tot_gauss_id],
+              kNoTrans, 1.0);// Jx_T * inv_var_y * Jz * gamma
+          W.AddMatMat(gamma(tot_gauss_id), tmp_x, kNoTrans, Jx[tot_gauss_id],
+              kNoTrans, 1.0);// Jx_T * inv_var_y * Jx * gamma
+        }
       }
     }
-  }
 
-  Vector<double> vec1(num_cepstral), vec2(num_cepstral);
-  Matrix<double> inv_mat(num_cepstral, num_cepstral), mat1(num_cepstral,
-                                                           num_cepstral), mat2(
-      num_cepstral, num_cepstral);
+    Vector<double> vec1(num_cepstral), vec2(num_cepstral);
+    Matrix<double> inv_mat(num_cepstral, num_cepstral), mat1(num_cepstral,
+        num_cepstral), mat2(
+        num_cepstral, num_cepstral);
 
-  // compute new estimate of mu_z_s
-  inv_mat.CopyFromMat(F);
-  inv_mat.Invert();  // inv_F
-  mat1.AddMatMat(1.0, W, kNoTrans, inv_mat, kNoTrans, 0.0);  // W * inv_F
-  mat2.CopyFromMat(V);
-  mat2.AddMatMat(-1.0, mat1, kNoTrans, E, kNoTrans, 1.0);  // V - W * inv_F * E
-  mat2.Invert();  // inv(V - W * inv_F * E)
-  vec1.CopyFromVec(u);
-  vec1.AddMatVec(-1.0, mat1, kNoTrans, d, 1.0);  // u - W * inv_F * d
-  vec2.AddMatVec(1.0, mat2, kNoTrans, vec1, 0.0);  // inv(V - W * inv_F * E) * ( u - W * inv_F * d )
-  // limit the update amount
-  update = true;
-  for (int32 i = 0; update && i < num_cepstral; ++i) {
-    if (vec2(i) > stigma || vec2(i) < -stigma)
+    // compute new estimate of mu_z_s
+    inv_mat.CopyFromMat(F);
+    inv_mat.Invert();// inv_F
+    mat1.AddMatMat(1.0, W, kNoTrans, inv_mat, kNoTrans, 0.0);// W * inv_F
+    mat2.CopyFromMat(V);
+    mat2.AddMatMat(-1.0, mat1, kNoTrans, E, kNoTrans, 1.0);// V - W * inv_F * E
+    mat2.Invert();// inv(V - W * inv_F * E)
+    vec1.CopyFromVec(u);
+    vec1.AddMatVec(-1.0, mat1, kNoTrans, d, 1.0);// u - W * inv_F * d
+    vec2.AddMatVec(1.0, mat2, kNoTrans, vec1, 0.0);// inv(V - W * inv_F * E) * ( u - W * inv_F * d )
+    // limit the update amount
+    update = true;
+    for (int32 i = 0; update && i < num_cepstral; ++i) {
+      if (vec2(i) > stigma || vec2(i) < -stigma)
       update = false;
-  }
-  if (update)
+    }
+    if (update)
     mu_z_s.CopyFromVec(vec2);
 
-  // compute new estimate of mu_h_s
-  /*
-   * As inv(F - E * inv_V * W) = inv(V - W * inv_F * E)_T, no need to recompute them.
-   *
-   inv_mat.CopyFromMat(V);
-   inv_mat.Invert();// inv_V
-   mat1.AddMatMat(1.0, E, kNoTrans, inv_mat, kNoTrans, 0.0);// E * inv_V
-   mat2.CopyFromMat(F);
-   mat2.AddMatMat(-1.0, mat1, kNoTrans, W, kNoTrans, 1.0);// F - E * inv_V * W
-   mat2.Invert();// inv(F - E * inv_V * W)*/
-  mat1.AddMatMat(1.0, E, kNoTrans, inv_mat, kTrans, 0.0);  // E * inv_V = E * inv_F_T
-  vec1.CopyFromVec(d);
-  vec1.AddMatVec(-1.0, mat1, kNoTrans, u, 1.0);  // d - E * inv_V * u
-  vec2.AddMatVec(1.0, mat2, kTrans, vec1, 0.0);  // inv(F - E * inv_V * W) * ( d - E * inv_V * u ) = inv(V - W * inv_F * E)_T * ( d - E * inv_V * u )
-  // limit the update amount
-  update = true;
-  for (int32 i = 0; update && i < num_cepstral; ++i) {
-    if (vec2(i) > stigma || vec2(i) < -stigma)
+    // compute new estimate of mu_h_s
+    /*
+     * As inv(F - E * inv_V * W) = inv(V - W * inv_F * E)_T, no need to recompute them.
+     *
+     inv_mat.CopyFromMat(V);
+     inv_mat.Invert();// inv_V
+     mat1.AddMatMat(1.0, E, kNoTrans, inv_mat, kNoTrans, 0.0);// E * inv_V
+     mat2.CopyFromMat(F);
+     mat2.AddMatMat(-1.0, mat1, kNoTrans, W, kNoTrans, 1.0);// F - E * inv_V * W
+     mat2.Invert();// inv(F - E * inv_V * W)*/
+    mat1.AddMatMat(1.0, E, kNoTrans, inv_mat, kTrans, 0.0);  // E * inv_V = E * inv_F_T
+    vec1.CopyFromVec(d);
+    vec1.AddMatVec(-1.0, mat1, kNoTrans, u, 1.0);// d - E * inv_V * u
+    vec2.AddMatVec(1.0, mat2, kTrans, vec1, 0.0);// inv(F - E * inv_V * W) * ( d - E * inv_V * u ) = inv(V - W * inv_F * E)_T * ( d - E * inv_V * u )
+    // limit the update amount
+    update = true;
+    for (int32 i = 0; update && i < num_cepstral; ++i) {
+      if (vec2(i) > stigma || vec2(i) < -stigma)
       update = false;
-  }
-  if (update)
+    }
+    if (update)
     mu_h_s.CopyFromVec(vec2);
 
-  if (g_kaldi_verbose_level >= 1)
+    if (g_kaldi_verbose_level >= 1)
     KALDI_LOG << "Estimate static noise mean done!";
 
-}
+  }
 
-/*
- * Estimate the Noise Variance
- *
- * Refer to the paper "Noise Adaptive Training for Robust
- * Automatic Speech Recognition", Alex Acero, Microsoft
- *
- */
+    /*
+     * Estimate the Noise Variance
+     *
+     * Refer to the paper "Noise Adaptive Training for Robust
+     * Automatic Speech Recognition", Alex Acero, Microsoft
+     *
+     */
 void EstimateAdditiveNoiseVariance(const AmDiagGmm &noise_am_gmm,
                                    const Vector<double> &gamma,
                                    const Matrix<double> &gamma_p,
                                    const Matrix<double> &gamma_q,
                                    const std::vector<Matrix<double> > &Jz,
-                                   int32 num_cepstral, int32 feat_dim,
-                                   BaseFloat lrate, Vector<double> &var_z) {
+                                   int32 num_cepstral,
+                                   int32 feat_dim,
+                                   BaseFloat lrate,
+                                   Vector<double> &var_z) {
 
   if (g_kaldi_verbose_level >= 1)
-    KALDI_LOG << "Estimate additive noise covariance staring ...";
+    KALDI_LOG<< "Estimate additive noise covariance staring ...";
 
-  // Diagonal loading to stabilize the Hessian
-  // Refer to "Numerical Methods for Unconstrained Optimization and Nonlinear Equations"
-  double epsilon = 1.0;
-  // Limit the change of the variance
-  double stigma = 1.0;
+    // Diagonal loading to stabilize the Hessian
+    // Refer to "Numerical Methods for Unconstrained Optimization and Nonlinear Equations"
+    double epsilon = 1.0;
+    // Limit the change of the variance
+    double stigma = 1.0;
 
-  Vector<double> dt1(feat_dim, kSetZero);    // Jacobian is still a vector
-  Matrix<double> dt2(feat_dim, feat_dim, kSetZero);    // Hessian is a matrix
+    Vector<double> dt1(feat_dim, kSetZero);// Jacobian is still a vector
+    Matrix<double> dt2(feat_dim, feat_dim, kSetZero);// Hessian is a matrix
 
-  Vector<double> sum_sm1(feat_dim, kSetZero);  // the accumulated statistics for Jacobian of all the Gaussians
-  Vector<double> sum_sm2(feat_dim, kSetZero);  // the accumulated statistics for Hessian of all the Gaussians
+    Vector<double> sum_sm1(feat_dim, kSetZero);// the accumulated statistics for Jacobian of all the Gaussians
+    Vector<double> sum_sm2(feat_dim, kSetZero);// the accumulated statistics for Hessian of all the Gaussians
 
-  // iterate all the Gaussians in the HMM
-  for (int32 pdf_id = 0, tot_gauss_id = 0; pdf_id < noise_am_gmm.NumPdfs();
-      ++pdf_id) {
-    const DiagGmm *gmm = &(noise_am_gmm.GetPdf(pdf_id));
-    DiagGmmNormal ngmm(*gmm);
+    // iterate all the Gaussians in the HMM
+    for (int32 pdf_id = 0, tot_gauss_id = 0; pdf_id < noise_am_gmm.NumPdfs();
+        ++pdf_id) {
+      const DiagGmm *gmm = &(noise_am_gmm.GetPdf(pdf_id));
+      DiagGmmNormal ngmm(*gmm);
 
-    int32 num_gauss = gmm->NumGauss();
-    for (int32 g = 0; g < num_gauss; ++g, ++tot_gauss_id) {
+      int32 num_gauss = gmm->NumGauss();
+      for (int32 g = 0; g < num_gauss; ++g, ++tot_gauss_id) {
 
-      // only when the posterior is above 0, will it affect the estimation
-      if (gamma(tot_gauss_id) > 0.0) {
-        Matrix<double> Jz2(Jz[tot_gauss_id]);
-        Jz2.ApplyPow(2.0);  // Elementwise square of Jz
-        Jz2.Transpose();
+        // only when the posterior is above 0, will it affect the estimation
+        if (gamma(tot_gauss_id) > 0.0) {
+          Matrix<double> Jz2(Jz[tot_gauss_id]);
+          Jz2.ApplyPow(2.0);  // Elementwise square of Jz
+          Jz2.Transpose();
 
-        // first compute the shared term
-        Vector<double> share_sm(feat_dim, kSetZero);
-        share_sm.AddVec2(-1 * gamma(tot_gauss_id), ngmm.means_.Row(g));  // - mu_y .* mu_y * gamma
-        share_sm.AddVec(-1.0, gamma_q.Row(tot_gauss_id));  // - mu_y .* mu_y * gamma - gamma_q
-        share_sm.AddVecVec(2.0, ngmm.means_.Row(g), gamma_p.Row(tot_gauss_id),
-                           1.0);  // - mu_y .* mu_y * gamma - gamma_q + 2 * mu_y .* gamma_p
+          // first compute the shared term
+          Vector<double> share_sm(feat_dim, kSetZero);
+          share_sm.AddVec2(-1 * gamma(tot_gauss_id), ngmm.means_.Row(g));// - mu_y .* mu_y * gamma
+          share_sm.AddVec(-1.0, gamma_q.Row(tot_gauss_id));// - mu_y .* mu_y * gamma - gamma_q
+          share_sm.AddVecVec(2.0, ngmm.means_.Row(g), gamma_p.Row(tot_gauss_id),
+              1.0);// - mu_y .* mu_y * gamma - gamma_q + 2 * mu_y .* gamma_p
 
-        Vector<double> cur_sm(feat_dim, kSetZero);
-        Vector<double> cur_var(ngmm.vars_.Row(g));
-        // Jacobian
-        cur_sm.AddVec(gamma(tot_gauss_id), ngmm.vars_.Row(g));  // var_y * gamma
-        cur_sm.AddVec(1.0, share_sm);  // var_y * gamma - mu_y .* mu_y * gamma - gamma_q + 2 * mu_y .* gamma_p
-        cur_var.ApplyPow(2.0);
-        Vector<double> sm1(feat_dim, kSetZero);
-        sm1.AddVecDivVec(1.0, cur_sm, cur_var, 1.0);  // cur_sm / ( var_y * var_y )
+          Vector<double> cur_sm(feat_dim, kSetZero);
+          Vector<double> cur_var(ngmm.vars_.Row(g));
+          // Jacobian
+          cur_sm.AddVec(gamma(tot_gauss_id), ngmm.vars_.Row(g));// var_y * gamma
+          cur_sm.AddVec(1.0, share_sm);// var_y * gamma - mu_y .* mu_y * gamma - gamma_q + 2 * mu_y .* gamma_p
+          cur_var.ApplyPow(2.0);
+          Vector<double> sm1(feat_dim, kSetZero);
+          sm1.AddVecDivVec(1.0, cur_sm, cur_var, 1.0);// cur_sm / ( var_y * var_y )
 
-        for (int32 p = 0; p < feat_dim; ++p) {
-          int32 c = p / num_cepstral;
-          int32 r = p % num_cepstral;
-          SubVector<double> jzp(Jz2, r);  // Jz2 are transposed
-          SubVector<double> vsm(sm1, c * num_cepstral, num_cepstral);
-          Vector<double> product(num_cepstral, kSetZero);
-          product.AddVecVec(1.0, jzp, vsm, 0.0);
-          dt1(p) += product.Sum();
-        }
+          for (int32 p = 0; p < feat_dim; ++p) {
+            int32 c = p / num_cepstral;
+            int32 r = p % num_cepstral;
+            SubVector<double> jzp(Jz2, r);  // Jz2 are transposed
+            SubVector<double> vsm(sm1, c * num_cepstral, num_cepstral);
+            Vector<double> product(num_cepstral, kSetZero);
+            product.AddVecVec(1.0, jzp, vsm, 0.0);
+            dt1(p) += product.Sum();
+          }
 
-        // Hessian
-        cur_sm.SetZero();
-        cur_sm.AddVec(0.5 * gamma(tot_gauss_id), ngmm.vars_.Row(g));  // 0.5 * var_y * gamma
-        cur_sm.AddVec(1.0, share_sm);  // 0.5 * var_y * gamma - mu_y .* mu_y * gamma - gamma_q + 2 * mu_y .* gamma_p
-        cur_var.CopyFromVec(ngmm.vars_.Row(g));
-        cur_var.ApplyPow(3.0);
-        Vector<double> sm2(feat_dim, kSetZero);
-        sm2.AddVecDivVec(1.0, cur_sm, cur_var, 1.0);  // cur_sm / ( var_y * var_y * var_y )
+          // Hessian
+          cur_sm.SetZero();
+          cur_sm.AddVec(0.5 * gamma(tot_gauss_id), ngmm.vars_.Row(g));// 0.5 * var_y * gamma
+          cur_sm.AddVec(1.0, share_sm);// 0.5 * var_y * gamma - mu_y .* mu_y * gamma - gamma_q + 2 * mu_y .* gamma_p
+          cur_var.CopyFromVec(ngmm.vars_.Row(g));
+          cur_var.ApplyPow(3.0);
+          Vector<double> sm2(feat_dim, kSetZero);
+          sm2.AddVecDivVec(1.0, cur_sm, cur_var, 1.0);// cur_sm / ( var_y * var_y * var_y )
 
-        for (int32 c = 0; c < feat_dim / num_cepstral; ++c) {
-          SubVector<double> vsm(sm2, c * num_cepstral, num_cepstral);
-          for (int32 pr = 0; pr < num_cepstral; ++pr) {
-            SubVector<double> jzp(Jz2, pr);
-            Vector<double> prod_p(num_cepstral, kSetZero);
-            prod_p.AddVecVec(1.0, jzp, vsm, 0.0);
-            for (int32 lr = 0; lr < num_cepstral; ++lr) {
-              SubVector<double> jzl(Jz2, lr);
-              Vector<double> product(num_cepstral, kSetZero);
-              product.AddVecVec(1.0, jzl, prod_p, 0.0);
-              dt2(c * num_cepstral + pr, c * num_cepstral + lr) +=
-                  product.Sum();
+          for (int32 c = 0; c < feat_dim / num_cepstral; ++c) {
+            SubVector<double> vsm(sm2, c * num_cepstral, num_cepstral);
+            for (int32 pr = 0; pr < num_cepstral; ++pr) {
+              SubVector<double> jzp(Jz2, pr);
+              Vector<double> prod_p(num_cepstral, kSetZero);
+              prod_p.AddVecVec(1.0, jzp, vsm, 0.0);
+              for (int32 lr = 0; lr < num_cepstral; ++lr) {
+                SubVector<double> jzl(Jz2, lr);
+                Vector<double> product(num_cepstral, kSetZero);
+                product.AddVecVec(1.0, jzl, prod_p, 0.0);
+                dt2(c * num_cepstral + pr, c * num_cepstral + lr) +=
+                product.Sum();
+              }
             }
           }
         }
       }
     }
-  }
 
-  dt1.MulElements(var_z);
-  dt1.Scale(-0.5);
+    dt1.MulElements(var_z);
+    dt1.Scale(-0.5);
 
-  dt2.MulColsVec(var_z);
-  dt2.MulRowsVec(var_z);
-  for (int32 i = 0; i < feat_dim; ++i) {
-    dt2(i, i) += (dt1(i) - epsilon);
-  }
-  dt2.Invert();
-  Vector<double> grad(feat_dim, kSetZero);
-  grad.AddMatVec(1.0, dt2, kNoTrans, dt1, 0.0);
-  grad.Scale(lrate);
-  for (int32 i = 0; i < feat_dim; ++i) {
-    if (grad(i) > stigma)
+    dt2.MulColsVec(var_z);
+    dt2.MulRowsVec(var_z);
+    for (int32 i = 0; i < feat_dim; ++i) {
+      dt2(i, i) += (dt1(i) - epsilon);
+    }
+    dt2.Invert();
+    Vector<double> grad(feat_dim, kSetZero);
+    grad.AddMatVec(1.0, dt2, kNoTrans, dt1, 0.0);
+    grad.Scale(lrate);
+    for (int32 i = 0; i < feat_dim; ++i) {
+      if (grad(i) > stigma)
       grad(i) = stigma;
-    if (grad(i) < -stigma)
+      if (grad(i) < -stigma)
       grad(i) = -stigma;
-  }
-  //KALDI_LOG << "gradient: " << grad;
-  grad.ApplyExp();
-  grad.InvertElements();
-  var_z.MulElements(grad);
+    }
+    //KALDI_LOG << "gradient: " << grad;
+    grad.ApplyExp();
+    grad.InvertElements();
+    var_z.MulElements(grad);
 
-  if (g_kaldi_verbose_level >= 1)
+    if (g_kaldi_verbose_level >= 1)
     KALDI_LOG << "Estimate additive noise covariance done!";
-}
-
+  }
 
 void CompensateMultiFrameGmm(const Vector<double> &mu_h,
                              const Vector<double> &mu_z,
                              const Vector<double> &var_z, bool compensate_var,
-                             int32 num_cepstral, int32 num_fbank,
+                             int32 num_cepstral,
+                             int32 num_fbank,
                              const Matrix<double> &dct_mat,
                              const Matrix<double> &inv_dct_mat,
-                             int32 num_frames, AmDiagGmm &noise_am_gmm) {
+                             int32 num_frames,
+                             AmDiagGmm &noise_am_gmm) {
   //KALDI_LOG << "Beginning compensate model ...";
   Matrix<double> Jx(num_cepstral, num_cepstral, kSetZero);
   Matrix<double> Jz(num_cepstral, num_cepstral, kSetZero);
@@ -893,7 +917,7 @@ void CompensateMultiFrameGmm(const Vector<double> &mu_h,
 
         // compute and update mean
         if (g_kaldi_verbose_level >= 9) {
-          KALDI_LOG << "Mean Before: " << cur_mean;
+          KALDI_LOG<< "Mean Before: " << cur_mean;
         }
         Vector<double> tmp_mu(num_cepstral);
         SubVector<double> mu_s(cur_mean, 0, num_cepstral);
@@ -905,17 +929,17 @@ void CompensateMultiFrameGmm(const Vector<double> &mu_h,
         tmp_mu.CopyFromVec(mu_acc);
         mu_acc.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
         if (g_kaldi_verbose_level >= 9) {
-          KALDI_LOG << "Mean After: " << cur_mean;
+          KALDI_LOG<< "Mean After: " << cur_mean;
         }
 
         if (compensate_var) {
           // compute and update covariance
           if (g_kaldi_verbose_level >= 9) {
-            KALDI_LOG << "Covarianc Before: " << cur_var;
+            KALDI_LOG<< "Covarianc Before: " << cur_var;
           }
           for (int32 ii = 0; ii < 3; ++ii) {
             Matrix<double> tmp_var1(Jx), tmp_var2(Jz), new_var(num_cepstral,
-                                                               num_cepstral);
+                num_cepstral);
             SubVector<double> x_var(cur_var, ii * num_cepstral, num_cepstral);
             SubVector<double> n_var(var_z, ii * num_cepstral, num_cepstral);
 
