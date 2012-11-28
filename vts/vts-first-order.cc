@@ -967,7 +967,83 @@ void CompensateMultiFrameGmm(const Vector<double> &mu_h,
   //KALDI_LOG << "Model compensation done!";
 }
 
+void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
+                            const Vector<double> &mu_z,
+                            const Vector<double> &var_z, bool have_energy,
+                            int32 num_fbank,
+                            Vector<double> &mean, Vector<double> &cov,
+                            Matrix<double> &Jx,
+                            Matrix<double> &Jz) {
+  // compute the necessary transforms
+  Vector<double> mu_y_s(num_fbank);
+  Vector<double> tmp_fbank(num_fbank);
+
+  Jx.Resize(num_fbank, num_fbank, kSetZero);
+  Jz.Resize(num_fbank, num_fbank, kSetZero);
+
+  for (int32 ii = 0; ii < num_fbank; ++ii) {
+    tmp_fbank(ii) = mu_z(ii) - mean(ii) - mu_h(ii);
+  }  // mu_n - mu_x - mu_h
+  tmp_fbank.ApplyExp();  // exp( mu_n - mu_x - mu_h )
+  tmp_fbank.Add(1.0);  // 1 + exp( (mu_n - mu_x - mu_h) )
+  Vector<double> tmp_inv(tmp_fbank);  // keep a version
+  tmp_fbank.ApplyLog();  // log ( 1 + exp( (mu_n - mu_x - mu_h) ) )
+  tmp_inv.InvertElements();  // 1.0 / ( 1 + exp( (mu_n - mu_x - mu_h) ) )
+
+  // new static mean
+  for (int32 ii = 0; ii < num_fbank; ++ii) {
+    mu_y_s(ii) = mean(ii) + mu_h(ii) + tmp_fbank(ii);
+  } // mu_x + mu_h + log ( 1 + exp( (mu_n - mu_x - mu_h) ) )
+
+  // compute J
+  Jx.CopyDiagFromVec(tmp_inv);
+
+  // compute I_J
+  Jz.CopyFromMat(Jx);
+  for (int32 ii = 0; ii < num_fbank; ++ii)
+    Jz(ii, ii) = 1.0 - Jz(ii, ii);
+
+  // compute and update mean
+  if (g_kaldi_verbose_level >= 9) {
+    KALDI_LOG<< "Mean Before: " << mean;
+  }
+  Vector<double> tmp_mu(num_fbank);
+  SubVector<double> mu_s(mean, 0, num_fbank);
+  mu_s.CopyFromVec(mu_y_s);
+  SubVector<double> mu_dt(mean, num_fbank + (have_energy?1:0), num_fbank);
+  tmp_mu.CopyFromVec(mu_dt);
+  mu_dt.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
+  SubVector<double> mu_acc(mean, 2 * (num_fbank + (have_energy?1:0)), num_fbank);
+  tmp_mu.CopyFromVec(mu_acc);
+  mu_acc.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
+  if (g_kaldi_verbose_level >= 9) {
+    KALDI_LOG<< "Mean After: " << mean;
+  }
+
+    // compute and update covariance
+  if (g_kaldi_verbose_level >= 9) {
+    KALDI_LOG<< "Covarianc Before: " << cov;
+  }
+  for (int32 ii = 0; ii < 3; ++ii) {
+    Matrix<double> tmp_var1(Jx), tmp_var2(Jz), new_var(num_fbank,
+                                                       num_fbank);
+    SubVector<double> x_var(cov, ii * (num_fbank + (have_energy?1:0)), num_fbank);
+    SubVector<double> n_var(var_z, ii * num_fbank, num_fbank);
+
+    tmp_var1.MulColsVec(x_var);
+    new_var.AddMatMat(1.0, tmp_var1, kNoTrans, Jx, kTrans, 0.0);
+
+    tmp_var2.MulColsVec(n_var);
+    new_var.AddMatMat(1.0, tmp_var2, kNoTrans, Jz, kTrans, 1.0);
+
+    x_var.CopyDiagFromMat(new_var);
+  }
+  if (g_kaldi_verbose_level >= 9) {
+    KALDI_LOG<< "Covariance After: " << cov;
+  }
 }
+
+} // End namespace
 
 /*
  *
