@@ -67,7 +67,8 @@ void WriteBiasedLinearityLayer(std::ostream &os, bool binary,
  * Generate the DCT and inverse DCT transforms with/without the Cepstral liftering.
  */
 void GenerateDCTmatrix(int32 num_cepstral, int32 num_fbank, BaseFloat ceplifter,
-                       Matrix<double> *dct_mat, Matrix<double> *inv_dct_mat);
+                       Matrix<double> *dct_mat,
+                       Matrix<double> *inv_dct_mat);
 
 /*
  * Get the global index of the first Gaussian of a given pdf.
@@ -84,9 +85,12 @@ int32 GetGaussianOffset(const AmDiagGmm &am_gmm, int32 pdf_id);
  *
  */
 void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
-                               int32 feat_dim, int32 num_static,
-                               int32 noise_frames, Vector<double> *mu_h,
-                               Vector<double> *mu_z, Vector<double> *var_z);
+                               int32 feat_dim,
+                               int32 num_static,
+                               int32 noise_frames,
+                               Vector<double> *mu_h,
+                               Vector<double> *mu_z,
+                               Vector<double> *var_z);
 
 /*
  * Compensate a single Diagonal Gaussian using estimated noise parameters.
@@ -101,10 +105,12 @@ void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
 void CompensateDiagGaussian(const Vector<double> &mu_h,
                             const Vector<double> &mu_z,
                             const Vector<double> &var_z, int32 num_cepstral,
-                            int32 num_fbank, const Matrix<double> &dct_mat,
+                            int32 num_fbank,
+                            const Matrix<double> &dct_mat,
                             const Matrix<double> &inv_dct_mat,
                             Vector<double> &mean, Vector<double> &cov,
-                            Matrix<double> &Jx, Matrix<double> &Jz);
+                            Matrix<double> &Jx,
+                            Matrix<double> &Jz);
 
 /*
  * Do the compensation using the current noise model parameters.
@@ -121,9 +127,12 @@ void CompensateDiagGaussian(const Vector<double> &mu_h,
  *
  */
 void CompensateModel(const Vector<double> &mu_h, const Vector<double> &mu_z,
-                     const Vector<double> &var_z, int32 num_cepstral,
-                     int32 num_fbank, const Matrix<double> &dct_mat,
-                     const Matrix<double> &inv_dct_mat, AmDiagGmm &noise_am_gmm,
+                     const Vector<double> &var_z,
+                     int32 num_cepstral,
+                     int32 num_fbank,
+                     const Matrix<double> &dct_mat,
+                     const Matrix<double> &inv_dct_mat,
+                     AmDiagGmm &noise_am_gmm,
                      std::vector<Matrix<double> > &Jx,
                      std::vector<Matrix<double> > &Jz);
 
@@ -172,12 +181,18 @@ BaseFloat ComputeLogLikelihood(const AmDiagGmm &am_gmm,
 bool BackOff(const AmDiagGmm &clean_am_gmm, const TransitionModel &trans_model,
              const std::vector<int32> &alignment,
              const Matrix<BaseFloat> &features, int32 num_cepstral,
-             int32 num_fbank, const Matrix<double> &dct_mat,
-             const Matrix<double> &inv_dct_mat, const Vector<double> &mu_h0,
-             const Vector<double> &mu_z0, const Vector<double> &var_z0,
-             Vector<double> &mu_h, bool update_mu_h, Vector<double> &mu_z,
-             bool update_mu_z, Vector<double> &var_z, bool update_var_z,
-             AmDiagGmm &noise_am_gmm, std::vector<Matrix<double> > &Jx,
+             int32 num_fbank,
+             const Matrix<double> &dct_mat,
+             const Matrix<double> &inv_dct_mat,
+             const Vector<double> &mu_h0,
+             const Vector<double> &mu_z0,
+             const Vector<double> &var_z0,
+             Vector<double> &mu_h,
+             bool update_mu_h, Vector<double> &mu_z,
+             bool update_mu_z,
+             Vector<double> &var_z, bool update_var_z,
+             AmDiagGmm &noise_am_gmm,
+             std::vector<Matrix<double> > &Jx,
              std::vector<Matrix<double> > &Jz);
 
 /*
@@ -208,8 +223,10 @@ void EstimateAdditiveNoiseVariance(const AmDiagGmm &noise_am_gmm,
                                    const Matrix<double> &gamma_p,
                                    const Matrix<double> &gamma_q,
                                    const std::vector<Matrix<double> > &Jz,
-                                   int32 num_cepstral, int32 feat_dim,
-                                   BaseFloat lrate, Vector<double> &var_z);
+                                   int32 num_cepstral,
+                                   int32 feat_dim,
+                                   BaseFloat lrate,
+                                   Vector<double> &var_z);
 
 /*
  * Multi-frame VTS first order compensation. Apply the VTS compensation to
@@ -223,11 +240,23 @@ void EstimateAdditiveNoiseVariance(const AmDiagGmm &noise_am_gmm,
 void CompensateMultiFrameGmm(const Vector<double> &mu_h,
                              const Vector<double> &mu_z,
                              const Vector<double> &var_z, bool compensate_var,
-                             int32 num_cepstral, int32 num_fbank,
+                             int32 num_cepstral,
+                             int32 num_fbank,
                              const Matrix<double> &dct_mat,
                              const Matrix<double> &inv_dct_mat,
-                             int32 num_frames, AmDiagGmm &noise_am_gmm);
+                             int32 num_frames,
+                             AmDiagGmm &noise_am_gmm);
 
+/*
+ * Noise VTS compensation for FBank features.
+ */
+void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
+                                  const Vector<double> &mu_z,
+                                  const Vector<double> &var_z, bool have_energy,
+                                  int32 num_fbank,
+                                  Vector<double> &mean, Vector<double> &cov,
+                                  Matrix<double> &Jx,
+                                  Matrix<double> &Jz);
 }
 
 #endif /* KALDI_VTS_VTS_FIRST_ORDER_H_ */
