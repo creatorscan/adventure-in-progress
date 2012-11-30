@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
         tmp_mat.CopyFromMat(com_g);
         tmp_mat.MulRowsVec(Vector<double>(post));
 
-        tmp_mfcc.AddColSumMat(-1.0, tmp_mat, 0.0);
+        tmp_mfcc.AddRowSumMat(-1.0, tmp_mat, 0.0);
 
         delta_static_features.CopyRowFromVec(Vector<BaseFloat>(tmp_mfcc), fid);
       }
