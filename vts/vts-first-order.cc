@@ -296,7 +296,7 @@ void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
   }
 
     /*
-     * Compensate a single Diagonal Gaussian using estimated noise parameters.
+     * Compensate a  Diagonal Gaussian using estimated noise parameters.
      *
      * mean is the clean mean to be compensated;
      * cov is the diagonal elements for the Diagonal Gaussian covariance with clean
@@ -388,12 +388,56 @@ void CompensateDiagGaussian(const Vector<double> &mu_h,
 }
 
     /*
-     * Do the compensation using the current noise model parameters.
+     * Do the compensation using the current noise model parameters for a diagonal GMM.
      * Also keep the statistics of the Jx, and Jz for next iteration of noise estimation.
      *
-     * noise_am_gmm is initialized as the clean model.
+     * noise_gmm is initialized as the clean model.
      *
      */
+void CompensateDiagGmm(const Vector<double> &mu_h, const Vector<double> &mu_z,
+                       const Vector<double> &var_z,
+                       int32 num_cepstral,
+                       int32 num_fbank,
+                       const Matrix<double> &dct_mat,
+                       const Matrix<double> &inv_dct_mat,
+                       DiagGmm &noise_gmm,
+                       std::vector<Matrix<double> > &Jx,
+                       std::vector<Matrix<double> > &Jz) {
+
+//KALDI_LOG << "Beginning compensate model ...";
+
+// iterate all the Gaussians
+  DiagGmmNormal ngmm(noise_gmm);
+
+  int32 num_gauss = noise_gmm.NumGauss();
+  for (int32 g = 0; g < num_gauss; ++g) {
+
+    //KALDI_LOG << "pdf_id: " << pdf << ", gauss_id: " << g;
+
+    Vector<double> cur_mean(ngmm.means_.Row(g));
+    Vector<double> cur_var(ngmm.vars_.Row(g));
+    CompensateDiagGaussian(mu_h, mu_z, var_z, num_cepstral, num_fbank,
+                           dct_mat,
+                           inv_dct_mat, cur_mean, cur_var,
+                           Jx[g],
+                           Jz[g]);
+    ngmm.means_.CopyRowFromVec(cur_mean, g);
+    ngmm.vars_.CopyRowFromVec(cur_var, g);
+  }
+
+  ngmm.CopyToDiagGmm(&noise_gmm);
+  noise_gmm.ComputeGconsts();
+
+//KALDI_LOG << "Model compensation done!";
+}
+
+/*
+ * Do the compensation using the current noise model parameters.
+ * Also keep the statistics of the Jx, and Jz for next iteration of noise estimation.
+ *
+ * noise_am_gmm is initialized as the clean model.
+ *
+ */
 void CompensateModel(const Vector<double> &mu_h, const Vector<double> &mu_z,
                      const Vector<double> &var_z,
                      int32 num_cepstral,
@@ -968,12 +1012,12 @@ void CompensateMultiFrameGmm(const Vector<double> &mu_h,
 }
 
 void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
-                            const Vector<double> &mu_z,
-                            const Vector<double> &var_z, bool have_energy,
-                            int32 num_fbank,
-                            Vector<double> &mean, Vector<double> &cov,
-                            Matrix<double> &Jx,
-                            Matrix<double> &Jz) {
+                                  const Vector<double> &mu_z,
+                                  const Vector<double> &var_z, bool have_energy,
+                                  int32 num_fbank,
+                                  Vector<double> &mean, Vector<double> &cov,
+                                  Matrix<double> &Jx,
+                                  Matrix<double> &Jz) {
   // compute the necessary transforms
   Vector<double> mu_y_s(num_fbank);
   Vector<double> tmp_fbank(num_fbank);
@@ -993,7 +1037,7 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
   // new static mean
   for (int32 ii = 0; ii < num_fbank; ++ii) {
     mu_y_s(ii) = mean(ii) + mu_h(ii) + tmp_fbank(ii);
-  } // mu_x + mu_h + log ( 1 + exp( (mu_n - mu_x - mu_h) ) )
+  }  // mu_x + mu_h + log ( 1 + exp( (mu_n - mu_x - mu_h) ) )
 
   // compute J
   Jx.CopyDiagFromVec(tmp_inv);
@@ -1010,10 +1054,11 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
   Vector<double> tmp_mu(num_fbank);
   SubVector<double> mu_s(mean, 0, num_fbank);
   mu_s.CopyFromVec(mu_y_s);
-  SubVector<double> mu_dt(mean, num_fbank + (have_energy?1:0), num_fbank);
+  SubVector<double> mu_dt(mean, num_fbank + (have_energy ? 1 : 0), num_fbank);
   tmp_mu.CopyFromVec(mu_dt);
   mu_dt.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
-  SubVector<double> mu_acc(mean, 2 * (num_fbank + (have_energy?1:0)), num_fbank);
+  SubVector<double> mu_acc(mean, 2 * (num_fbank + (have_energy ? 1 : 0)),
+                           num_fbank);
   tmp_mu.CopyFromVec(mu_acc);
   mu_acc.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
   if (g_kaldi_verbose_level >= 9) {
@@ -1027,7 +1072,8 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
   for (int32 ii = 0; ii < 3; ++ii) {
     Matrix<double> tmp_var1(Jx), tmp_var2(Jz), new_var(num_fbank,
                                                        num_fbank);
-    SubVector<double> x_var(cov, ii * (num_fbank + (have_energy?1:0)), num_fbank);
+    SubVector<double> x_var(cov, ii * (num_fbank + (have_energy ? 1 : 0)),
+                            num_fbank);
     SubVector<double> n_var(var_z, ii * num_fbank, num_fbank);
 
     tmp_var1.MulColsVec(x_var);
@@ -1043,7 +1089,7 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
   }
 }
 
-} // End namespace
+}  // End namespace
 
 /*
  *

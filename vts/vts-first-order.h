@@ -113,6 +113,22 @@ void CompensateDiagGaussian(const Vector<double> &mu_h,
                             Matrix<double> &Jz);
 
 /*
+ * Compensate a Diagonal Gaussian Mixture model.
+ *
+ * noise_gmm is inputed as clean GMM and compensated by this function
+ *
+ */
+void CompensateDiagGmm(const Vector<double> &mu_h, const Vector<double> &mu_z,
+                       const Vector<double> &var_z,
+                       int32 num_cepstral,
+                       int32 num_fbank,
+                       const Matrix<double> &dct_mat,
+                       const Matrix<double> &inv_dct_mat,
+                       DiagGmm &noise_gmm,
+                       std::vector<Matrix<double> > &Jx,
+                       std::vector<Matrix<double> > &Jz);
+
+/*
  * Do the compensation using the current noise model parameters.
  * Also keep the statistics of the Jx, and Jz for next iteration of noise estimation.
  *
