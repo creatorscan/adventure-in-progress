@@ -5,9 +5,9 @@ EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 
 BINFILES = vts-model-decode vts-compute-mono-post vts-init-noise dbnvts-init-model \
-		   dbnvts-acc-stats dbnvts-neg-gauss dbnvts-forward dbnvts-test-gmm dbnvts-gmm-info \
+		   dbnvts-gmm-info \
 		   dbnvts-est-gmm vts-compute-likes vts-est-noise vts-align-compiled vts-apply-global-cmvn \
-		   dbnvts-test-kl copy-feats-to-matlab compute-utt-noise vts-noise-decode compute-average-noise \
+		   copy-feats-to-matlab compute-utt-noise vts-noise-decode compute-average-noise \
 		   vtsbnd-acc-stats vtsbnd-forward dbnvts2-acc-stats dbnvts2-neg-gauss dbnvts2-forward \
 		   dbnvts2-test-kl dbnvts2-test-gmm dbnvts2-sum-accs dbnvts2-sum-priors kl-divergence-gauss \
 		   dbnvts2-forward-clean dbnvts2-acc-stats-act dbnvts2-compensate-model dbnvts2-joint-forward-clean \
