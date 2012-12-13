@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
       }
 
       ++num_done;
-      if(num_done%100){
+      if(num_done%100 == 0){
         KALDI_LOG << "Done " << num_done << " utterances.";
       }
     }
