@@ -31,7 +31,8 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Segment features for SVMLight based verification.\n"
-            "Usage: segment-feats [options] in-feats-rspecifier in-labels-rspecifier out-feats-wfilename\n";
+            "Usage: segment-feats [options] in-feats-rspecifier in-labels-rspecifier "
+            "out-feats-wfilename out-labels-wfilename\n";
 
     ParseOptions po(usage);
     bool binary = true;
@@ -43,20 +44,32 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 3) {
+    if (po.NumArgs() != 4) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string feats_rspecifier = po.GetArg(1);
     std::string labels_rspecifier = po.GetArg(2);
-    std::string out_wfilename = po.GetArg(3);
+    std::string out_feats_wfilename = po.GetArg(3);
+    std::string out_labels_wfilename = po.GetArg(4);
 
+    // output feature file
     FILE *fout;
     if(binary){
-      fout=fopen(out_wfilename.c_str(), "wb");
+      fout=fopen(out_feats_wfilename.c_str(), "wb");
     }else{
-      fout=fopen(out_wfilename.c_str(), "w");
+      fout=fopen(out_feats_wfilename.c_str(), "w");
+    }
+
+    if(fout==NULL){
+      KALDI_ERR << "Open output feature file " << out_feats_wfilename << " failed!";
+    }
+
+    // output label file
+    FILE *flab=fopen(out_labels_wfilename.c_str(), "w");
+    if(flab==NULL){
+      KALDI_ERR << "Open output label file " << out_labels_wfilename << " failed!";
     }
 
     SequentialBaseFloatMatrixReader feats_reader(feats_rspecifier);
@@ -118,6 +131,7 @@ int main(int argc, char *argv[]) {
               }
               fprintf(fout, "\n");
             }
+            fprintf(flab, "%s\n", pre_label.c_str());
           }
           // start new segment
           pre_label=cur_label;
@@ -128,7 +142,7 @@ int main(int argc, char *argv[]) {
 
       ++num_done;
       if(num_done%100){
-        KALDI_LOG << "Done " << num_done << "utterances.";
+        KALDI_LOG << "Done " << num_done << " utterances.";
       }
     }
 
