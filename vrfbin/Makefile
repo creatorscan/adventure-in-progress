@@ -1,3 +1,4 @@
+#avoid using CPU version nnet-forward.
 
 all:
 
