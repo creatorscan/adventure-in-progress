@@ -99,7 +99,8 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
-        //check for NaN/inf
+        //check for NaN/inf, not necessary as nnet-forward has already done the check
+      /*
       for (int32 r = 0; r < feats.NumRows(); r++) {
         for (int32 c = 0; c < feats.NumCols(); c++) {
           BaseFloat val = feats(r, c);
@@ -112,6 +113,7 @@ int main(int argc, char *argv[]) {
 
         }
       }
+      */
 
       std::vector < std::string > labels(labels_reader.Value(key));
 
