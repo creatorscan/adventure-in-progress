@@ -23,6 +23,7 @@
 #include "matrix/kaldi-matrix.h"
 
 #define MAX_PHONEME_LENGTH 10
+#define LOG_ZERO -1e10
 
 int main(int argc, char *argv[]) {
   try {
@@ -40,7 +41,8 @@ int main(int argc, char *argv[]) {
                 "Write the output feature file in binary format");
 
     bool normalize = false;
-    po.Register("normalize", &normalize, "Whether to normalize the feature to sum to 1");
+    po.Register("normalize", &normalize,
+                "Whether to normalize the feature to sum to 1");
 
     po.Read(argc, argv);
 
@@ -56,93 +58,107 @@ int main(int argc, char *argv[]) {
 
     // output feature file
     FILE *fout;
-    if(binary){
-      fout=fopen(out_feats_wfilename.c_str(), "wb");
-    }else{
-      fout=fopen(out_feats_wfilename.c_str(), "w");
+    if (binary) {
+      fout = fopen(out_feats_wfilename.c_str(), "wb");
+    } else {
+      fout = fopen(out_feats_wfilename.c_str(), "w");
     }
 
-    if(fout==NULL){
-      KALDI_ERR << "Open output feature file " << out_feats_wfilename << " failed!";
+    if (fout == NULL) {
+      KALDI_ERR<< "Open output feature file " << out_feats_wfilename << " failed!";
     }
 
-    // output label file
-    FILE *flab=fopen(out_labels_wfilename.c_str(), "w");
-    if(flab==NULL){
-      KALDI_ERR << "Open output label file " << out_labels_wfilename << " failed!";
+      // output label file
+    FILE *flab = fopen(out_labels_wfilename.c_str(), "w");
+    if (flab == NULL) {
+      KALDI_ERR<< "Open output label file " << out_labels_wfilename << " failed!";
     }
 
     SequentialBaseFloatMatrixReader feats_reader(feats_rspecifier);
     RandomAccessTokenVectorReader labels_reader(labels_rspecifier);
 
-    int32 num_done=0;
-    bool first=true;
+    int32 num_done = 0;
+    bool first = true;
     for (; !feats_reader.Done(); feats_reader.Next()) {
       std::string key = feats_reader.Key();
       Matrix<BaseFloat> feats(feats_reader.Value());
 
-      if(first){ // write out the dimension of the feature vectors
-        if(binary){
-          int dim=feats.NumCols();
+      if (first) {  // write out the dimension of the feature vectors
+        if (binary) {
+          int dim = feats.NumCols();
           fwrite(&dim, 1, sizeof(dim), fout);
-        }else{
+        } else {
           fprintf(fout, "%d\n", feats.NumCols());
         }
-        first=false;
+        first = false;
       }
 
       if (!labels_reader.HasKey(key)) {
-        KALDI_WARN << "No labels available for key "
-                   << key << ", producing no output for this utterance";
+        KALDI_WARN<< "No labels available for key "
+        << key << ", producing no output for this utterance";
         continue;
       }
 
-      std::vector<std::string> labels(labels_reader.Value(key));
+        //check for NaN/inf
+      for (int32 r = 0; r < feats.NumRows(); r++) {
+        for (int32 c = 0; c < feats.NumCols(); c++) {
+          BaseFloat val = feats(r, c);
+          if (val != val)
+            KALDI_ERR<< "NaN in features of : " << key;
+          if (val == std::numeric_limits < BaseFloat > ::infinity()) {
+            KALDI_WARN<< "inf in features of : " << key;
+            feats(r,c)=LOG_ZERO;
+          }
+
+        }
+      }
+
+      std::vector < std::string > labels(labels_reader.Value(key));
 
       Vector<BaseFloat> segment(feats.NumCols(), kSetZero);
-      std::string pre_label="";
-      int32 seglen=0;
-      for(int32 i=0; i<feats.NumRows(); ++i){
-        std::string cur_label=labels[i];
-        if (cur_label == pre_label){
+      std::string pre_label = "";
+      int32 seglen = 0;
+      for (int32 i = 0; i < feats.NumRows(); ++i) {
+        std::string cur_label = labels[i];
+        if (cur_label == pre_label) {
           segment.AddVec(1.0, feats.Row(i));
-          seglen+=1;
-        }else {
-          if(seglen > 0){
-            if (normalize) { // do simple normalization
-              BaseFloat sum=segment.Sum();
-              segment.Scale(1.0/sum);
-            }else{ // do averaging
-              segment.Scale(1.0/seglen);
+          seglen += 1;
+        } else {
+          if (seglen > 0) {
+            if (normalize) {  // do simple normalization
+              BaseFloat sum = segment.Sum();
+              segment.Scale(1.0 / sum);
+            } else {  // do averaging
+              segment.Scale(1.0 / seglen);
             }
             // write out the previous segment
-            if(binary){
+            if (binary) {
               // write the label
               fwrite(pre_label.c_str(), MAX_PHONEME_LENGTH, sizeof(char), fout);
               // write the values
-              for (int32 j=0; j<feats.NumCols(); ++j){
-                float val=segment(j); // ensure use float point numbers
+              for (int32 j = 0; j < feats.NumCols(); ++j) {
+                float val = segment(j);  // ensure use float point numbers
                 fwrite(&val, 1, sizeof(val), fout);
               }
-            }else{
+            } else {
               fprintf(fout, "%s", pre_label.c_str());
-              for(int32 j=0; j<feats.NumCols(); ++j){
-                fprintf(fout, " %d:%f", j+1, segment(j));
+              for (int32 j = 0; j < feats.NumCols(); ++j) {
+                fprintf(fout, " %d:%f", j + 1, segment(j));
               }
               fprintf(fout, "\n");
             }
             fprintf(flab, "%s\n", pre_label.c_str());
           }
           // start new segment
-          pre_label=cur_label;
+          pre_label = cur_label;
           segment.CopyFromVec(feats.Row(i));
-          seglen=1;
+          seglen = 1;
         }
       }
 
       ++num_done;
-      if(num_done%1000 == 0){
-        KALDI_LOG << "Done " << num_done << " utterances.";
+      if (num_done % 1000 == 0) {
+        KALDI_LOG<< "Done " << num_done << " utterances.";
       }
     }
 
