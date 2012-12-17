@@ -5,7 +5,7 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 
-BINFILES = segment-feats
+BINFILES = segment-feats merge-two-feats merge-three-feats
  
 OBJFILES =
 
