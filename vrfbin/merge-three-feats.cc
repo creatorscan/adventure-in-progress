@@ -37,30 +37,25 @@ int main(int argc, char *argv[]) {
     std::string out_feats_wspecifier = po.GetArg(4);
 
     SequentialBaseFloatMatrixReader feats1_reader(feats1_rspecifier);
-    RandomAccessBaseFloatMatrixReader feats2_reader(feats2_rspecifier);
-    RandomAccessBaseFloatMatrixReader feats3_reader(feats3_rspecifier);
+    // To save computation cost we assume the three features are in the same key order
+    //RandomAccessBaseFloatMatrixReader feats2_reader(feats2_rspecifier);
+    //RandomAccessBaseFloatMatrixReader feats3_reader(feats3_rspecifier);
+    SequentialBaseFloatMatrixReader feats2_reader(feats2_rspecifier);
+    SequentialBaseFloatMatrixReader feats3_reader(feats3_rspecifier);
     BaseFloatMatrixWriter out_feats_writer(out_feats_wspecifier);
 
     int32 num_done = 0;
 
-    for (; !feats1_reader.Done(); feats1_reader.Next()) {
+    for (; !feats1_reader.Done() && !feats2_reader.Done() && !feats3_reader.Done(); feats1_reader.Next(), feats2_reader.Next(), feats3_reader.Next()) {
       std::string key = feats1_reader.Key();
       Matrix<BaseFloat> feats1(feats1_reader.Value());
 
-      if (!feats2_reader.HasKey(key)) {
-        KALDI_WARN<< "No matching features available in the 2nd features for key "
-        << key << ", producing no output for this utterance";
-        continue;
+      if ((feats2_reader.Key() != key) || (feats3_reader.Key() != key) ) {
+        KALDI_ERR<< "Feature order mismatch!";
       }
 
-      if (!feats3_reader.HasKey(key)) {
-        KALDI_WARN<< "No matching features available in the 3rd features for key "
-        << key << ", producing no output for this utterance";
-        continue;
-      }
-
-      Matrix<BaseFloat> feats2(feats2_reader.Value(key));
-      Matrix<BaseFloat> feats3(feats3_reader.Value(key));
+      Matrix<BaseFloat> feats2(feats2_reader.Value());
+      Matrix<BaseFloat> feats3(feats3_reader.Value());
 
       KALDI_ASSERT(feats1.NumRows()==feats2.NumRows() && feats1.NumRows()==feats3.NumRows());
 
