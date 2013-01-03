@@ -61,13 +61,14 @@ class DropoutBL : public UpdatableComponent {
       prob_mask.Set(0.5);
       value_mask.Resize(in.NumRows(), in.NumCols());
     }
-    cu_rand.BinarizeProbs(prob_mask, &value_mask);
-    value_mask.MulElements(in);
+    cu_rand.BinarizeProbs(prob_mask, &value_mask); // value mask is kept for use in back propagation
+    prob_mask.CopyFromMat(value_mask);
+    prob_mask.MulElements(in); // prob_mask as masked input
 
     // precopy bias
     out->AddVecToRows(1.0, bias_, 0.0);
     // multiply by weights^t
-    out->AddMatMat(1.0, value_mask, kNoTrans, linearity_, kTrans, 1.0);
+    out->AddMatMat(1.0, prob_mask, kNoTrans, linearity_, kTrans, 1.0);
 
   }
 
@@ -80,7 +81,9 @@ class DropoutBL : public UpdatableComponent {
   void Update(const CuMatrix<BaseFloat> &input,
               const CuMatrix<BaseFloat> &err) {
     // compute gradient
-    linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
+    prob_mask.CopyFromMat(value_mask);
+    prob_mask.MulElements(input); // only the active links are updated
+    linearity_corr_.AddMatMat(1.0, err, kTrans, prob_mask, kNoTrans, momentum_);
     bias_corr_.AddRowSumMat(1.0, err, momentum_);
     // l2 regularization
     if (l2_penalty_ != 0.0) {
