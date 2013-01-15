@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    if (noise_paramkind != "mfcc" || noise_paramkind != "fbank") {
+    if (noise_paramkind != "mfcc" && noise_paramkind != "fbank") {
       KALDI_ERR<< "Incorrect noise parameter kind, select from 'mfcc' and 'fbank'.";
     }
 
