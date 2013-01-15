@@ -13,7 +13,11 @@
  *  Only applicable to global normalization! Thus the speaker to utterance
  *  mapping is a dummy mapping from all speakers to "global".
  *
- *  Use the MFCC feature based noise estimation to compensate the FBank features.
+ *  Can use both the MFCC and FBank based noise estimation to compensate the FBank features.
+ *  The reason to support MFCC based noise is that for GMM-HMM system MFCC based model is more
+ *  robust than FBank based model. It is thus better to use MFCC based GMM for noise estimation.
+ *
+ *  While for other models, like DNN, we can directly use FBank.
  *
  */
 
@@ -43,6 +47,10 @@ int main(int argc, char *argv[]) {
     bool norm_vars = true;
     po.Register("norm-vars", &norm_vars, "If true, normalize variances");
 
+    std::string noise_paramkind = "mfcc";
+    po.Register("noise-paramkind", &noise_paramkind,
+                "Parameter kind of the noise [mfcc|fbank]");
+
     int32 num_cepstral = 13;
     int32 num_fbank = 40;
     BaseFloat ceplifter = 22;
@@ -58,6 +66,10 @@ int main(int argc, char *argv[]) {
     if (po.NumArgs() != 4) {
       po.PrintUsage();
       exit(1);
+    }
+
+    if (noise_paramkind != "mfcc" || noise_paramkind != "fbank") {
+      KALDI_ERR<< "Incorrect noise parameter kind, select from 'mfcc' and 'fbank'.";
     }
 
     std::string cmvn_rspecifier_or_rxfilename = po.GetArg(1);
@@ -111,50 +123,57 @@ int main(int argc, char *argv[]) {
           KALDI_ERR<< "Current only support FBANK_D_A or FBANK_E_D_A!";
         }
 
-          // MFCC noise estimate
-        Vector<double> mfcc_mu_h(noiseparams_reader.Value(key + "_mu_h"));
-        Vector<double> mfcc_mu_z(noiseparams_reader.Value(key + "_mu_z"));
-        Vector<double> mfcc_var_z(noiseparams_reader.Value(key + "_var_z"));
-
-        // compute the FBank noise estimate
+          // compute the FBank noise estimate
         Vector<double> mu_h(num_fbank * 3, kSetZero);
         Vector<double> mu_z(num_fbank * 3, kSetZero);
         Vector<double> var_z(num_fbank * 3, kSetZero);
 
-        SubVector<double> static_mu_h(mu_h, 0, num_fbank);
-        static_mu_h.AddMatVec(1.0, inv_dct_mat, kNoTrans,
-                              SubVector<double>(mfcc_mu_h, 0, num_cepstral),
-                              0.0);
-        SubVector<double> static_mu_z(mu_z, 0, num_fbank);
-        static_mu_z.AddMatVec(1.0, inv_dct_mat, kNoTrans,
-                              SubVector<double>(mfcc_mu_z, 0, num_cepstral),
-                              0.0);
-        Matrix<double> tmp_mfcc(num_cepstral, num_cepstral), tmp_fbank(
-            num_fbank, num_fbank);
-        SubVector<double> static_var_z(var_z, 0, num_fbank);
-        tmp_mfcc.SetZero();
-        tmp_mfcc.CopyDiagFromVec(
-            SubVector<double>(mfcc_var_z, 0, num_cepstral));
-        tmp_fbank.AddMatMatMat(1.0, inv_dct_mat, kNoTrans, tmp_mfcc, kNoTrans,
-                               inv_dct_mat,
-                               kTrans, 0.0);
-        static_var_z.CopyDiagFromMat(tmp_fbank);
-        SubVector<double> delta_var_z(var_z, num_fbank, num_fbank);
-        tmp_mfcc.SetZero();
-        tmp_mfcc.CopyDiagFromVec(
-            SubVector<double>(mfcc_var_z, num_cepstral, num_cepstral));
-        tmp_fbank.AddMatMatMat(1.0, inv_dct_mat, kNoTrans, tmp_mfcc, kNoTrans,
-                               inv_dct_mat,
-                               kTrans, 0.0);
-        delta_var_z.CopyDiagFromMat(tmp_fbank);
-        SubVector<double> acc_var_z(var_z, num_fbank << 1, num_fbank);
-        tmp_mfcc.SetZero();
-        tmp_mfcc.CopyDiagFromVec(
-            SubVector<double>(mfcc_var_z, num_cepstral << 1, num_cepstral));
-        tmp_fbank.AddMatMatMat(1.0, inv_dct_mat, kNoTrans, tmp_mfcc, kNoTrans,
-                               inv_dct_mat,
-                               kTrans, 0.0);
-        acc_var_z.CopyDiagFromMat(tmp_fbank);
+        if (noise_paramkind == "mfcc") {
+          // MFCC noise estimate
+          Vector<double> mfcc_mu_h(noiseparams_reader.Value(key + "_mu_h"));
+          Vector<double> mfcc_mu_z(noiseparams_reader.Value(key + "_mu_z"));
+          Vector<double> mfcc_var_z(noiseparams_reader.Value(key + "_var_z"));
+
+          SubVector<double> static_mu_h(mu_h, 0, num_fbank);
+          static_mu_h.AddMatVec(1.0, inv_dct_mat, kNoTrans,
+                                SubVector<double>(mfcc_mu_h, 0, num_cepstral),
+                                0.0);
+          SubVector<double> static_mu_z(mu_z, 0, num_fbank);
+          static_mu_z.AddMatVec(1.0, inv_dct_mat, kNoTrans,
+                                SubVector<double>(mfcc_mu_z, 0, num_cepstral),
+                                0.0);
+          Matrix<double> tmp_mfcc(num_cepstral, num_cepstral), tmp_fbank(
+              num_fbank, num_fbank);
+          SubVector<double> static_var_z(var_z, 0, num_fbank);
+          tmp_mfcc.SetZero();
+          tmp_mfcc.CopyDiagFromVec(
+              SubVector<double>(mfcc_var_z, 0, num_cepstral));
+          tmp_fbank.AddMatMatMat(1.0, inv_dct_mat, kNoTrans, tmp_mfcc, kNoTrans,
+                                 inv_dct_mat,
+                                 kTrans, 0.0);
+          static_var_z.CopyDiagFromMat(tmp_fbank);
+          SubVector<double> delta_var_z(var_z, num_fbank, num_fbank);
+          tmp_mfcc.SetZero();
+          tmp_mfcc.CopyDiagFromVec(
+              SubVector<double>(mfcc_var_z, num_cepstral, num_cepstral));
+          tmp_fbank.AddMatMatMat(1.0, inv_dct_mat, kNoTrans, tmp_mfcc, kNoTrans,
+                                 inv_dct_mat,
+                                 kTrans, 0.0);
+          delta_var_z.CopyDiagFromMat(tmp_fbank);
+          SubVector<double> acc_var_z(var_z, num_fbank << 1, num_fbank);
+          tmp_mfcc.SetZero();
+          tmp_mfcc.CopyDiagFromVec(
+              SubVector<double>(mfcc_var_z, num_cepstral << 1, num_cepstral));
+          tmp_fbank.AddMatMatMat(1.0, inv_dct_mat, kNoTrans, tmp_mfcc, kNoTrans,
+                                 inv_dct_mat,
+                                 kTrans, 0.0);
+          acc_var_z.CopyDiagFromMat(tmp_fbank);
+
+        } else {  // direct FBank noise
+          mu_h.CopyFromVec(noiseparams_reader.Value(key + "_mu_h"));
+          mu_z.CopyFromVec(noiseparams_reader.Value(key + "_mu_z"));
+          var_z.CopyFromVec(noiseparams_reader.Value(key + "_var_z"));
+        }
 
         if (g_kaldi_verbose_level >= 1) {
           KALDI_LOG<< "Additive Noise Mean: " << mu_z;
