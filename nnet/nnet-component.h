@@ -59,6 +59,7 @@ class Component {
     kSharedLinearity, 
     kKrylovLinearity,
     kDropoutBL,
+    kCMVNBL,
 
     kActivationFunction = 0x0200, 
     kSoftmax, 
