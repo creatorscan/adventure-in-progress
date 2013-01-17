@@ -273,6 +273,7 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
                                   Vector<double> &mean, Vector<double> &cov,
                                   Matrix<double> &Jx,
                                   Matrix<double> &Jz);
+
 }
 
 #endif /* KALDI_VTS_VTS_FIRST_ORDER_H_ */

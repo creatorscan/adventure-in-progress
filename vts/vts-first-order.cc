@@ -1017,7 +1017,7 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
                                   int32 num_fbank,
                                   Vector<double> &mean, Vector<double> &cov,
                                   Matrix<double> &Jx,
-                                  Matrix<double> &Jz) {
+                                  Matrix<double> &Jz){
   // compute the necessary transforms
   Vector<double> mu_y_s(num_fbank);
   Vector<double> tmp_fbank(num_fbank);
