@@ -96,8 +96,8 @@ int main(int argc, char *argv[]) {
         KALDI_ERR<< "No normalization statistics available for key "
         << "'global', producing no output for this utterance";
       }
-        // read in the statistics
-      cmvn_stats.CopyFromMat(cmvn_reader.Value("global"));
+      // read in the statistics
+      cmvn_stats = cmvn_reader.Value("global");
     } else { // read in the statistics in normal file format
       std::string cmvn_rxfilename = cmvn_rspecifier_or_rxfilename;
       bool binary;
