@@ -45,10 +45,15 @@ int main(int argc, char *argv[]) {
     po.Register("num_fbank", &num_fbank, "Number of FBanks");
 
     int32 delta_order = 3;
-    po.Register("delta-order", &delta_order, "Delta order of features, [1,2,3]");
+    po.Register("delta-order", &delta_order,
+                "Delta order of features, [1,2,3]");
 
     bool norm_vars = true;
     po.Register("norm-vars", &norm_vars, "If true, normalize variances");
+
+    bool cross_validate = false;
+    po.Register("cross-validate", &cross_validate,
+                "Perform cross-validation (don't backpropagate)");
 
     BaseFloat learn_rate = 0.008,
         momentum = 0.0,
@@ -62,11 +67,11 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (update_flag != "cmvn" && update_flag != "noise") {
+    if (!cross_validate && update_flag != "cmvn" && update_flag != "noise") {
       KALDI_ERR<< "Unrecognized update flag: " << update_flag;
     }
 
-    if (po.NumArgs() != 6) {
+    if (po.NumArgs() != 6 - (cross_validate ? 1 : 0)) {
       po.PrintUsage();
       exit(1);
     }
@@ -75,11 +80,13 @@ int main(int argc, char *argv[]) {
         nnet_filename = po.GetArg(2),
         feature_rspecifier = po.GetArg(3),
         noise_rspecifier = po.GetArg(4),
-        alignments_rspecifier = po.GetArg(5),
-        output_wspecifier = po.GetArg(6);
+        alignments_rspecifier = po.GetArg(5);
 
+    std::string output_wspecifier;
+    if (!cross_validate) {
+      output_wspecifier = po.GetArg(6);
+    }
 
-    KALDI_LOG<< "...load cmvn stats";
     // read in CMVN statistics
     Matrix<double> cmvn_stats;
     if (ClassifyRspecifier(cmvn_rspecifier_or_rxfilename, NULL, NULL)
@@ -93,7 +100,7 @@ int main(int argc, char *argv[]) {
         << "'global', producing no output for this utterance";
       }
         // read in the statistics
-      cmvn_stats=cmvn_reader.Value("global");
+      cmvn_stats = cmvn_reader.Value("global");
     } else {  // read in the statistics in normal file format
       std::string cmvn_rxfilename = cmvn_rspecifier_or_rxfilename;
       bool binary;
@@ -112,19 +119,18 @@ int main(int argc, char *argv[]) {
       var(i) = (cmvn_stats(1, i) / counts) - mean(i) * mean(i);
     }
 
-    KALDI_LOG << "...cmvn loaded";
-    KALDI_LOG << "...update flag="<< update_flag;
-    if (update_flag == "cmvn"){
-      KALDI_LOG << "Before update: \nMean: " << mean << "\n Var: " << var;
+    KALDI_LOG<< "...update flag="<< update_flag;
+    if (update_flag == "cmvn") {
+      KALDI_LOG<< "Before update: \nMean: " << mean << "\n Var: " << var;
     }
 
-    // currently no feature transform is supported
+      // currently no feature transform is supported
     Nnet nnet_transf;
 
     Nnet nnet;
     nnet.Read(nnet_filename);
 
-    KALDI_LOG << "...load nnet done";
+
     // only allow the first layer, which is <cmvnbl> to be updated
     std::string learn_factors = "1";
     for (int32 i = 1; i < nnet.LayerCount(); ++i) {
@@ -132,13 +138,12 @@ int main(int argc, char *argv[]) {
         learn_factors += ",0";
       }
     }
-    KALDI_LOG << "...learn_factor=" << learn_factors;
+    KALDI_LOG<< "...learn_factor=" << learn_factors;
     nnet.SetLearnRate(learn_rate, learn_factors.c_str());
     nnet.SetMomentum(momentum);
     nnet.SetL2Penalty(l2_penalty);
     nnet.SetL1Penalty(l1_penalty);
 
-    KALDI_LOG << "...configure nnet done.";
 
     if (nnet.Layer(0)->GetType() != Component::kCMVNBL) {
       KALDI_ERR<< "The first layer is not <cmvnbl> layer!";
@@ -146,11 +151,11 @@ int main(int argc, char *argv[]) {
     CMVNBL *cmvnbl_layer = (CMVNBL*) (nnet.Layer(0));
 
     // initialize the cmvnbl layer
-    cmvnbl_layer->SetUpdateFlag(update_flag);
+    if (!cross_validate) {
+      cmvnbl_layer->SetUpdateFlag(update_flag);
+    }
     cmvnbl_layer->SetParamKind(have_energy, num_fbank, delta_order);
     cmvnbl_layer->SetCMVN(mean, var);
-
-    KALDI_LOG << "...configure cmvn layer done";
 
     kaldi::int64 tot_t = 0;
 
@@ -159,7 +164,10 @@ int main(int argc, char *argv[]) {
     RandomAccessInt32VectorReader alignments_reader(alignments_rspecifier);
 
     // only used when update_flag = "noise"
-    DoubleVectorWriter noise_writer(output_wspecifier);
+    DoubleVectorWriter noise_writer;
+    if (!cross_validate && update_flag == "noise") {
+      noise_writer.Open(output_wspecifier);
+    }
 
     Xent xent;
 
@@ -167,7 +175,7 @@ int main(int argc, char *argv[]) {
 
     Timer tim;
     double time_next = 0;
-    KALDI_LOG<< "TRAINING " << update_flag << " STARTED";
+    KALDI_LOG<< (cross_validate? "CV":("TRAINING "+update_flag)) << " STARTED";
 
     int32 num_done = 0, num_no_alignment = 0, num_other_error = 0;
     for (; !feature_reader.Done(); /*feature_reader.Next()*/) {
@@ -201,8 +209,9 @@ int main(int argc, char *argv[]) {
           continue;
         }
 
-        if (num_done % 1000 == 0)
-        std::cout << num_done << ", " << std::flush;
+        if (num_done % 1000 == 0) {
+          std::cout << num_done << ", " << std::flush;
+        }
         num_done++;
 
         // push features to GPU
@@ -212,9 +221,11 @@ int main(int argc, char *argv[]) {
 
         xent.EvalVec(nnet_out, alignment, &glob_err);
 
-        nnet.Backpropagate(glob_err, NULL);
+        if (!cross_validate) {
+          nnet.Backpropagate(glob_err, NULL);
+        }
 
-        if(update_flag=="noise") {
+        if(!cross_validate && update_flag=="noise") {
           cmvnbl_layer->GetNoise(mu_h, mu_z, var_z);
           noise_writer.Write(key+"_mu_h", mu_h);
           noise_writer.Write(key+"_mu_z", mu_z);
@@ -224,16 +235,13 @@ int main(int argc, char *argv[]) {
         tot_t += mat.NumRows();
       }
 
-
-
       Timer t_features;
       feature_reader.Next();
       time_next += t_features.Elapsed();
 
     }
 
-    if (update_flag == "cmvn") {
-      noise_writer.Close(); // close the unused noise writer
+    if (!cross_validate && update_flag == "cmvn") {
       cmvnbl_layer->GetCMVN(mean, var);
       cmvn_stats.SetZero();
       cmvn_stats(0, feat_dim) = 1.0;
@@ -244,12 +252,12 @@ int main(int argc, char *argv[]) {
       DoubleMatrixWriter cmvn_writer(output_wspecifier);
       cmvn_writer.Write("global", cmvn_stats);
 
-      KALDI_LOG << "After update: \nMean: " << mean << "\n Var: " << var;
+      KALDI_LOG<< "After update: \nMean: " << mean << "\n Var: " << var;
     }
 
     std::cout << "\n" << std::flush;
 
-    KALDI_LOG<< "TRAINING " << update_flag << " FINISHED "
+    KALDI_LOG<< (cross_validate?"CV":("TRAINING "+update_flag)) << " FINISHED "
     << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
     << ", feature wait " << time_next << "s";
 
