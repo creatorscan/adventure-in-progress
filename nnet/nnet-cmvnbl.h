@@ -309,8 +309,8 @@ class CMVNBL : public UpdatableComponent {
       mu_z_corr(i) *= (inv_var(i) * vec_Jz_(i));
     }
     // update the noise
-    mu_h_.AddVec(-learn_rate_ / (win_len_ * num), mu_h_corr);
-    mu_z_.AddVec(-learn_rate_ / (win_len_ * num), mu_z_corr);
+    mu_h_.AddVec(-learn_rate_, mu_h_corr);
+    mu_z_.AddVec(-learn_rate_, mu_z_corr);
 
     if (update_var_) {
       /*
@@ -346,7 +346,7 @@ class CMVNBL : public UpdatableComponent {
       }
 
       // update the noise
-      var_z_corr.Scale(-learn_rate_ / (win_len_ * num));
+      var_z_corr.Scale(-learn_rate_);
       for (int32 i = 0; i < num_fbank_ * delta_order_; ++i) {
         if (var_z_corr(i) > stigma_) {
           var_z_corr(i) = stigma_;
