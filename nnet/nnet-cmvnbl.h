@@ -110,8 +110,10 @@ class CMVNBL : public UpdatableComponent {
     }
 
     // compute gradient
-    linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
-    bias_corr_.AddRowSumMat(1.0, err, momentum_);
+	linearity_corr_.AddMatMat(-learn_rate_/(win_len_*input.NumRows()), err, kTrans, input, kNoTrans, 0.0);
+	bias_corr_.AddRowSumMat(-learn_rate_/(win_len_*input.NumRows()), err, 0.0);
+    //linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
+    //bias_corr_.AddRowSumMat(1.0, err, momentum_);
     /*
      // l2 regularization
      if (l2_penalty_ != 0.0) {
