@@ -48,6 +48,9 @@ int main(int argc, char *argv[]) {
     po.Register("delta-order", &delta_order,
                 "Delta order of features, [1,2,3]");
 
+    bool norm_vars = true;
+    po.Register("norm-vars", &norm_vars, "If true, normalize variances");
+
     bool update_vars = true;
     po.Register("update-vars", &update_vars, "If true, estimate variances");
 
