@@ -41,6 +41,12 @@ int main(int argc, char *argv[]) {
         "have-energy", &have_energy,
         "Whether the feature has energy term, it will not be compensated");
 
+    int32 num_fbank = 40;
+    po.Register("num_fbank", &num_fbank, "Number of FBanks");
+
+    int32 delta_order = 3;
+    po.Register("delta-order", &delta_order, "Delta order of features, [1,2,3]");
+
     bool norm_vars = true;
     po.Register("norm-vars", &norm_vars, "If true, normalize variances");
 
@@ -73,7 +79,7 @@ int main(int argc, char *argv[]) {
         output_wspecifier = po.GetArg(6);
 
 
-
+    KALDI_LOG<< "...load cmvn stats";
     // read in CMVN statistics
     Matrix<double> cmvn_stats;
     if (ClassifyRspecifier(cmvn_rspecifier_or_rxfilename, NULL, NULL)
@@ -87,13 +93,15 @@ int main(int argc, char *argv[]) {
         << "'global', producing no output for this utterance";
       }
         // read in the statistics
-      cmvn_stats.CopyFromMat(cmvn_reader.Value("global"));
+      cmvn_stats=cmvn_reader.Value("global");
     } else {  // read in the statistics in normal file format
       std::string cmvn_rxfilename = cmvn_rspecifier_or_rxfilename;
       bool binary;
       Input ki(cmvn_rxfilename, &binary);
       cmvn_stats.Read(ki.Stream(), binary);
     }
+
+    //KALDI_LOG << "...cmvn stats:" << cmvn_stats;
 
     // generate the global mean and covariance from the statistics
     int32 feat_dim = cmvn_stats.NumCols() - 1;
@@ -104,8 +112,10 @@ int main(int argc, char *argv[]) {
       var(i) = (cmvn_stats(1, i) / counts) - mean(i) * mean(i);
     }
 
-    if (update_flag=="cmvn"){
-      KALDI_LOG << "Before update: \nMean: [" << mean << "]\n Var: [" << var << "]";
+    KALDI_LOG << "...cmvn loaded";
+    KALDI_LOG << "...update flag="<< update_flag;
+    if (update_flag == "cmvn"){
+      KALDI_LOG << "Before update: \nMean: " << mean << "\n Var: " << var;
     }
 
     // currently no feature transform is supported
@@ -114,17 +124,21 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(nnet_filename);
 
+    KALDI_LOG << "...load nnet done";
     // only allow the first layer, which is <cmvnbl> to be updated
     std::string learn_factors = "1";
     for (int32 i = 1; i < nnet.LayerCount(); ++i) {
-      if (dynamic_cast<UpdatableComponent*>(nnet.Layer(i))->IsUpdatable()) {
+      if ((nnet.Layer(i))->IsUpdatable()) {
         learn_factors += ",0";
       }
     }
+    KALDI_LOG << "...learn_factor=" << learn_factors;
     nnet.SetLearnRate(learn_rate, learn_factors.c_str());
     nnet.SetMomentum(momentum);
     nnet.SetL2Penalty(l2_penalty);
     nnet.SetL1Penalty(l1_penalty);
+
+    KALDI_LOG << "...configure nnet done.";
 
     if (nnet.Layer(0)->GetType() != Component::kCMVNBL) {
       KALDI_ERR<< "The first layer is not <cmvnbl> layer!";
@@ -133,8 +147,10 @@ int main(int argc, char *argv[]) {
 
     // initialize the cmvnbl layer
     cmvnbl_layer->SetUpdateFlag(update_flag);
-    cmvnbl_layer->SetParamKind(have_energy);
+    cmvnbl_layer->SetParamKind(have_energy, num_fbank, delta_order);
     cmvnbl_layer->SetCMVN(mean, var);
+
+    KALDI_LOG << "...configure cmvn layer done";
 
     kaldi::int64 tot_t = 0;
 
@@ -185,7 +201,7 @@ int main(int argc, char *argv[]) {
           continue;
         }
 
-        if (num_done % 10000 == 0)
+        if (num_done % 1000 == 0)
         std::cout << num_done << ", " << std::flush;
         num_done++;
 
@@ -228,7 +244,7 @@ int main(int argc, char *argv[]) {
       DoubleMatrixWriter cmvn_writer(output_wspecifier);
       cmvn_writer.Write("global", cmvn_stats);
 
-      KALDI_LOG << "After update: \nMean: [" << mean << "]\n Var: [" << var << "]";
+      KALDI_LOG << "After update: \nMean: " << mean << "\n Var: " << var;
     }
 
     std::cout << "\n" << std::flush;
