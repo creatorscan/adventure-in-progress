@@ -133,7 +133,7 @@ class CMVNBL : public UpdatableComponent {
     if (update_flag_ == "cmvn") {
       UpdateCMVN(input.NumRows());
     } else if (update_flag_ == "noise") {
-      KALDI_ERR<< "Not implemented yet!";
+      UpdateNoise(input.NumRows());
     }
 
       // update the layer weights
