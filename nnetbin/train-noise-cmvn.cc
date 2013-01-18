@@ -48,8 +48,8 @@ int main(int argc, char *argv[]) {
     po.Register("delta-order", &delta_order,
                 "Delta order of features, [1,2,3]");
 
-    bool norm_vars = true;
-    po.Register("norm-vars", &norm_vars, "If true, normalize variances");
+    bool update_vars = true;
+    po.Register("update-vars", &update_vars, "If true, estimate variances");
 
     bool cross_validate = false;
     po.Register("cross-validate", &cross_validate,
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
 
     // initialize the cmvnbl layer
     if (!cross_validate) {
-      cmvnbl_layer->SetUpdateFlag(update_flag);
+      cmvnbl_layer->SetUpdateFlag(update_flag, update_vars);
     }
     cmvnbl_layer->SetParamKind(have_energy, num_fbank, delta_order);
     cmvnbl_layer->SetCMVN(mean, var);
