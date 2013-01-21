@@ -63,7 +63,7 @@ void Relu(const CuMatrix<Real>& X, CuMatrix<Real>* Y) {
 }
 
 template<typename Real>
-void DiffRelu(const CuMatrix<Real>& Ein, const CuMatrix<Real>& Y, CuMatrix<Real>& Eout) {
+void DiffRelu(const CuMatrix<Real>& Ein, const CuMatrix<Real>& Y, CuMatrix<Real>* Eout) {
 #if HAVE_CUDA==1
   if(CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -116,7 +116,7 @@ void SoftRelu(const CuMatrix<Real>& X, CuMatrix<Real>* Y) {
 }
 
 template<typename Real>
-void DiffSoftRelu(const CuMatrix<Real>& Ein, const CuMatrix<Real>& X, CuMatrix<Real>& Eout) {
+void DiffSoftRelu(const CuMatrix<Real>& Ein, const CuMatrix<Real>& X, CuMatrix<Real>* Eout) {
 #if HAVE_CUDA==1
   if(CuDevice::Instantiate().Enabled()) {
     Timer tim;
