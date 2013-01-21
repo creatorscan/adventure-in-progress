@@ -94,6 +94,12 @@ Component* Component::Read(std::istream &is, bool binary, Nnet *nnet) {
     case Component::kCMVNBL:
       p_comp = new CMVNBL(dim_in, dim_out, nnet);
       break;
+    case Component::kRelu:
+      p_comp = new Relu(dim_in, dim_out, nnet);
+      break;
+    case Component::kSoftRelu:
+      p_comp = new SoftRelu(dim_in, dim_out, nnet);
+      break;
     case Component::kUnknown:
     default:
       KALDI_ERR<< "Missing type: " << token;
