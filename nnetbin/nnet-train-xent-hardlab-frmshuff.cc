@@ -51,6 +51,12 @@ int main(int argc, char *argv[]) {
     po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
     po.Register("l1-penalty", &l1_penalty, "L1 penalty (promote sparsity)");
 
+    bool average_grad = false;
+    po.Register("average-grad", &average_grad, "Whether to average the gradient in the bunch");
+
+    std::string learn_factors = "";
+    po.Register("learn-factors", &learn_factors, "Learning factor for each updatable layer, separated by ',' and work together with learn rate");
+
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
 
@@ -87,10 +93,15 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
 
-    nnet.SetLearnRate(learn_rate, NULL);
+    if(learn_factors == ""){
+      nnet.SetLearnRate(learn_rate, NULL);
+    }else{
+      nnet.SetLearnRate(learn_rate, learn_factors.c_str());
+    }
     nnet.SetMomentum(momentum);
     nnet.SetL2Penalty(l2_penalty);
     nnet.SetL1Penalty(l1_penalty);
+    nnet.SetAverageGrad(average_grad);
 
     kaldi::int64 tot_t = 0;
 
