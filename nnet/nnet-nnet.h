@@ -93,6 +93,7 @@ class Nnet {
   void SetMomentum(BaseFloat mmt);
   void SetL2Penalty(BaseFloat l2);
   void SetL1Penalty(BaseFloat l1);
+  void SetAverageGrad(bool flag);
 
  private:
   /// Nnet is a vector of components
@@ -203,6 +204,13 @@ inline void Nnet::SetL1Penalty(BaseFloat l1) {
   }
 }
 
+inline void Nnet::SetAverageGrad(bool flag) {
+  for(int32 i=0; i<LayerCount(); i++) {
+    if (nnet_[i]->IsUpdatable()) {
+      dynamic_cast<UpdatableComponent*>(nnet_[i])->SetAverageGrad(flag);
+    }
+  }
+}
 
 
 

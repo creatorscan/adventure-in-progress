@@ -56,14 +56,15 @@ class DropoutBL : public UpdatableComponent {
   }
 
   void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
-    if (prob_mask.NumCols() != in.NumCols() || prob_mask.NumRows() != in.NumRows()) {
+    if (prob_mask.NumCols() != in.NumCols()
+        || prob_mask.NumRows() != in.NumRows()) {
       prob_mask.Resize(in.NumRows(), in.NumCols());
       prob_mask.Set(0.5);
       value_mask.Resize(in.NumRows(), in.NumCols());
     }
-    cu_rand.BinarizeProbs(prob_mask, &value_mask); // value mask is kept for use in back propagation
+    cu_rand.BinarizeProbs(prob_mask, &value_mask);  // value mask is kept for use in back propagation
     prob_mask.CopyFromMat(value_mask);
-    prob_mask.MulElements(in); // prob_mask as masked input
+    prob_mask.MulElements(in);  // prob_mask as masked input
 
     // precopy bias
     out->AddVecToRows(1.0, bias_, 0.0);
@@ -82,9 +83,18 @@ class DropoutBL : public UpdatableComponent {
               const CuMatrix<BaseFloat> &err) {
     // compute gradient
     prob_mask.CopyFromMat(value_mask);
-    prob_mask.MulElements(input); // only the active links are updated
-    linearity_corr_.AddMatMat(1.0, err, kTrans, prob_mask, kNoTrans, momentum_);
-    bias_corr_.AddRowSumMat(1.0, err, momentum_);
+    prob_mask.MulElements(input);  // only the active links are updated
+    if (average_grad_) {
+      linearity_corr_.AddMatMat(1.0 / input.NumRows(), err, kTrans, prob_mask,
+                                kNoTrans,
+                                momentum_);
+      bias_corr_.AddRowSumMat(1.0 / input.NumRows(), err, momentum_);
+    } else {
+      linearity_corr_.AddMatMat(1.0, err, kTrans, prob_mask, kNoTrans,
+                                momentum_);
+      bias_corr_.AddRowSumMat(1.0, err, momentum_);
+    }
+
     // l2 regularization
     if (l2_penalty_ != 0.0) {
       BaseFloat l2 = learn_rate_ * l2_penalty_ * input.NumRows();
@@ -130,7 +140,7 @@ class DropoutBL : public UpdatableComponent {
   CuRand<BaseFloat> cu_rand;  // random generator
   CuMatrix<BaseFloat> prob_mask;  // the dropout mask, input features are masked to dropout 50% before forward,
                                   // this mask is actually with all elements to be 0.5
-  CuMatrix<BaseFloat> value_mask; // elements are either 1 or 0
+  CuMatrix<BaseFloat> value_mask;  // elements are either 1 or 0
 };
 
 }  // namespace

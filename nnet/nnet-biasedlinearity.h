@@ -15,10 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-
 #ifndef KALDI_NNET_BIASEDLINEARITY_H
 #define KALDI_NNET_BIASEDLINEARITY_H
-
 
 #include "nnet/nnet-component.h"
 
@@ -26,13 +24,17 @@ namespace kaldi {
 
 class BiasedLinearity : public UpdatableComponent {
  public:
-  BiasedLinearity(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet) 
-    : UpdatableComponent(dim_in, dim_out, nnet), 
-      linearity_(dim_out, dim_in), bias_(dim_out),
-      linearity_corr_(dim_out, dim_in), bias_corr_(dim_out) 
-  { }
+  BiasedLinearity(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet)
+      : UpdatableComponent(dim_in, dim_out, nnet),
+        linearity_(dim_out, dim_in),
+        bias_(dim_out),
+        linearity_corr_(dim_out, dim_in),
+        bias_corr_(dim_out)
+  {
+  }
   ~BiasedLinearity()
-  { }
+  {
+  }
 
   ComponentType GetType() const {
     return kBiasedLinearity;
@@ -59,24 +61,31 @@ class BiasedLinearity : public UpdatableComponent {
     out->AddMatMat(1.0, in, kNoTrans, linearity_, kTrans, 1.0);
   }
 
-  void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err, CuMatrix<BaseFloat> *out_err) {
+  void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err,
+                        CuMatrix<BaseFloat> *out_err) {
     // multiply error by weights
     out_err->AddMatMat(1.0, in_err, kNoTrans, linearity_, kNoTrans, 0.0);
   }
 
-
-  void Update(const CuMatrix<BaseFloat> &input, const CuMatrix<BaseFloat> &err) {
+  void Update(const CuMatrix<BaseFloat> &input,
+              const CuMatrix<BaseFloat> &err) {
     // compute gradient
-    linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
-    bias_corr_.AddRowSumMat(1.0, err, momentum_);
+    if (average_grad_) {
+      linearity_corr_.AddMatMat(1.0 / input.NumRows(), err, kTrans, input,
+                                kNoTrans, momentum_);
+      bias_corr_.AddRowSumMat(1.0 / input.NumRows(), err, momentum_);
+    } else {
+      linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
+      bias_corr_.AddRowSumMat(1.0, err, momentum_);
+    }
     // l2 regularization
     if (l2_penalty_ != 0.0) {
-      BaseFloat l2 = learn_rate_*l2_penalty_*input.NumRows();
+      BaseFloat l2 = learn_rate_ * l2_penalty_ * input.NumRows();
       linearity_.AddMat(-l2, linearity_);
     }
     // l1 regularization
     if (l1_penalty_ != 0.0) {
-      BaseFloat l1 = learn_rate_*input.NumRows()*l1_penalty_;
+      BaseFloat l1 = learn_rate_ * input.NumRows() * l1_penalty_;
       cu::RegularizeL1(&linearity_, &linearity_corr_, l1, learn_rate_);
     }
     // update
@@ -92,6 +101,6 @@ class BiasedLinearity : public UpdatableComponent {
   CuVector<BaseFloat> bias_corr_;
 };
 
-} // namespace
+}  // namespace
 
 #endif

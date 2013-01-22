@@ -110,8 +110,15 @@ class CMVNBL : public UpdatableComponent {
     }
 
     // compute gradient
-    linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, 0.0);
-    bias_corr_.AddRowSumMat(1.0, err, 0.0);
+    if (average_grad_) {
+      linearity_corr_.AddMatMat(1.0 / input.NumRows(), err, kTrans, input,
+                                kNoTrans,
+                                momentum_);
+      bias_corr_.AddRowSumMat(1.0 / input.NumRows(), err, momentum_);
+    } else {
+      linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
+      bias_corr_.AddRowSumMat(1.0, err, momentum_);
+    }
     //linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
     //bias_corr_.AddRowSumMat(1.0, err, momentum_);
     /*
@@ -317,13 +324,13 @@ class CMVNBL : public UpdatableComponent {
        * Update variance
        */
       Matrix<BaseFloat> linearity_corr(linearity_corr_.NumRows(),
-          linearity_corr_.NumCols(),
-          kSetZero);
+                                       linearity_corr_.NumCols(),
+                                       kSetZero);
       linearity_corr_.CopyToMat(&linearity_corr);
 
       Vector<double> var_z_corr(num_fbank_ * delta_order_, kSetZero);
       // sum over different frames together
-      for (int32 f = 0, t=0; f < win_len_; ++f) {
+      for (int32 f = 0, t = 0; f < win_len_; ++f) {
         for (int32 d = 0, k = 0, j = 0; d < delta_order_; ++d) {
           for (int32 i = 0; i < num_fbank_; ++i, ++j, ++k, ++t) {
             var_z_corr(j) += static_cast<double>(-0.5 * linearity_corr(t, t)
@@ -335,7 +342,7 @@ class CMVNBL : public UpdatableComponent {
         }
       }
       inv_var.Scale(-1.0);  // 1.0 / sqrt(var_g)
-      inv_var.ApplyPow(3.0);// 1.0 / sqrt(var_g)^3
+      inv_var.ApplyPow(3.0);  // 1.0 / sqrt(var_g)^3
       for (int32 d = 0, k = 0, j = 0; d < delta_order_; ++d) {
         for (int32 i = 0; i < num_fbank_; ++i, ++j, ++k) {
           var_z_corr(j) *= (inv_var(k) * vec_Jz_(i) * vec_Jz_(i) * var_z_(j));
@@ -368,12 +375,12 @@ class CMVNBL : public UpdatableComponent {
       // compensate the mean and variance
       Matrix<double> Jx, Jz;
       CompensateDiagGaussian_FBank(mu_h_, mu_z_, var_z_, have_energy_,
-          num_fbank_,
-          delta_order_,
-          noise_mu_,
-          noise_var_,
-          Jx,
-          Jz);
+                                   num_fbank_,
+                                   delta_order_,
+                                   noise_mu_,
+                                   noise_var_,
+                                   Jx,
+                                   Jz);
       vec_Jx_.CopyDiagFromMat(Jx);
       vec_Jz_.CopyDiagFromMat(Jz);
 
@@ -387,7 +394,7 @@ class CMVNBL : public UpdatableComponent {
     for (int32 i = 0; i < win_len_; ++i) {
       for (int32 j = 0; j < feat_dim_; ++j) {
         host_linearity_(i * feat_dim_ + j, i * feat_dim_ + j) =
-        static_cast<BaseFloat>(inv_std(j));
+            static_cast<BaseFloat>(inv_std(j));
         host_bias_(i * feat_dim_ + j) = static_cast<BaseFloat>(-noise_mu_(j)
             * inv_std(j));
       }
@@ -397,15 +404,15 @@ class CMVNBL : public UpdatableComponent {
   }
 
   void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
-      const Vector<double> &mu_z,
-      const Vector<double> &var_z,
-      bool have_energy,
-      int32 num_fbank,
-      int32 delta_order,
-      Vector<double> &mean,
-      Vector<double> &cov,
-      Matrix<double> &Jx,
-      Matrix<double> &Jz) {
+                                    const Vector<double> &mu_z,
+                                    const Vector<double> &var_z,
+                                    bool have_energy,
+                                    int32 num_fbank,
+                                    int32 delta_order,
+                                    Vector<double> &mean,
+                                    Vector<double> &cov,
+                                    Matrix<double> &Jx,
+                                    Matrix<double> &Jz) {
     KALDI_ASSERT(delta_order>=1 && delta_order<=3);
 
     // compute the necessary transforms
@@ -418,11 +425,11 @@ class CMVNBL : public UpdatableComponent {
     for (int32 ii = 0; ii < num_fbank; ++ii) {
       tmp_fbank(ii) = mu_z(ii) - mean(ii) - mu_h(ii);
     }  // mu_n - mu_x - mu_h
-    tmp_fbank.ApplyExp();// exp( mu_n - mu_x - mu_h )
-    tmp_fbank.Add(1.0);// 1 + exp( (mu_n - mu_x - mu_h) )
-    Vector<double> tmp_inv(tmp_fbank);// keep a version
-    tmp_fbank.ApplyLog();// log ( 1 + exp( (mu_n - mu_x - mu_h) ) )
-    tmp_inv.InvertElements();// 1.0 / ( 1 + exp( (mu_n - mu_x - mu_h) ) )
+    tmp_fbank.ApplyExp();  // exp( mu_n - mu_x - mu_h )
+    tmp_fbank.Add(1.0);  // 1 + exp( (mu_n - mu_x - mu_h) )
+    Vector<double> tmp_inv(tmp_fbank);  // keep a version
+    tmp_fbank.ApplyLog();  // log ( 1 + exp( (mu_n - mu_x - mu_h) ) )
+    tmp_inv.InvertElements();  // 1.0 / ( 1 + exp( (mu_n - mu_x - mu_h) ) )
 
     // new static mean
     for (int32 ii = 0; ii < num_fbank; ++ii) {
@@ -435,7 +442,7 @@ class CMVNBL : public UpdatableComponent {
     // compute I_J
     Jz.CopyFromMat(Jx);
     for (int32 ii = 0; ii < num_fbank; ++ii)
-    Jz(ii, ii) = 1.0 - Jz(ii, ii);
+      Jz(ii, ii) = 1.0 - Jz(ii, ii);
 
     // compute and update mean
     if (g_kaldi_verbose_level >= 9) {
@@ -446,13 +453,13 @@ class CMVNBL : public UpdatableComponent {
     mu_s.CopyFromVec(mu_y_s);
     if (delta_order >= 2) {
       SubVector<double> mu_dt(mean, num_fbank + (have_energy ? 1 : 0),
-          num_fbank);
+                              num_fbank);
       tmp_mu.CopyFromVec(mu_dt);
       mu_dt.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
     }
     if (delta_order == 3) {
       SubVector<double> mu_acc(mean, 2 * (num_fbank + (have_energy ? 1 : 0)),
-          num_fbank);
+                               num_fbank);
       tmp_mu.CopyFromVec(mu_acc);
       mu_acc.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
     }
@@ -460,15 +467,15 @@ class CMVNBL : public UpdatableComponent {
       KALDI_LOG<< "Mean After: " << mean;
     }
 
-    // compute and update covariance
+      // compute and update covariance
     if (g_kaldi_verbose_level >= 9) {
       KALDI_LOG<< "Covarianc Before: " << cov;
     }
     for (int32 ii = 0; ii < delta_order; ++ii) {
       Matrix<double> tmp_var1(Jx), tmp_var2(Jz), new_var(num_fbank,
-          num_fbank);
+                                                         num_fbank);
       SubVector<double> x_var(cov, ii * (num_fbank + (have_energy ? 1 : 0)),
-          num_fbank);
+                              num_fbank);
       SubVector<double> n_var(var_z, ii * num_fbank, num_fbank);
 
       tmp_var1.MulColsVec(x_var);

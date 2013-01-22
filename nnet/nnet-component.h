@@ -162,7 +162,7 @@ class UpdatableComponent : public Component {
  public: 
   UpdatableComponent(MatrixIndexT input_dim, MatrixIndexT output_dim, Nnet *nnet)
     : Component(input_dim, output_dim, nnet),
-      learn_rate_(0.0), momentum_(0.0), l2_penalty_(0.0), l1_penalty_(0.0) { }
+      learn_rate_(0.0), momentum_(0.0), l2_penalty_(0.0), l1_penalty_(0.0), average_grad_(false) { }
   virtual ~UpdatableComponent() { }
 
   /// Check if contains trainable parameters 
@@ -210,11 +210,21 @@ class UpdatableComponent : public Component {
     return l1_penalty_; 
   }
 
+  /// Sets whether to use average gradients
+  void SetAverageGrad(bool flag) {
+    average_grad_ = flag;
+  }
+  /// Gets whether to use average gradients
+  bool GetAverageGrad() {
+    return average_grad_;
+  }
+
  protected:
   BaseFloat learn_rate_; ///< learning rate (0.0..0.01)
   BaseFloat momentum_;   ///< momentum value (0.0..1.0)
   BaseFloat l2_penalty_; ///< L2 regularization constant (0.0..1e-4)
   BaseFloat l1_penalty_; ///< L1 regularization constant (0.0..1e-4)
+  bool average_grad_;    ///< whether divide the gradient by number of samples
 };
 
 
