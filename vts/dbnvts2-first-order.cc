@@ -89,19 +89,19 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
     // compute the var scale first
 
     w_w.SetZero();
-    w_w.AddVec2(1.0, weight.Row(pdf)); // w .* w
-    w_w.MulElements(ngmm.vars_.Row(0)); // w_T * var_pos * w
+    w_w.AddVec2(1.0, weight.Row(pdf));  // w .* w
+    w_w.MulElements(ngmm.vars_.Row(0));  // w_T * var_pos * w
     w2 = w_w.Sum() / 2;
 
     w_mu.CopyRowFromMat(weight, pdf);
     w_mu.MulElements(ngmm.means_.Row(0));  // w .* mu_pos
     w1 = w_mu.Sum();
 
-    var_scale(pdf) = w2 / ( bias(pdf) - pos2neg_log_prior_ratio(pdf) + w1);
+    var_scale(pdf) = w2 / (bias(pdf) - pos2neg_log_prior_ratio(pdf) + w1);
 
     w_mu.CopyRowFromMat(weight, pdf);  // w
     w_mu.MulElements(ngmm.vars_.Row(0));  // w .* var_pos
-    (ngmm.means_.Row(0)).AddVec(- 1.0 / var_scale(pdf), w_mu);  // mu_pos - w .* var_pos
+    (ngmm.means_.Row(0)).AddVec(-1.0 / var_scale(pdf), w_mu);  // mu_pos - w .* var_pos
 
     ngmm.CopyToDiagGmm(gmm);
     gmm->ComputeGconsts();
@@ -181,6 +181,56 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
 //
 //}
 
+
+/*
+ * Compute the NN input layer from the positive and negative Gaussians.
+ *
+ */
+void ConvertPosNegGaussianToNNLayer(const AmDiagGmm &pos_am_gmm,
+                            const AmDiagGmm &neg_am_gmm,
+                            const Vector<double> &pos2neg_log_prior_ratio,
+                            const Vector<double> var_scale,
+                            Matrix<BaseFloat> &linearity,
+                            Vector<BaseFloat> &bias) {
+  if (linearity.NumRows() != pos_am_gmm.NumPdfs()
+      || linearity.NumCols() != pos_am_gmm.Dim()) {
+    linearity.Resize(pos_am_gmm.NumPdfs(), pos_am_gmm.Dim(), kSetZero);
+  }
+  if (bias.Dim() != pos_am_gmm.NumPdfs()) {
+    bias.Resize(pos_am_gmm.NumPdfs(), kSetZero);
+  }
+
+  Vector<double> mu(pos_am_gmm.Dim(),kSetZero);
+
+  int32 num_pdf = pos_am_gmm.NumPdfs();
+  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
+
+    // iterate all the Gaussians
+    const DiagGmm *gmm_pos = &(pos_am_gmm.GetPdf(pdf));
+    DiagGmmNormal ngmm_pos(*gmm_pos);
+
+    const DiagGmm *gmm_neg = &(neg_am_gmm.GetPdf(pdf));
+    DiagGmmNormal ngmm_neg(*gmm_neg);
+
+    KALDI_ASSERT(gmm_pos->NumGauss()==1 && gmm_neg->NumGauss()==1);
+
+    mu.CopyRowFromMat(ngmm_pos.means_, 0); // pos_mu
+    mu.AddVec(-1.0, ngmm_neg.means_.Row(0)); // pos_mu - neg_mu
+    mu.DivElements(ngmm_pos.vars_.Row(0)); // (pos_mu - neg_mu)_T / var
+    mu.Scale(var_scale(pdf));
+
+    linearity.CopyRowFromVec(Vector<BaseFloat>(mu), pdf);
+
+    mu.SetZero();
+    mu.AddVec2(1.0, ngmm_pos.means_.Row(0)); // pos_mu * pos_mu
+    mu.AddVec2(-1.0, ngmm_neg.means_.Row(0)); // pos_mu * pos_mu - neg_mu * neg_mu
+    mu.DivElements(ngmm_pos.vars_.Row(0)); // pos_mu * var_-1 * pos_mu_T - neg_mu * var_-1 * neg_mu_T
+
+    bias(pdf) = static_cast<BaseFloat>(pos2neg_log_prior_ratio(pdf) - 0.5 * var_scale(pdf) * mu.Sum());
+  }
+
+}
+
 /*
  * Interpolate the positive and negative covariance to make them same.
  *
@@ -256,8 +306,10 @@ void ScaleVariance(const Vector<double> &var_scale, AmDiagGmm &pos_am_gmm,
  */
 void ComputeGaussianLogLikelihoodRatio(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
-    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
-    const Vector<double> &llr_scale, Matrix<BaseFloat> &llr) {
+    const AmDiagGmm &neg_am_gmm,
+    const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale,
+    Matrix<BaseFloat> &llr) {
   int32 num_pdfs = pos_am_gmm.NumPdfs();
   Vector<double> tmp(pos_am_gmm.Dim());
 
@@ -333,9 +385,12 @@ void ComputeGaussianLogLikelihoodRatio(
  */
 void ComputeGaussianLogLikelihoodRatio_Interpolate(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
-    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
-    const Vector<double> &llr_scale, const Matrix<BaseFloat> &ori_weights,
-    const Vector<BaseFloat> &ori_bias, BaseFloat new_ratio, Matrix<BaseFloat> &llr) {
+    const AmDiagGmm &neg_am_gmm,
+    const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale,
+    const Matrix<BaseFloat> &ori_weights,
+    const Vector<BaseFloat> &ori_bias,
+    BaseFloat new_ratio, Matrix<BaseFloat> &llr) {
   int32 num_pdfs = pos_am_gmm.NumPdfs();
   Vector<double> tmp(pos_am_gmm.Dim());
 
@@ -368,9 +423,9 @@ void ComputeGaussianLogLikelihoodRatio_Interpolate(
 
   // interpolate
   weights.Scale(new_ratio);
-  weights.AddMat(1-new_ratio, ori_weights);
+  weights.AddMat(1 - new_ratio, ori_weights);
   bias.Scale(new_ratio);
-  bias.AddVec(1-new_ratio, ori_bias);
+  bias.AddVec(1 - new_ratio, ori_bias);
 
   llr.SetZero();
   llr.AddVecToRows(1.0, bias);
@@ -385,8 +440,10 @@ void ComputeGaussianLogLikelihoodRatio_Interpolate(
  */
 void ComputeGaussianLogLikelihoodRatio_General(
     const Matrix<BaseFloat> &feats, const AmDiagGmm &pos_am_gmm,
-    const AmDiagGmm &neg_am_gmm, const Vector<double> &pos2neg_log_prior_ratio,
-    const Vector<double> &llr_scale, Matrix<BaseFloat> &llr) {
+    const AmDiagGmm &neg_am_gmm,
+    const Vector<double> &pos2neg_log_prior_ratio,
+    const Vector<double> &llr_scale,
+    Matrix<BaseFloat> &llr) {
   int32 num_pdfs = pos_am_gmm.NumPdfs();
   Vector<double> tmp(pos_am_gmm.Dim());
 

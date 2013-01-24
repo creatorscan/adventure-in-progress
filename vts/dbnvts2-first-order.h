@@ -67,6 +67,19 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
 //    const Vector<BaseFloat> &pos2neg_log_prior_ratio, AmDiagGmm &neg_am_gmm,
 //    Vector<double> &var_scales);
 
+
+/*
+ * Compute the NN input layer from the positive and negative Gaussians.
+ *
+ */
+void ConvertPosNegGaussianToNNLayer(const AmDiagGmm &pos_am_gmm,
+                            const AmDiagGmm &neg_am_gmm,
+                            const Vector<double> &pos2neg_log_prior_ratio,
+                            const Vector<double> var_scale,
+                            Matrix<BaseFloat> &linearity,
+                            Vector<BaseFloat> &bias);
+
+
 /*
  * Interpolate the positive and negative covariance to make them same.
  *
