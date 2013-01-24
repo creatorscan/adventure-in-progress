@@ -24,9 +24,9 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Generate negative Gaussians based on positive Gaussians and decision boundary.\n"
             "Usage:  dbnvts-neg-gauss [options] <pos-am-in> <biaslinearity-layer-in> "
-            "<pos_neg-prior-counts-in> <neg-am-out>  <var-scale-out> <llr-scale-out>\n"
+            "<pos_neg-prior-counts-in> <neg-am-out> <var-scale-out>\n"
             "e.g.: \n"
-            " dbnvts2-neg-gauss pos.mdl bl_layer neg.mdl pos2neg.stats var_scale.stats llr_scale.stats\n";
+            " dbnvts2-neg-gauss pos.mdl bl_layer neg.mdl pos2neg.stats var_scale.stats\n";
 
     ParseOptions po(usage);
 
@@ -43,15 +43,14 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 6) {
+    if (po.NumArgs() != 5) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string pos_am_filename = po.GetArg(1), bl_layer_filename = po.GetArg(
         2), pos2neg_prior_filename = po.GetArg(3), neg_am_out_filename = po
-        .GetArg(4), var_scale_wxfilename = po.GetArg(5), llr_scale_wxfilename =
-        po.GetArg(6);
+        .GetArg(4), var_scale_wxfilename = po.GetArg(5);
 
     // positive AM Gmm
     AmDiagGmm pos_am_gmm;
@@ -73,7 +72,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-        // positive to negative prior ratio
+    // positive to negative prior ratio
     Vector<double> pos2neg_log_prior_ratio(linearity.NumRows(), kSetZero);
     Matrix<double> prior_stats;
     {
@@ -120,9 +119,8 @@ int main(int argc, char *argv[]) {
     AmDiagGmm neg_am_gmm;
     neg_am_gmm.CopyFromAmDiagGmm(pos_am_gmm);
     Vector<double> var_scale(linearity.NumRows(), kSetZero);
-    Vector<double> llr_scale(linearity.NumRows(), kSetZero);
     ComputeNegativeReflectionGmm(linearity, bias, pos2neg_log_prior_ratio,
-                                 neg_am_gmm, var_scale, llr_scale);
+                                 neg_am_gmm, var_scale);
 
     {
       Output ko(neg_am_out_filename, binary);
@@ -135,12 +133,6 @@ int main(int argc, char *argv[]) {
       var_scale.Write(ko.Stream(), binary);
     }
     KALDI_LOG<< "Write var scale stats.";
-
-    {
-      Output ko(llr_scale_wxfilename, binary);
-      llr_scale.Write(ko.Stream(), binary);
-    }
-    KALDI_LOG<< "Write LLR scale stats.";
 
     return 1;
   } catch (const std::exception &e) {
