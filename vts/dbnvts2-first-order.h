@@ -47,8 +47,7 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
                                   const Vector<BaseFloat> &bias,
                                   const Vector<double> &pos2neg_log_prior_ratio,
                                   AmDiagGmm &neg_am_gmm,
-                                  Vector<double> &var_scale,
-                                  Vector<double> &llr_scale);
+                                  Vector<double> &var_scale);
 
 ///*
 // * The negative mean is the reflection of the positive mean against the

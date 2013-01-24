@@ -68,13 +68,12 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
                                   const Vector<BaseFloat> &bias,
                                   const Vector<double> &pos2neg_log_prior_ratio,
                                   AmDiagGmm &neg_am_gmm,
-                                  Vector<double> &var_scale,
-                                  Vector<double> &llr_scale) {
+                                  Vector<double> &var_scale) {
 
   int32 feat_dim = weight.NumCols();
   Vector<double> w_mu(feat_dim, kSetZero);
   Vector<double> w_w(feat_dim, kSetZero);
-  double coef = 0.0, w2, wpos;
+  double w1, w2;
 
   // iterate all the GMMs
   int32 num_pdf = neg_am_gmm.NumPdfs();
@@ -85,29 +84,24 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
     DiagGmm *gmm = &(neg_am_gmm.GetPdf(pdf));
     DiagGmmNormal ngmm(*gmm);
 
-    w_w.SetZero();
-    w_w.AddVec2(1.0, weight.Row(pdf));
-    w2 = w_w.Sum();
-
     KALDI_ASSERT(gmm->NumGauss()==1);
+
     // compute the var scale first
+
+    w_w.SetZero();
+    w_w.AddVec2(1.0, weight.Row(pdf)); // w .* w
+    w_w.MulElements(ngmm.vars_.Row(0)); // w_T * var_pos * w
+    w2 = w_w.Sum() / 2;
 
     w_mu.CopyRowFromMat(weight, pdf);
     w_mu.MulElements(ngmm.means_.Row(0));  // w .* mu_pos
-    wpos = w_mu.Sum() + bias(pdf);  // w .* mu_pos + b
+    w1 = w_mu.Sum();
 
-    w_mu.CopyFromVec(w_w);
-    w_mu.MulElements(ngmm.vars_.Row(0));  // w_T * var_pos * w
+    var_scale(pdf) = w2 / ( bias(pdf) - pos2neg_log_prior_ratio(pdf) + w1);
 
-    var_scale(pdf) = ((wpos * wpos / w2) - 0.5 * pos2neg_log_prior_ratio(pdf))
-        / ((wpos * wpos * w_mu.Sum()) / (w2 * w2));
-
-    llr_scale(pdf) = 0.5 * w2 / wpos;  // w_T * w / (2 * (w_T * mu_pos + b))
-
-    coef = 2 * var_scale(pdf) * wpos / w2;
     w_mu.CopyRowFromMat(weight, pdf);  // w
     w_mu.MulElements(ngmm.vars_.Row(0));  // w .* var_pos
-    (ngmm.means_.Row(0)).AddVec(-coef, w_mu);  // mu_pos - w .* var_pos
+    (ngmm.means_.Row(0)).AddVec(- 1.0 / var_scale(pdf), w_mu);  // mu_pos - w .* var_pos
 
     ngmm.CopyToDiagGmm(gmm);
     gmm->ComputeGconsts();
