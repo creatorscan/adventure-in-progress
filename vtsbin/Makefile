@@ -10,7 +10,7 @@ BINFILES = vts-model-decode vts-compute-mono-post vts-init-noise dbnvts-init-mod
 		   copy-feats-to-matlab compute-utt-noise vts-noise-decode compute-average-noise \
 		   vtsbnd-acc-stats vtsbnd-forward dbnvts2-acc-stats dbnvts2-neg-gauss dbnvts2-forward \
 		   dbnvts2-test-kl dbnvts2-test-gmm dbnvts2-sum-accs dbnvts2-sum-priors kl-divergence-gauss \
-		   dbnvts2-forward-clean dbnvts2-acc-stats-act dbnvts2-compensate-model dbnvts2-joint-forward-clean \
+		   dbnvts2-acc-stats-act dbnvts2-compensate-model dbnvts2-joint-forward-clean \
 		   dbnvts2-joint-forward dbnvts2-compute-llr dbnvts2-forward-interpolate remove-trans-model \
 		   vts-acc-gmm-stats-ali vts-gmm-sum-accs vts-gmm-est vts-compute-obj vts-sum-obj vts-apply-global-cmvn-fbank \
 		   vts-feats vts-feats-fbank noise-mfc2fbk

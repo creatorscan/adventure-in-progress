@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
       }
 
           // forward through the new generative front end
-      Matrix<BaseFloat> mat(feat.NumRows(), pos_noise_am.NumPdfs(), kSetZero);
+      Matrix<BaseFloat> mat(feat.NumRows(), pos_am_gmm.NumPdfs(), kSetZero);
 
       mat.AddVecToRows(1.0, bias);
       mat.AddMatMat(1.0, feat, kNoTrans, linearity, kTrans, 1.0);
