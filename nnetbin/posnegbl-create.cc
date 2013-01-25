@@ -56,6 +56,11 @@ int main(int argc, char *argv[]) {
     po.Register("ceplifter", &ceplifter,
                 "CepLifter value used for feature extraction");
 
+    std::string back_nnet = "";
+    po.Register(
+        "back-nnet", &back_nnet,
+        "Back-end nnet model file, to be concatenated after this front end");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 5) {
@@ -65,9 +70,7 @@ int main(int argc, char *argv[]) {
 
     std::string pos_model_filename = po.GetArg(1), neg_model_filename = po
         .GetArg(2), pos2neg_prior_filename = po.GetArg(3), var_scale_filename =
-        po
-            .GetArg(4),
-        model_out_filename = po.GetArg(5);
+        po.GetArg(4), model_out_filename = po.GetArg(5);
 
     // positive AM Gmm
     AmDiagGmm pos_am_gmm;
@@ -111,17 +114,27 @@ int main(int argc, char *argv[]) {
       KALDI_ASSERT(var_scale.Dim() == num_pdfs);
     }
 
+    Nnet back;
+    if (back_nnet != "") {
+      back.Read(back_nnet);
+    }
+
     int32 indim = pos_am_gmm.Dim();
     int32 outdim = num_pdfs;
 
     PosNegBL *layer = new PosNegBL(indim, outdim, NULL);
     layer->CreateModel(num_frame, delta_order, num_cepstral, num_fbank,
-                       ceplifter, pos2neg_log_prior_ratio, var_scale,
-                       pos_am_gmm, neg_am_gmm);
+                       ceplifter,
+                       pos2neg_log_prior_ratio, var_scale,
+                       pos_am_gmm,
+                       neg_am_gmm);
 
     {
       Output ko(model_out_filename, binary_write);
       layer->Write(ko.Stream(), binary_write);
+      if(back_nnet!=""){
+        back.Write(ko.Stream(), binary_write);
+      }
     }
 
     KALDI_LOG<< "Written model to " << model_out_filename;
