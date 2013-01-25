@@ -1,6 +1,6 @@
-// nnetbin/posnegbl-forward.cc
+// nnetbin/posnegbl-nnet-forward.cc
 
-// forward through the PosNegBL layer
+// forward through the nnet with the PosNegBL front layer
 
 #include <limits> 
 
@@ -16,12 +16,16 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Perform forward pass through Neural Network.\n"
-            "Usage: posnegbl-forward [options] <model-in> <feature-rspecifier> "
+            "Usage: posnegbl-nnet-forward [options] <model-in> <feature-rspecifier> "
             "<feature-wspecifier> [<noise-rspecifier>]\n"
             "e.g.: \n"
-            " posnegbl-forward nnet ark:features.ark ark:out.ark ark:noise.ark\n";
+            " posnegbl-nnet-forward nnet ark:features.ark ark:out.ark ark:noise.ark\n";
 
     ParseOptions po(usage);
+
+    std::string feature_transform;
+    po.Register("feature-transform", &feature_transform,
+                "Feature transform Neural Network");
 
     bool compensate_var = true;
     po.Register(
@@ -40,6 +44,25 @@ int main(int argc, char *argv[]) {
         "positive-var-weight",
         &positive_var_weight,
         "Only effective when shared-var=true, the weight ratio for positive variance");
+
+    std::string class_frame_counts;
+    po.Register("class-frame-counts", &class_frame_counts,
+                "Counts of frames for posterior division by class-priors");
+
+    BaseFloat prior_scale = 1.0;
+    po.Register(
+        "prior-scale",
+        &prior_scale,
+        "scaling factor of prior log-probabilites given by --class-frame-counts");
+
+    bool apply_log = false;
+    po.Register("apply-log", &apply_log, "Transform MLP output to logscale");
+
+    bool no_softmax = false;
+    po.Register(
+        "no-softmax",
+        &no_softmax,
+        "No softmax on MLP output. The MLP outputs directly log-likelihoods, log-priors will be subtracted");
 
     bool silent = false;
     po.Register("silent", &silent, "Don't print any messages");
@@ -64,10 +87,15 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
+    Nnet nnet_transf;
+    if (feature_transform != "") {
+      nnet_transf.Read(feature_transform);
+    }
+
     Nnet nnet;
     nnet.Read(model_filename);
 
-    KALDI_ASSERT(nnet.LayerCount() == 1);
+    // the first layer of the nnet should be PosNegBL layer
     Component *comp = nnet.Layer(0);
     KALDI_ASSERT(comp->GetType() == Component::kPosNegBL);
 
@@ -79,20 +107,51 @@ int main(int argc, char *argv[]) {
     RandomAccessDoubleVectorReader noiseparams_reader(noise_rspecifier);
     BaseFloatMatrixWriter feature_writer(feature_wspecifier);
 
-    Matrix<BaseFloat> nnet_out;
+    CuMatrix<BaseFloat> feats, feats_transf, nnet_out;
+    Matrix<BaseFloat> nnet_out_host;
+
+    // Read the class-counts, compute priors
+    Vector<BaseFloat> tmp_priors;
+    CuVector<BaseFloat> priors;
+    if (class_frame_counts != "") {
+      Input in;
+      in.OpenTextMode(class_frame_counts);
+      tmp_priors.Read(in.Stream(), false);
+      in.Close();
+
+      BaseFloat sum = tmp_priors.Sum();
+      tmp_priors.Scale(1.0 / sum);
+      if (apply_log || no_softmax) {
+        tmp_priors.ApplyLog();
+        tmp_priors.Scale(-prior_scale);
+      } else {
+        tmp_priors.ApplyPow(-prior_scale);
+      }
+
+      // push priors to GPU
+      priors.CopyFromVec(tmp_priors);
+    }
 
     Timer tim;
     if (!silent)
       KALDI_LOG<< "POSNEGBL FEEDFORWARD STARTED";
 
     int32 num_done = 0;
-    int32 outdim = layer->OutputDim();
     // iterate over all the feature files
     for (; !feature_reader.Done(); feature_reader.Next()) {
       // read
       std::string key = feature_reader.Key();
-      const Matrix<BaseFloat> &feats = feature_reader.Value();
-      nnet_out.Resize(feats.NumRows(), outdim, kSetZero);
+      const Matrix<BaseFloat> &mat = feature_reader.Value();
+      //check for NaN/inf
+      for (int32 r = 0; r < mat.NumRows(); r++) {
+        for (int32 c = 0; c < mat.NumCols(); c++) {
+          BaseFloat val = mat(r, c);
+          if (val != val)
+            KALDI_ERR<< "NaN in features of : " << key;
+          if (val == std::numeric_limits < BaseFloat > ::infinity())
+            KALDI_ERR<< "inf in features of : " << key;
+          }
+        }
 
       if (have_noise) {
         // read noise parameters
@@ -113,12 +172,32 @@ int main(int argc, char *argv[]) {
         layer->SetNoise(compensate_var, mu_h, mu_z, var_z, positive_var_weight);
       }
 
-      layer->Forward(feats, &nnet_out);
+      // push it to gpu
+      feats.CopyFromMat(mat);
+      // fwd-pass
+      nnet_transf.Feedforward(feats, &feats_transf);
+      nnet.Feedforward(feats_transf, &nnet_out);
 
+      // convert posteriors to log-posteriors
+      if (apply_log) {
+        nnet_out.ApplyLog();
+      }
+
+      // divide posteriors by priors to get quasi-likelihoods
+      if (class_frame_counts != "") {
+        if (apply_log || no_softmax) {
+          nnet_out.AddVecToRows(1.0, priors, 1.0);
+        } else {
+          nnet_out.MulColsVec(priors);
+        }
+      }
+
+      //download from GPU
+      nnet_out.CopyToMat(&nnet_out_host);
       //check for NaN/inf
-      for (int32 r = 0; r < nnet_out.NumRows(); r++) {
-        for (int32 c = 0; c < nnet_out.NumCols(); c++) {
-          BaseFloat val = nnet_out(r, c);
+      for (int32 r = 0; r < nnet_out_host.NumRows(); r++) {
+        for (int32 c = 0; c < nnet_out_host.NumCols(); c++) {
+          BaseFloat val = nnet_out_host(r, c);
           if (val != val)
             KALDI_ERR<< "NaN in NNet output of : " << key;
           if (val == std::numeric_limits < BaseFloat > ::infinity())
@@ -127,7 +206,7 @@ int main(int argc, char *argv[]) {
         }
 
       // write
-      feature_writer.Write(feature_reader.Key(), nnet_out);
+      feature_writer.Write(key, nnet_out_host);
 
       // progress log
       if (num_done % 100 == 0) {
