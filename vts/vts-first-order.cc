@@ -180,7 +180,7 @@ void GenerateDCTmatrix(int32 num_cepstral, int32 num_fbank, BaseFloat ceplifter,
       || inv_dct_mat->NumCols() != num_cepstral) {
     inv_dct_mat->Resize(num_fbank, num_cepstral, kSetZero);
   } else {
-    dct_mat->SetZero();
+    inv_dct_mat->SetZero();
   }
 
   Vector<double> ceplifter_vec(num_cepstral);

@@ -189,7 +189,7 @@ void ComputeNegativeReflectionGmm(const Matrix<BaseFloat> &weight,
 void ConvertPosNegGaussianToNNLayer(const AmDiagGmm &pos_am_gmm,
                             const AmDiagGmm &neg_am_gmm,
                             const Vector<double> &pos2neg_log_prior_ratio,
-                            const Vector<double> var_scale,
+                            const Vector<double> &var_scale,
                             Matrix<BaseFloat> &linearity,
                             Vector<BaseFloat> &bias) {
   if (linearity.NumRows() != pos_am_gmm.NumPdfs()
