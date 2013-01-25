@@ -60,6 +60,7 @@ class Component {
     kKrylovLinearity,
     kDropoutBL,
     kCMVNBL,
+    kPosNegBL,
 
     kActivationFunction = 0x0200, 
     kSoftmax, 
