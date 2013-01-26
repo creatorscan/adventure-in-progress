@@ -7,6 +7,42 @@
 
 namespace kaldi {
 
+void PosNegBL::UpdateVarScale() {
+  Vector<double> corr(var_scale_.Dim(), kSetZero);
+  Vector<double> mu(input_dim_, kSetZero);
+  Vector<double> grad(input_dim_, kSetZero);
+
+  int32 num_pdf = pos_noise_am_.NumPdfs();
+  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
+
+    // iterate all the Gaussians
+    const DiagGmm *gmm_pos = &(pos_noise_am_.GetPdf(pdf));
+    DiagGmmNormal ngmm_pos(*gmm_pos);
+
+    const DiagGmm *gmm_neg = &(neg_noise_am_.GetPdf(pdf));
+    DiagGmmNormal ngmm_neg(*gmm_neg);
+
+    KALDI_ASSERT(gmm_pos->NumGauss()==1 && gmm_neg->NumGauss()==1);
+
+    mu.CopyRowFromMat(ngmm_pos.means_, 0);
+    mu.AddVec(-1.0, ngmm_neg.means_.Row(0));
+    mu.DivElements(ngmm_pos.vars_.Row(0));
+    mu.MulElements(cpu_linearity_corr_.Row(pdf));
+
+    corr(pdf) = mu.Sum();
+
+    mu.SetZero();
+    mu.AddVec2(1.0, ngmm_pos.means_.Row(0));
+    mu.AddVec2(-1.0, ngmm_neg.means_.Row(0));
+    mu.DivElements(ngmm_pos.vars_.Row(0));
+
+    corr(pdf) -= 0.5 * mu.Sum();
+  }
+
+  var_scale_.AddVec(-learn_rate_, corr);
+
+}
+
 void PosNegBL::PrepareDCTXforms() {
 
   if (g_kaldi_verbose_level >= 1) {
@@ -88,17 +124,30 @@ void PosNegBL::SetNoise(bool compensate_var, const Vector<double> mu_h,
   if (num_cepstral_ <= 0 || num_fbank_ <= 0) {
     KALDI_ERR<< "DCT Transforms are not prepared yet!";
   }
+  compensate_var_ = compensate_var;
+  pos_var_weight_ = pos_var_weight;
+  if(mu_h_.Dim()!=mu_h.Dim()) {
+    mu_h_.Resize(mu_h.Dim());
+  }
+  if (mu_z_.Dim()!=mu_z.Dim()) {
+    mu_z_.Resize(mu_z.Dim());
+  }
+  if(var_z_.Dim()!=var_z.Dim()) {
+    var_z_.Resize(var_z.Dim());
+  }
+  mu_h_.CopyFromVec(mu_h);
+  mu_z_.CopyFromVec(mu_z);
+  var_z_.CopyFromVec(var_z);
 
-  AmDiagGmm pos_noise_am, neg_noise_am;
-  pos_noise_am.CopyFromAmDiagGmm(pos_am_gmm_);
-  neg_noise_am.CopyFromAmDiagGmm(neg_am_gmm_);
+  pos_noise_am_.CopyFromAmDiagGmm(pos_am_gmm_);
+  neg_noise_am_.CopyFromAmDiagGmm(neg_am_gmm_);
 
-  CompensateMultiFrameGmm(mu_h, mu_z, var_z, compensate_var, num_cepstral_, num_fbank_, dct_mat_, inv_dct_mat_, num_frame_, pos_noise_am);
-  CompensateMultiFrameGmm(mu_h, mu_z, var_z, compensate_var, num_cepstral_, num_fbank_, dct_mat_, inv_dct_mat_, num_frame_, neg_noise_am);
+  CompensateMultiFrameGmm(mu_h_, mu_z_, var_z_, compensate_var_, num_cepstral_, num_fbank_, dct_mat_, inv_dct_mat_, num_frame_, pos_noise_am_);
+  CompensateMultiFrameGmm(mu_h_, mu_z_, var_z_, compensate_var_, num_cepstral_, num_fbank_, dct_mat_, inv_dct_mat_, num_frame_, neg_noise_am_);
 
-  InterpolateVariance(pos_var_weight, pos_noise_am, neg_noise_am);
+  InterpolateVariance(pos_var_weight_, pos_noise_am_, neg_noise_am_);
 
-  ConvertPosNegGaussianToNNLayer(pos_noise_am, neg_noise_am, pos2neg_log_prior_ratio_, var_scale_, cpu_linearity_, cpu_bias_);
+  ConvertPosNegGaussianToNNLayer(pos_noise_am_, neg_noise_am_, pos2neg_log_prior_ratio_, var_scale_, cpu_linearity_, cpu_bias_);
 
   linearity_.CopyFromMat(cpu_linearity_);
   bias_.CopyFromVec(cpu_bias_);
@@ -114,6 +163,7 @@ void PosNegBL::CompensateMultiFrameGmm(const Vector<double> &mu_h,
                                        const Matrix<double> &inv_dct_mat,
                                        int32 num_frames,
                                        AmDiagGmm &noise_am_gmm) {
+
   //KALDI_LOG << "Beginning compensate model ...";
   Matrix<double> Jx(num_cepstral, num_cepstral, kSetZero);
   Matrix<double> Jz(num_cepstral, num_cepstral, kSetZero);

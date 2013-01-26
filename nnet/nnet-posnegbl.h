@@ -18,13 +18,17 @@ class PosNegBL : public UpdatableComponent {
         cpu_bias_(dim_out),
         linearity_(dim_out, dim_in),
         bias_(dim_out),
+        cpu_linearity_corr_(dim_out, dim_in),
+        cpu_bias_corr_(dim_out),
         linearity_corr_(dim_out, dim_in),
         bias_corr_(dim_out),
         pos2neg_log_prior_ratio_(dim_out),
         var_scale_(dim_out),
         num_cepstral_(-1),
         num_fbank_(-1),
-        ceplifter_(-1)
+        ceplifter_(-1),
+        compensate_var_(true),
+        pos_var_weight_(1.0)
   {
   }
   ~PosNegBL()
@@ -146,6 +150,17 @@ class PosNegBL : public UpdatableComponent {
       linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
       bias_corr_.AddRowSumMat(1.0, err, momentum_);
     }
+
+    linearity_corr_.CopyToMat(&cpu_linearity_corr_);
+    bias_corr_.CopyToVec(&cpu_bias_corr_);
+
+    // update the log ratio, the gradient equals to bias gradient
+    pos2neg_log_prior_ratio_.AddVec(-learn_rate_, cpu_bias_corr_);
+
+    // update var scale
+    UpdateVarScale();
+
+    /*
     // l2 regularization
     if (l2_penalty_ != 0.0) {
       BaseFloat l2 = learn_rate_ * l2_penalty_ * input.NumRows();
@@ -159,6 +174,7 @@ class PosNegBL : public UpdatableComponent {
     // update
     linearity_.AddMat(-learn_rate_, linearity_corr_);
     bias_.AddVec(-learn_rate_, bias_corr_);
+    */
   }
 
   void PrepareDCTXforms();
@@ -169,6 +185,8 @@ class PosNegBL : public UpdatableComponent {
       BaseFloat pos_var_weight = 1.0);
 
 private:
+
+  void UpdateVarScale();
 
   void CompensateMultiFrameGmm(const Vector<double> &mu_h,
       const Vector<double> &mu_z,
@@ -198,14 +216,17 @@ private:
   CuMatrix<BaseFloat> linearity_;
   CuVector<BaseFloat> bias_;
 
+  Matrix<BaseFloat> cpu_linearity_corr_;
+  Vector<BaseFloat> cpu_bias_corr_;
+
   CuMatrix<BaseFloat> linearity_corr_;
   CuVector<BaseFloat> bias_corr_;
 
   Vector<double> pos2neg_log_prior_ratio_;
   Vector<double> var_scale_;
 
-  AmDiagGmm pos_am_gmm_;
-  AmDiagGmm neg_am_gmm_;
+  AmDiagGmm pos_am_gmm_, pos_noise_am_;
+  AmDiagGmm neg_am_gmm_, neg_noise_am_;
 
   // parameters for VTS compensation
   int32 num_frame_;// multiple frame input
@@ -215,6 +236,13 @@ private:
   BaseFloat ceplifter_;
   Matrix<double> dct_mat_;
   Matrix<double> inv_dct_mat_;
+
+  // noise parameters
+  bool compensate_var_;
+  BaseFloat pos_var_weight_;
+  Vector<double> mu_h_;
+  Vector<double> mu_z_;
+  Vector<double> var_z_;
 };
 
 }  // namespace
