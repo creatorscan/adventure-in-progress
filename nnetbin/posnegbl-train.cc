@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     std::string nnet_in_filename = po.GetArg(1),
         feature_rspecifier = po.GetArg(2),
         noise_rspecifier = po.GetArg(3),
-        alignments_rspecifier = po.GetArg(4), output_filename = po.GetArg(5);
+        alignments_rspecifier = po.GetArg(4), output_filename = po.GetOptArg(5);
 
     // currently no feature transform is supported
     Nnet nnet_transf;
