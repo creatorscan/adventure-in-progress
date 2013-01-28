@@ -32,10 +32,14 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
 
     bool cross_validate = false;
-    po.Register("cross-validate", &cross_validate, "Perform cross-validation (don't backpropagate)");
+    po.Register("cross-validate", &cross_validate,
+                "Perform cross-validation (don't backpropagate)");
 
     bool binary = false;
-    po.Register("binary", &binary, "Write the output model in binary format, only applicapble when the update-flag is model");
+    po.Register(
+        "binary",
+        &binary,
+        "Write the output model in binary format, only applicapble when the update-flag is model");
 
     std::string update_flag = "model";
     po.Register("update-flag", &update_flag,
@@ -79,7 +83,7 @@ int main(int argc, char *argv[]) {
       KALDI_ERR<< "Unrecognized update flag: " << update_flag;
     }
 
-    if (po.NumArgs() != (cross_validate?4:5)) {
+    if (po.NumArgs() != (cross_validate ? 4 : 5)) {
       po.PrintUsage();
       exit(1);
     }
@@ -98,24 +102,28 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(nnet_in_filename);
 
-    // only allow the first layer, which is <posnegbl> to be updated
-    std::string learn_factors = "1";
-    for (int32 i = 1; i < nnet.LayerCount(); ++i) {
-      if ((nnet.Layer(i))->IsUpdatable()) {
-        learn_factors += ",0";
+    if (!cross_validate) {
+      // only allow the first layer, which is <posnegbl> to be updated
+      std::string learn_factors = "1";
+      for (int32 i = 1; i < nnet.LayerCount(); ++i) {
+        if ((nnet.Layer(i))->IsUpdatable()) {
+          learn_factors += ",0";
+        }
       }
+      KALDI_LOG<< "...learn_factor=" << learn_factors;
+      nnet.SetLearnRate(learn_rate, learn_factors.c_str());
+      nnet.SetMomentum(momentum);
+      nnet.SetL2Penalty(l2_penalty);
+      nnet.SetL1Penalty(l1_penalty);
     }
-    KALDI_LOG<< "...learn_factor=" << learn_factors;
-    nnet.SetLearnRate(learn_rate, learn_factors.c_str());
-    nnet.SetMomentum(momentum);
-    nnet.SetL2Penalty(l2_penalty);
-    nnet.SetL1Penalty(l1_penalty);
 
     if (nnet.Layer(0)->GetType() != Component::kPosNegBL) {
       KALDI_ERR<< "The first layer is not <posnegbl> layer!";
     }
-    PosNegBL *posnegbl_layer = (PosNegBL*)(nnet.Layer(0));
-    posnegbl_layer->SetUpdateFlag(update_flag);
+    PosNegBL *posnegbl_layer = (PosNegBL*) (nnet.Layer(0));
+    if (!cross_validate) {
+      posnegbl_layer->SetUpdateFlag(update_flag);
+    }
 
     kaldi::int64 tot_t = 0;
 
@@ -125,7 +133,7 @@ int main(int argc, char *argv[]) {
 
     // only used when update_flag = "noise"
     DoubleVectorWriter noise_writer;
-    if (update_flag == "noise") {
+    if (!cross_validate && update_flag == "noise") {
       noise_writer.Open(output_filename);
     }
 
@@ -182,11 +190,11 @@ int main(int argc, char *argv[]) {
 
         xent.EvalVec(nnet_out, alignment, &glob_err);
 
-        if(!cross_validate){
+        if(!cross_validate) {
           nnet.Backpropagate(glob_err, NULL);
         }
 
-        if(update_flag=="noise") {
+        if(!cross_validate && update_flag=="noise") {
           posnegbl_layer->GetNoise(mu_h, mu_z, var_z);
           noise_writer.Write(key+"_mu_h", mu_h);
           noise_writer.Write(key+"_mu_z", mu_z);
@@ -202,7 +210,7 @@ int main(int argc, char *argv[]) {
 
     }
 
-    if (update_flag == "model") {
+    if (!cross_validate && update_flag == "model") {
       nnet.Write(output_filename, binary);
     }
 
