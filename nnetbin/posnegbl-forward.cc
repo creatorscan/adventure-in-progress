@@ -1,4 +1,4 @@
-// nnetbin/posnegbl-nnet-forward.cc
+// nnetbin/posnegbl-forward.cc
 
 // forward through the nnet with the PosNegBL front layer
 
@@ -16,10 +16,10 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Perform forward pass through Neural Network.\n"
-            "Usage: posnegbl-nnet-forward [options] <model-in> <feature-rspecifier> "
+            "Usage: posnegbl-forward [options] <model-in> <feature-rspecifier> "
             "<feature-wspecifier> [<noise-rspecifier>]\n"
             "e.g.: \n"
-            " posnegbl-nnet-forward nnet ark:features.ark ark:out.ark ark:noise.ark\n";
+            " posnegbl-forward nnet ark:features.ark ark:out.ark ark:noise.ark\n";
 
     ParseOptions po(usage);
 
