@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
     if (nnet.Layer(0)->GetType() != Component::kPosNegBL) {
       KALDI_ERR<< "The first layer is not <posnegbl> layer!";
     }
-    PosNegBL *posnegbl_layer = (PosNegBL*) (nnet.Layer(0));
+    PosNegBL *posnegbl_layer = static_cast<PosNegBL*> (nnet.Layer(0));
     if (!cross_validate) {
       posnegbl_layer->SetUpdateFlag(update_flag);
     }
