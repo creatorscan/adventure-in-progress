@@ -25,11 +25,14 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Perform one iteration of Neural Network training by stochastic gradient descent.\n"
             "Usage:  posnegbl-train [options] <model-in> <feature-rspecifier> "
-            "<noise-rspecifier> <alignments-rspecifier> <model-out|output-wspecifier>\n"
+            "<noise-rspecifier> <alignments-rspecifier> [<model-out|output-wspecifier>]\n"
             "e.g.: \n"
             " posnegbl-train nnet.init scp:train.scp ark:noise.ark ark:train.ali nnet.iter1\n";
 
     ParseOptions po(usage);
+
+    bool cross_validate = false;
+    po.Register("cross-validate", &cross_validate, "Perform cross-validation (don't backpropagate)");
 
     bool binary = false;
     po.Register("binary", &binary, "Write the output model in binary format, only applicapble when the update-flag is model");
@@ -72,11 +75,11 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (update_flag != "model" && update_flag != "noise") {
+    if (!cross_validate && update_flag != "model" && update_flag != "noise") {
       KALDI_ERR<< "Unrecognized update flag: " << update_flag;
     }
 
-    if (po.NumArgs() != 5) {
+    if (po.NumArgs() != (cross_validate?4:5)) {
       po.PrintUsage();
       exit(1);
     }
@@ -132,7 +135,7 @@ int main(int argc, char *argv[]) {
 
     Timer tim;
     double time_next = 0;
-    KALDI_LOG<< "TRAINING " << update_flag << " STARTED";
+    KALDI_LOG<< (cross_validate?"CV":("TRAINING "+update_flag)) << " STARTED";
 
     int32 num_done = 0, num_no_alignment = 0, num_other_error = 0;
     for (; !feature_reader.Done(); /*feature_reader.Next()*/) {
@@ -179,7 +182,9 @@ int main(int argc, char *argv[]) {
 
         xent.EvalVec(nnet_out, alignment, &glob_err);
 
-        nnet.Backpropagate(glob_err, NULL);
+        if(!cross_validate){
+          nnet.Backpropagate(glob_err, NULL);
+        }
 
         if(update_flag=="noise") {
           posnegbl_layer->GetNoise(mu_h, mu_z, var_z);
@@ -203,7 +208,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n" << std::flush;
 
-    KALDI_LOG<< "TRAINING " << update_flag << " FINISHED "
+    KALDI_LOG<< (cross_validate?"CV":("TRAINING "+update_flag)) << " FINISHED "
     << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
     << ", feature wait " << time_next << "s";
 
