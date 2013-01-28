@@ -77,6 +77,9 @@ int main(int argc, char *argv[]) {
     po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
     po.Register("l1-penalty", &l1_penalty, "L1 penalty (promote sparsity)");
 
+    bool average_grad = false;
+    po.Register("average-grad", &average_grad, "Average the gradient in the bunch");
+
     po.Read(argc, argv);
 
     if (!cross_validate && update_flag != "model" && update_flag != "noise") {
@@ -115,6 +118,7 @@ int main(int argc, char *argv[]) {
       nnet.SetMomentum(momentum);
       nnet.SetL2Penalty(l2_penalty);
       nnet.SetL1Penalty(l1_penalty);
+      nnet.SetAverageGrad(average_grad);
     }
 
     if (nnet.Layer(0)->GetType() != Component::kPosNegBL) {
