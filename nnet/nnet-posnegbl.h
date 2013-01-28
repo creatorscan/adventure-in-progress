@@ -139,12 +139,11 @@ class PosNegBL : public UpdatableComponent {
 
   void Update(const CuMatrix<BaseFloat> &input,
               const CuMatrix<BaseFloat> &err) {
-    KALDI_ERR<< "Not implemented yet!";
     // compute gradient
     if (average_grad_) {
       linearity_corr_.AddMatMat(1.0 / input.NumRows(), err, kTrans, input,
-          kNoTrans,
-          momentum_);
+                                kNoTrans,
+                                momentum_);
       bias_corr_.AddRowSumMat(1.0 / input.NumRows(), err, momentum_);
     } else {
       linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
@@ -161,45 +160,55 @@ class PosNegBL : public UpdatableComponent {
     UpdateVarScale();
 
     /*
-    // l2 regularization
-    if (l2_penalty_ != 0.0) {
-      BaseFloat l2 = learn_rate_ * l2_penalty_ * input.NumRows();
-      linearity_.AddMat(-l2, linearity_);
-    }
-    // l1 regularization
-    if (l1_penalty_ != 0.0) {
-      BaseFloat l1 = learn_rate_ * input.NumRows() * l1_penalty_;
-      cu::RegularizeL1(&linearity_, &linearity_corr_, l1, learn_rate_);
-    }
-    // update
-    linearity_.AddMat(-learn_rate_, linearity_corr_);
-    bias_.AddVec(-learn_rate_, bias_corr_);
-    */
+     // l2 regularization
+     if (l2_penalty_ != 0.0) {
+     BaseFloat l2 = learn_rate_ * l2_penalty_ * input.NumRows();
+     linearity_.AddMat(-l2, linearity_);
+     }
+     // l1 regularization
+     if (l1_penalty_ != 0.0) {
+     BaseFloat l1 = learn_rate_ * input.NumRows() * l1_penalty_;
+     cu::RegularizeL1(&linearity_, &linearity_corr_, l1, learn_rate_);
+     }
+     // update
+     linearity_.AddMat(-learn_rate_, linearity_corr_);
+     bias_.AddVec(-learn_rate_, bias_corr_);
+     */
+  }
+
+  void SetUpdateFlag(std::string flag) {
+
   }
 
   void PrepareDCTXforms();
 
-  void SetNoise(bool compensate_var, const Vector<double> mu_h,
-      const Vector<double> mu_z,
-      const Vector<double> var_z,
-      BaseFloat pos_var_weight = 1.0);
+  void SetNoise(bool compensate_var, const Vector<double> &mu_h,
+                const Vector<double> &mu_z,
+                const Vector<double> &var_z,
+                BaseFloat pos_var_weight = 1.0);
 
-private:
+  void GetNoise(Vector<double> &mu_h, Vector<double> &mu_z, Vector<double> &var_z) {
+    mu_h.CopyFromVec(mu_h_);
+    mu_z.CopyFromVec(mu_z_);
+    var_z.CopyFromVec(var_z_);
+  }
+
+ private:
 
   void UpdateVarScale();
 
   void CompensateMultiFrameGmm(const Vector<double> &mu_h,
-      const Vector<double> &mu_z,
-      const Vector<double> &var_z, bool compensate_var,
-      int32 num_cepstral,
-      int32 num_fbank,
-      const Matrix<double> &dct_mat,
-      const Matrix<double> &inv_dct_mat,
-      int32 num_frames,
-      AmDiagGmm &noise_am_gmm);
+                               const Vector<double> &mu_z,
+                               const Vector<double> &var_z, bool compensate_var,
+                               int32 num_cepstral,
+                               int32 num_fbank,
+                               const Matrix<double> &dct_mat,
+                               const Matrix<double> &inv_dct_mat,
+                               int32 num_frames,
+                               AmDiagGmm &noise_am_gmm);
 
   void InterpolateVariance(BaseFloat pos_weight, AmDiagGmm &pos_am_gmm,
-      AmDiagGmm &neg_am_gmm);
+                           AmDiagGmm &neg_am_gmm);
 
   void ConvertPosNegGaussianToNNLayer(
       const AmDiagGmm &pos_am_gmm,
@@ -209,7 +218,7 @@ private:
       Matrix<BaseFloat> &linearity,
       Vector<BaseFloat> &bias);
 
-private:
+ private:
   Matrix<BaseFloat> cpu_linearity_;
   Vector<BaseFloat> cpu_bias_;
 
@@ -229,8 +238,8 @@ private:
   AmDiagGmm neg_am_gmm_, neg_noise_am_;
 
   // parameters for VTS compensation
-  int32 num_frame_;// multiple frame input
-  int32 delta_order_;// how many deltas, currently only supports 2, i.e. static(0), delta(1) and acc(2)
+  int32 num_frame_;  // multiple frame input
+  int32 delta_order_;  // how many deltas, currently only supports 2, i.e. static(0), delta(1) and acc(2)
   int32 num_cepstral_;
   int32 num_fbank_;
   BaseFloat ceplifter_;

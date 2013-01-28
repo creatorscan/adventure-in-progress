@@ -117,9 +117,9 @@ void PosNegBL::PrepareDCTXforms() {
   }
 }
 
-void PosNegBL::SetNoise(bool compensate_var, const Vector<double> mu_h,
-                        const Vector<double> mu_z,
-                        const Vector<double> var_z,
+void PosNegBL::SetNoise(bool compensate_var, const Vector<double> &mu_h,
+                        const Vector<double> &mu_z,
+                        const Vector<double> &var_z,
                         BaseFloat pos_var_weight) {
   if (num_cepstral_ <= 0 || num_fbank_ <= 0) {
     KALDI_ERR<< "DCT Transforms are not prepared yet!";
