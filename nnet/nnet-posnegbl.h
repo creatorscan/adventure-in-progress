@@ -157,7 +157,7 @@ class PosNegBL : public UpdatableComponent {
     pos2neg_log_prior_ratio_.AddVec(-learn_rate_, cpu_bias_corr_);
 
     // update var scale
-    UpdateVarScale();
+    //UpdateVarScale();
 
     /*
      // l2 regularization
