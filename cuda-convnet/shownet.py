@@ -106,6 +106,8 @@ class ShowConvNet(ConvNet):
         pl.xlabel('Epoch')
 #        pl.ylabel(self.show_cost)
         pl.title(self.show_cost)
+        if self.save_to_file!="":
+            pl.savefig(self.save_to_file)
         
     def make_filter_fig(self, filters, filter_start, fignum, _title, num_filters, combine_chans):
         FILTERS_PER_ROW = 16
@@ -288,6 +290,7 @@ class ShowConvNet(ConvNet):
         op.add_option("only-errors", "only_errors", BooleanOptionParser, "Show only mistaken predictions (to be used with --show-preds)", default=False, requires=['show_preds'])
         op.add_option("write-features", "write_features", StringOptionParser, "Write test data features from given layer", default="", requires=['feature-path'])
         op.add_option("feature-path", "feature_path", StringOptionParser, "Write test data features to this path (to be used with --write-features)", default="")
+        op.add_option("save-to-file", "save_to_file", StringOptionParser, "Save the plot to file", default="")
         
         op.options['load_file'].default = None
         return op

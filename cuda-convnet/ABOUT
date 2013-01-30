@@ -2,3 +2,8 @@ cuda-convnet
 High-performance C++/CUDA implementation of abstract convolutional neural networks
 
 See http://code.google.com/p/cuda-convnet/ for documentation.
+
+#########################################################
+### Troy (troy.lee2008@gmail.com)
+This is a modified version of the cuda-convnet (http://code.google.com/p/cuda-convnet/) for the use 
+in speech recognition.
