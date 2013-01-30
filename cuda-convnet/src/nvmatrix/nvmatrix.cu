@@ -406,7 +406,7 @@ void NVMatrix::biggerThanVector(NVMatrix& vec) {
 }
 
 void NVMatrix::_checkBounds(int startRow, int endRow, int startCol, int endCol) const {
-	printf("startRow=%d, endRow=%d, startCol=%d, endCol=%d\n", startRow, endRow, startCol, endCol);
+	/*printf("startRow=%d, endRow=%d, startCol=%d, endCol=%d\n", startRow, endRow, startCol, endCol);*/
     assert(startRow >= 0 && startRow < _numRows);
     assert(endRow > startRow && endRow <= _numRows);
     assert(startCol >= 0 && startCol < _numCols);
