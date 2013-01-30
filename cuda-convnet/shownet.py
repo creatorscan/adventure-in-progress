@@ -37,6 +37,8 @@ from options import *
 sys.path.append('/home/troy/Projects/cuda-convnet')
 
 try:
+    import matplotlib
+    matplotlib.use('Agg')
     import pylab as pl
 except:
     print "This script requires the matplotlib python library (Ubuntu/Fedora package name python-matplotlib). Please install it."
