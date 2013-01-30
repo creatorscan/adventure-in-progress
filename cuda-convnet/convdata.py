@@ -32,6 +32,10 @@ class TIMITDataProvider(LabeledMemoryDataProvider):
         LabeledMemoryDataProvider.__init__(self, data_dir, batch_range, init_epoch, init_batchnum, dp_params, test)
         self.feat_dim=self.batch_meta['feat_dim']
         self.win_len=len(self.batch_meta['window'])
+        for d in self.data_dic:
+            # This converts the data matrix to single precision and makes sure that it is C-ordered
+            d['data'] = n.require(d['data'], dtype=n.single, requirements='C')
+            d['labels'] = n.require(d['labels'].reshape((1, d['data'].shape[1])), dtype=n.single, requirements='C')
 
     def get_next_batch(self):
         epoch, batchnum, datadic = LabeledMemoryDataProvider.get_next_batch(self)

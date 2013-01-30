@@ -40,9 +40,14 @@ public:
     
     Data(std::vector<T*>& data) : _data(&data) {
         assert(_data->size() > 0);
+        
+        //printf("Data size: %d\n", data.size());
         for (int i = 1; i < data.size(); i++) {
+        	//printf("LeadingDim: [%d, %ld], [%d, %ld]\n", i-1, data[i-1]->getLeadingDim(), i, data[i]->getLeadingDim());
+        	//printf("FollowingDim: [%d, %ld], [%d, %ld]\n", i-1, data[i-1]->getFollowingDim(), i, data[i]->getFollowingDim());
             assert(data[i-1]->getLeadingDim() == data[i]->getLeadingDim());
         }
+        
         assert(data[0]->getLeadingDim() > 0);
     }
 
