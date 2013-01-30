@@ -35,8 +35,6 @@ from convdata import *
 from os import linesep as NL
 #import pylab as pl
 
-sys.path.append('/home/troy/Projects/cuda-convnet')
-
 class ConvNet(IGPUModel):
     def __init__(self, op, load_dic, dp_params={}):
         filename_options = []

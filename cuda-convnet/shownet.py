@@ -34,8 +34,6 @@ import numpy.random as nr
 from convnet import ConvNet
 from options import *
 
-sys.path.append('/home/troy/Projects/cuda-convnet')
-
 try:
     import matplotlib
     matplotlib.use('Agg')
