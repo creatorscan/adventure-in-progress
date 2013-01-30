@@ -92,7 +92,7 @@ class ShowConvNet(ConvNet):
         test_errors = test_errors[:len(train_errors)]
 
         numepochs = len(train_errors) / float(numbatches)
-        pl.figure(1)
+        #pl.figure(1)
         x = range(0, len(train_errors))
         pl.plot(x, train_errors, 'k-', label='Training set')
         pl.plot(x, test_errors, 'r-', label='Test set')
