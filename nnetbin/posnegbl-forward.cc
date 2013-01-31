@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
     Component *comp = nnet.Layer(0);
     KALDI_ASSERT(comp->GetType() == Component::kPosNegBL);
 
-    PosNegBL *layer = (PosNegBL*) comp;
+    PosNegBL *layer = static_cast<PosNegBL*>(nnet.Layer(0));
 
     kaldi::int64 tot_t = 0;
 
