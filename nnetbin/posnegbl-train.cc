@@ -77,6 +77,9 @@ int main(int argc, char *argv[]) {
     po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
     po.Register("l1-penalty", &l1_penalty, "L1 penalty (promote sparsity)");
 
+    std::string learn_factors = "";
+    po.Register("learn-factors", &learn_factors, "Learning rate factors (can control which layer to update)");
+
     bool average_grad = false;
     po.Register("average-grad", &average_grad, "Average the gradient in the bunch");
 
@@ -107,14 +110,9 @@ int main(int argc, char *argv[]) {
 
     if (!cross_validate) {
       // only allow the first layer, which is <posnegbl> to be updated
-      std::string learn_factors = "1";
-      for (int32 i = 1; i < nnet.LayerCount(); ++i) {
-        if ((nnet.Layer(i))->IsUpdatable()) {
-          learn_factors += ",0";
-        }
+      if(learn_factors!=""){
+        nnet.SetLearnRate(learn_rate, learn_factors.c_str());
       }
-      KALDI_LOG<< "...learn_factor=" << learn_factors;
-      nnet.SetLearnRate(learn_rate, learn_factors.c_str());
       nnet.SetMomentum(momentum);
       nnet.SetL2Penalty(l2_penalty);
       nnet.SetL1Penalty(l1_penalty);
