@@ -255,6 +255,9 @@ int main(int argc, char *argv[]) {
         ConvertPosNegGaussianToNNLayer(pos_noise_am, neg_noise_am, pos2neg_log_prior_ratio, var_scale, linearity, bias);
       }
 
+      KALDI_LOG << "DBNVTS2 Compensated weights: " << linearity;
+      KALDI_LOG << "DBNVTS2 Compensated bias: "<< bias;
+
           // forward through the new generative front end
       Matrix<BaseFloat> mat(feat.NumRows(), pos_am_gmm.NumPdfs(), kSetZero);
 
