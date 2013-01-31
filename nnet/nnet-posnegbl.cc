@@ -121,6 +121,8 @@ void PosNegBL::SetNoise(bool compensate_var, const Vector<double> &mu_h,
                         const Vector<double> &mu_z,
                         const Vector<double> &var_z,
                         BaseFloat pos_var_weight) {
+
+
   if (num_cepstral_ <= 0 || num_fbank_ <= 0) {
     KALDI_ERR<< "DCT Transforms are not prepared yet!";
   }
@@ -148,6 +150,9 @@ void PosNegBL::SetNoise(bool compensate_var, const Vector<double> &mu_h,
   InterpolateVariance(pos_var_weight_, pos_noise_am_, neg_noise_am_);
 
   ConvertPosNegGaussianToNNLayer(pos_noise_am_, neg_noise_am_, pos2neg_log_prior_ratio_, var_scale_, cpu_linearity_, cpu_bias_);
+
+  KALDI_LOG << "PosNegBL Compensated weight: " << cpu_linearity_;
+  KALDI_LOG << "PosNegBL Compensated bias: " << cpu_bias_;
 
   linearity_.CopyFromMat(cpu_linearity_);
   bias_.CopyFromVec(cpu_bias_);
