@@ -21,6 +21,10 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+    int32 num_cepstral = 13;
+
+    po.Register("num-cepstral", &num_cepstral, "Number of Cepstral coefficients");
+
     bool use_additive_noise_mean = true;
     bool use_additive_noise_var = false;
     bool use_channel_noise_mean = false;
@@ -60,8 +64,8 @@ int main(int argc, char *argv[]) {
           continue;
         }
         Vector<double> cur(noise_reader.Value(utt + "_mu_z"));
-        noise.Resize(dim+cur.Dim(), kCopyData);
-        (SubVector<double>(noise, dim, cur.Dim())).CopyFromVec(cur);
+        noise.Resize(dim+num_cepstral, kCopyData); // only static part has values
+        (SubVector<double>(noise, dim, num_cepstral)).CopyFromVec(SubVector<double>(cur, 0, num_cepstral));
         dim=noise.Dim();
       }
 
@@ -72,7 +76,7 @@ int main(int argc, char *argv[]) {
           continue;
         }
         Vector<double> cur(noise_reader.Value(utt + "_var_z"));
-        noise.Resize(dim+cur.Dim(), kCopyData);
+        noise.Resize(dim+cur.Dim(), kCopyData); // var has all the values
         (SubVector<double>(noise, dim, cur.Dim())).CopyFromVec(cur);
         dim=noise.Dim();
       }
@@ -84,8 +88,8 @@ int main(int argc, char *argv[]) {
           continue;
         }
         Vector<double> cur(noise_reader.Value(utt + "_mu_h"));
-        noise.Resize(dim+cur.Dim(), kCopyData);
-        (SubVector<double>(noise, dim, cur.Dim())).CopyFromVec(cur);
+        noise.Resize(dim+num_cepstral, kCopyData);
+        (SubVector<double>(noise, dim, num_cepstral)).CopyFromVec(SubVector<double>(cur, 0, num_cepstral));
         dim=noise.Dim();
       }
 
