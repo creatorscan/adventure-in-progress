@@ -31,6 +31,7 @@ void GaussBL::ComputeLogPriorAndPrecCoeff(const Matrix<BaseFloat> &weight,
 
     w.CopyRowFromMat(weight, pdf);
     w.DivElements(mu);  // w ./ (mu_pos - mu_neg)
+    shared_inv_var.CopyFromVec(w);  // shared precision matrix
 
     inv_var_pos.CopyRowFromMat(ngmm_pos.vars_, 0);
     inv_var_pos.InvertElements();
@@ -38,7 +39,6 @@ void GaussBL::ComputeLogPriorAndPrecCoeff(const Matrix<BaseFloat> &weight,
     inv_var_neg.InvertElements();
 
     w.AddVec(-1.0, inv_var_neg);  // w ./ (mu_pos - mu_neg) - inv_var_neg
-    shared_inv_var.CopyFromVec(w);  // shared precision matrix
 
     inv_var_pos.AddVec(-1.0, inv_var_neg);  // inv_var_pos - inv_var_neg
     w.DivElements(inv_var_pos);  // ( w ./ (mu_pos - mu_neg) - inv_var_neg ) ./ ( inv_var_pos - inv_var_neg )
@@ -48,7 +48,7 @@ void GaussBL::ComputeLogPriorAndPrecCoeff(const Matrix<BaseFloat> &weight,
     mu.SetZero();
     mu.AddVec2(1.0, ngmm_pos.means_.Row(0));
     mu.AddVec2(-1.0, ngmm_neg.means_.Row(0));
-    mu.DivElements(shared_inv_var);
+    mu.MulElements(shared_inv_var);
 
     log_prior_ratio_(pdf) = bias(pdf) + 0.5 * mu.Sum();
 

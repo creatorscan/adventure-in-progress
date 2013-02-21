@@ -61,6 +61,11 @@ class GaussBL : public UpdatableComponent {
     KALDI_ASSERT(
         neg_am_gmm_.NumPdfs() == output_dim_ && neg_am_gmm_.Dim() == input_dim_);
 
+    /*
+    KALDI_LOG << "Original weight: " << weight;
+    KALDI_LOG << "Original bias: " << bias;
+    */
+
     //TODO:: derive the log prior and the precision matrix coefficients
     ComputeLogPriorAndPrecCoeff(weight, bias);
 
@@ -68,6 +73,11 @@ class GaussBL : public UpdatableComponent {
     ConvertToNNLayer(pos_am_gmm_, neg_am_gmm_);  // generate the NN layer from the clean Gaussians
     linearity_.CopyFromMat(cpu_linearity_);
     bias_.CopyFromVec(cpu_bias_);
+
+    /*
+    KALDI_LOG << "Converted weight: " << cpu_linearity_;
+    KALDI_LOG << "Converted bias: " << cpu_bias_;
+    */
   }
 
   void ReadData(std::istream &is, bool binary) {
