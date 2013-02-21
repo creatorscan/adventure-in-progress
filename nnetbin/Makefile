@@ -8,7 +8,7 @@ LDFLAGS += $(CUDA_LDFLAGS)
 BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-train-mse-tgtmat-frmshuff \
 		   nnet-forward nnet-copy rbm-train-cd1-frmshuff rbm-convert-to-nnet nnet-trim-n-last-transforms \
 		   nnet-train-mmi-sequential dropoutbl-to-biasedlinearity train-noise-cmvn posnegbl-create \
-		   posnegbl-forward posnegbl-train batched-feats
+		   posnegbl-forward posnegbl-train batched-feats gaussbl-create
 
 OBJFILES =
 
