@@ -25,6 +25,7 @@
 #include "nnet/nnet-dropoutbl.h"
 #include "nnet/nnet-cmvnbl.h"
 #include "nnet/nnet-posnegbl.h"
+#include "nnet/nnet-gaussbl.h"
 
 namespace kaldi {
 
@@ -34,7 +35,8 @@ const struct Component::key_value Component::kMarkerMap[] = { {
     "<rbm>" }, { Component::kExpand, "<expand>" },
     { Component::kCopy, "<copy>" }, { Component::kDropoutBL, "<dropoutbl>" },
     { Component::kRelu, "<relu>"}, {Component::kSoftRelu, "<softrelu>"},
-    {Component::kCMVNBL, "<cmvnbl>"}, {Component::kPosNegBL, "<posnegbl>"}};
+    {Component::kCMVNBL, "<cmvnbl>"}, {Component::kPosNegBL, "<posnegbl>"},
+    {Component::kGaussBL, "<gaussbl>"}};
 
 const char* Component::TypeToMarker(ComponentType t) {
   int32 N = sizeof(kMarkerMap) / sizeof(kMarkerMap[0]);
@@ -98,6 +100,9 @@ Component* Component::Read(std::istream &is, bool binary, Nnet *nnet) {
       break;
     case Component::kPosNegBL:
       p_comp = new PosNegBL(dim_in, dim_out, nnet);
+      break;
+    case Component::kGaussBL:
+      p_comp = new GaussBL(dim_in, dim_out, nnet);
       break;
     case Component::kRelu:
       p_comp = new Relu(dim_in, dim_out, nnet);

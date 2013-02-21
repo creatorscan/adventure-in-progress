@@ -61,6 +61,7 @@ class Component {
     kDropoutBL,
     kCMVNBL,
     kPosNegBL,
+    kGaussBL,
 
     kActivationFunction = 0x0200, 
     kSoftmax, 
