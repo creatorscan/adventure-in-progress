@@ -35,7 +35,7 @@ class GaussBL : public UpdatableComponent {
   }
 
   ComponentType GetType() const {
-    return kPosNegBL;
+    return kGaussBL;
   }
 
   /* Do the necessary computations to gaurantee the Gaussian representation is
