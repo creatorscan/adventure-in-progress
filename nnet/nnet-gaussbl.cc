@@ -7,6 +7,44 @@
 
 namespace kaldi {
 
+void GaussBL::UpdatePrecisionCoeff() {
+  Vector<double> grad(input_dim_, kSetZero);
+  Vector<double> tmp(input_dim_, kSetZero);
+
+  int32 num_pdf = pos_noise_am_.NumPdfs();
+  for (int32 pdf = 0; pdf < num_pdf; ++pdf) {
+    // iterate all the Gaussians
+    const DiagGmm *gmm_pos = &(pos_noise_am_.GetPdf(pdf));
+    DiagGmmNormal ngmm_pos(*gmm_pos);
+
+    const DiagGmm *gmm_neg = &(neg_noise_am_.GetPdf(pdf));
+    DiagGmmNormal ngmm_neg(*gmm_neg);
+
+    KALDI_ASSERT(gmm_pos->NumGauss()==1 && gmm_neg->NumGauss()==1);
+
+    grad.CopyRowFromMat(ngmm_pos.vars_, 0);
+    grad.InvertElements(); // inv_pos_var
+
+    tmp.CopyRowFromMat(ngmm_neg.vars_, 0);
+    tmp.InvertElements(); // inv_neg_var
+
+    grad.AddVec(-1.0, tmp); // inv_pos_var - inv_neg_var
+
+    tmp.CopyRowFromMat(ngmm_pos.means_,0); // pos_mu
+    tmp.AddVec(-1.0, ngmm_neg.means_.Row(0)); // pos_mu - neg_mu
+
+    grad.MulElements(tmp); // ( inv_pos_var - inv_neg_var ) .* ( pos_mu - neg_mu )
+
+    grad.MulElements(cpu_linearity_corr_.Row(pdf));
+
+    precision_coeff_corr_.CopyRowFromVec(grad,pdf);
+
+  }
+
+  precision_coeff_.AddMat(-learn_rate_, precision_coeff_corr_);
+
+}
+
 void GaussBL::ComputeLogPriorAndPrecCoeff(const Matrix<BaseFloat> &weight,
                                           const Vector<BaseFloat> &bias) {
   Vector<double> w(input_dim_, kSetZero);

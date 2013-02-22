@@ -24,6 +24,7 @@ class GaussBL : public UpdatableComponent {
         bias_corr_(dim_out),
         log_prior_ratio_(dim_out),
         precision_coeff_(dim_out, dim_in),
+        precision_coeff_corr_(dim_out, dim_in),
         num_cepstral_(-1),
         num_fbank_(-1),
         ceplifter_(-1),
@@ -160,7 +161,7 @@ class GaussBL : public UpdatableComponent {
     log_prior_ratio_.AddVec(-learn_rate_, cpu_bias_corr_);
 
     // update var scale
-    //UpdateVarScale();
+    UpdatePrecisionCoeff();
 
     /*
      // l2 regularization
@@ -213,6 +214,8 @@ class GaussBL : public UpdatableComponent {
   void ConvertToNNLayer(const AmDiagGmm &pos_am_gmm,
                         const AmDiagGmm &neg_am_gmm);
 
+  void UpdatePrecisionCoeff();
+
  private:
   Matrix<BaseFloat> cpu_linearity_;
   Vector<BaseFloat> cpu_bias_;
@@ -228,6 +231,7 @@ class GaussBL : public UpdatableComponent {
 
   Vector<double> log_prior_ratio_;  // positive to negative log prior ratio
   Matrix<double> precision_coeff_;  // interpolation weight for the positive precision matrix
+  Matrix<double> precision_coeff_corr_;
 
   AmDiagGmm pos_am_gmm_, pos_noise_am_;
   AmDiagGmm neg_am_gmm_, neg_noise_am_;
