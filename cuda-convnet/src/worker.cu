@@ -38,6 +38,9 @@ using namespace std;
 WorkResult::WorkResult(WorkResult::RESULTS resultType, Cost& results) : _resultType(resultType), _results(&results) {
 }
 
+WorkResult::WorkResult(WorkResult::RESULTS resultType, Matrix& ftrs) : _resultType(resultType), _ftrs(&ftrs) {
+}
+
 WorkResult::WorkResult(WorkResult::RESULTS resultType) : _resultType(resultType), _results(NULL) {
 }
 
@@ -47,6 +50,10 @@ WorkResult::~WorkResult() {
 
 Cost& WorkResult::getResults() const {
     return *_results;
+}
+
+Matrix& WorkResult::getFeatures() const {
+	return *_ftrs;
 }
 
 WorkResult::RESULTS WorkResult::getResultType() const {
@@ -99,6 +106,7 @@ void TrainingWorker::run() {
     }
     cudaThreadSynchronize();
     _convNet->getResultQueue().enqueue(new WorkResult(WorkResult::BATCH_DONE, batchCost));
+    
 }
 
 /*
@@ -210,5 +218,13 @@ void FeatureWorker::run() {
         delete &miniFtrs;
     }
     cudaThreadSynchronize();
-    _convNet->getResultQueue().enqueue(new WorkResult(WorkResult::BATCH_DONE, batchCost));
+    _convNet->getResultQueue().enqueue(new WorkResult(WorkResult::BATCH_DONE, *_ftrs));
+    
+    /*
+    for(int i=0; i< _ftrs->getNumCols(); ++i){
+    	printf("%f ", (*_ftrs)(0,i));
+    }
+    printf("\n");
+    */
+
 }

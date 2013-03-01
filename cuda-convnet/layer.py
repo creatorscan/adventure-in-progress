@@ -1105,6 +1105,15 @@ class SumOfSquaresCostParser(CostParser):
         dic = CostParser.parse(self, name, mcp, prev_layers, model)
         print "Initialized sum-of-squares cost '%s'" % name
         return dic
+    
+class DummyCostParser(CostParser):
+    def __init__(self):
+        CostParser.__init__(self, num_inputs=1)
+        
+    def parse(self, name, mcp, prev_layers, model):
+        dic = CostParser.parse(self, name, mcp, prev_layers, model)
+        print "Initialized dummy cost '%s'" % name
+        return dic
 
 # All the layer parsers
 layer_parsers = {'data': lambda : DataLayerParser(),

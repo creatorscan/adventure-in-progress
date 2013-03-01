@@ -40,11 +40,14 @@ public:
 protected:
     WorkResult::RESULTS _resultType;
     Cost* _results;
+    Matrix* _ftrs;
 public:
     WorkResult(WorkResult::RESULTS resultType, Cost& results);
+    WorkResult(WorkResult::RESULTS resultType, Matrix& ftrs);
     WorkResult(WorkResult::RESULTS resultType);
     virtual ~WorkResult();
     Cost& getResults() const;
+    Matrix& getFeatures() const;
     WorkResult::RESULTS getResultType() const;
 };
 

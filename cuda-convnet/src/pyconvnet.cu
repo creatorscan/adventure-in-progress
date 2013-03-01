@@ -47,6 +47,7 @@ static ConvNet* model = NULL;
 static PyMethodDef _ConvNetMethods[] = {  { "initModel",          initModel,          METH_VARARGS },
                                               { "startBatch",         startBatch,         METH_VARARGS },
                                               { "finishBatch",        finishBatch,        METH_VARARGS },
+                                              { "finishFeatureBatch", finishFeatureBatch, METH_VARARGS },
                                               { "checkGradients",     checkGradients,     METH_VARARGS },
                                               { "startMultiviewTest", startMultiviewTest, METH_VARARGS },
                                               { "startFeatureWriter",  startFeatureWriter,         METH_VARARGS },
@@ -129,15 +130,26 @@ PyObject* startMultiviewTest(PyObject *self, PyObject *args) {
 PyObject* startFeatureWriter(PyObject *self, PyObject *args) {
     assert(model != NULL);
     PyListObject* data;
-    int layerIdx;
-    if (!PyArg_ParseTuple(args, "O!i",
+    char* layerName;
+    
+    if (!PyArg_ParseTuple(args, "O!s",
         &PyList_Type, &data,
-        &layerIdx)) {
+        &layerName)) {
         return NULL;
     }
     MatrixV& mvec = *getMatrixV((PyObject*)data);
     Matrix& ftrs = *mvec.back();
     mvec.pop_back();
+    
+    //printf("startFeatureWriter: layerName=%s\n", layerName);
+    
+    int layerIdx;
+    for(int i=model->getNumLayers()-1; i>=0; --i){
+    	if(((model->getLayer(i)).getName()).compare(layerName) == 0) {
+    		layerIdx=i;
+    		break;
+    	}
+    }
     
     FeatureWorker* wr = new FeatureWorker(*model, *new CPUData(mvec), ftrs, layerIdx);
     model->getWorkerQueue().enqueue(wr);
@@ -166,6 +178,30 @@ PyObject* finishBatch(PyObject *self, PyObject *args) {
     }
     
     PyObject* retVal = Py_BuildValue("Ni", dict, cost.getNumCases());
+    delete res; // Deletes cost too
+    return retVal;
+}
+
+PyObject* finishFeatureBatch(PyObject *self, PyObject *args) {
+    assert(model != NULL);
+    WorkResult* res = model->getResultQueue().dequeue();
+    assert(res != NULL);
+    assert(res->getResultType() == WorkResult::BATCH_DONE);
+    
+    Matrix& ftrs = res->getFeatures();
+    int numRows = ftrs.getNumRows();
+    int numCols = ftrs.getNumCols();
+    
+    // convert the row-major matrix to a Python list
+    PyObject* list = PyList_New(numRows*numCols);
+    for (int i=0, k=0; i<numRows; ++i){
+    	for(int j=0; j<numCols; ++j, ++k){
+    		PyObject* f = PyFloat_FromDouble(ftrs(i,j));
+    		PyList_SetItem(list, k, f);
+    	}
+    }
+    
+    PyObject* retVal = Py_BuildValue("Nii", list, numRows, numCols);
     delete res; // Deletes cost too
     return retVal;
 }

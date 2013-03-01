@@ -116,6 +116,9 @@ class IGPUModel:
         pass
     
     def start(self):
+        if self.save_acts:
+            self.save_feats()
+            sys.exit(0)
         if self.test_only:
             self.test_outputs += [self.get_test_error()]
             self.print_test_results()
@@ -186,6 +189,9 @@ class IGPUModel:
     def finish_batch(self):
         return self.libmodel.finishBatch()
     
+    def finish_feature_batch(self):
+        return self.libmodel.finishFeatureBatch()
+    
     def print_iteration(self):
         print "\t%d.%d..." % (self.epoch, self.batchnum),
     
@@ -236,6 +242,33 @@ class IGPUModel:
             sys.stdout.flush()
             
         return self.aggregate_test_outputs(test_outputs)
+    
+    def start_feature_writer(self, batch_data, layerName):
+        self.libmodel.startFeatureWriter(batch_data[2], layerName)
+        
+    def save_feats(self):
+        next_data = self.get_next_batch(train=False)
+        while True:
+            data = next_data
+            acts = n.zeros([data[2][0].shape[1], self.act_dim])
+            data[2].append(acts)
+            print "batch %d: " % (data[1])
+            self.start_feature_writer(data, self.act_layername)
+            res = self.finish_feature_batch()
+            print "\tData dim:", data[2][0].shape, "Acts length: ", len(res[0]), "dim: ("+str(res[1])+","+str(res[2])+")"
+            feats = n.reshape(n.array(res[0]), (res[1], res[2]), 'C')
+            fname = "batch_"+str(data[1])+".act"
+            if self.act_path != "":
+                fname = self.act_path + "/" + fname
+            n.savetxt(fname, feats)
+            print "\tSaved to", fname
+            load_next = not self.test_one and data[1] < self.test_batch_range[-1]
+            if load_next:
+                next_data = self.get_next_batch(train=False)
+            
+            if not load_next:
+                break
+            sys.stdout.flush()
     
     def set_var(self, var_name, var_val):
         setattr(self, var_name, var_val)
@@ -294,6 +327,10 @@ class IGPUModel:
         op.add_option("zip-save", "zip_save", BooleanOptionParser, "Compress checkpoints?", default=0)
         op.add_option("test-one", "test_one", BooleanOptionParser, "Test on one batch at a time?", default=1)
         op.add_option("gpu", "gpu", ListOptionParser(IntegerOptionParser), "GPU override", default=OptionExpression("[-1] * num_gpus"))
+        op.add_option("save-acts", "save_acts", BooleanOptionParser, "Save the acts", default=0)
+        op.add_option("act-layername", "act_layername", StringOptionParser, "The name of the layer generate the acts")
+        op.add_option("act-dim", "act_dim", IntegerOptionParser, "The dimension of the act features", default=0)
+        op.add_option("act-path", "act_path", StringOptionParser, "The path to store the act features", default="")
         return op
 
     @staticmethod

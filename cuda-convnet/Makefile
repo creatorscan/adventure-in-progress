@@ -5,10 +5,22 @@ LIB := -lpthread -L$(ATLAS_LIB_PATH) -L$(CUDA_INSTALL_PATH)/lib64 -lcblas
 
 USECUBLAS   := 1
 
+################################
+## set this flag to output nvcc compile information
+##
+prof := 1
+
 PYTHON_VERSION=$(shell python -V 2>&1 | cut -d ' ' -f 2 | cut -d '.' -f 1,2)
 LIB += -lpython$(PYTHON_VERSION)
 
-GENCODE_ARCH := -gencode=arch=compute_20,code=\"sm_20,compute_20\"
+#################################
+## Modify the version number according to the info of your card (deviceQuery)
+## e.g. if you get: 
+##	CUDA Capability Major/Minor version number:    2.0
+## then set:
+## GENCODE_ARCH := -gencode=arch=compute_20,code=\"sm_20,compute_20\"
+##
+GENCODE_ARCH := -gencode=arch=compute_11,code=\"sm_11,compute_11\"
 COMMONFLAGS := -DNUMPY_INTERFACE -DMODELNAME=$(MODELNAME) -DINITNAME=init$(MODELNAME)
 
 EXECUTABLE	:= $(MODELNAME).so
