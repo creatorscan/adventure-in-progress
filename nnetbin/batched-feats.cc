@@ -19,9 +19,9 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Generate features with labels for use in Python. Expect feats from spliced-feats.\n"
-            "Usage:  batched-feats [options] <feature-rspecifier> <alignments-rspecifier> <output-dir>\n"
+            "Usage:  batched-feats [options] <output-dir> <feature-rspecifier> [<alignments-rspecifier>]\n"
             "e.g.: \n"
-            " batched-feats ark:features.ark ark:ali.ark output_dir\n";
+            " batched-feats output_dir ark:features.ark ark:ali.ark \n";
 
     ParseOptions po(usage);
 
@@ -30,17 +30,20 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 3) {
+    if (po.NumArgs() != 2 && po.NumArgs() != 3) {
       po.PrintUsage();
       exit(1);
     }
 
-    std::string feature_rspecifier = po.GetArg(1),
-        alignments_rspecifier = po.GetArg(2),
-        output_dir = po.GetArg(3);
+    std::string output_dir = po.GetArg(1),
+        feature_rspecifier = po.GetArg(2),
+        alignments_rspecifier = po.GetOptArg(3);
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessInt32VectorReader alignments_reader(alignments_rspecifier);
+    RandomAccessInt32VectorReader alignments_reader;
+    if (alignments_rspecifier != "") {
+      alignments_reader.Open(alignments_rspecifier);
+    }
 
     int32 num_done = 0, num_other_error = 0, batch_id = 1, cur_count = 0;
     char str[100];
@@ -55,34 +58,60 @@ int main(int argc, char *argv[]) {
       // read
       std::string key = feature_reader.Key();
       const Matrix<BaseFloat> &feats = feature_reader.Value();
-      const std::vector<int32> &alignment = alignments_reader.Value(key);
 
-      if ((int32) alignment.size() != feats.NumRows()) {
-        KALDI_WARN<< "Alignment has wrong size "<< (alignment.size()) << " vs. "<< (feats.NumRows());
-        num_other_error++;
-        continue;
-      }
+      if (alignments_rspecifier != "") {
+        const std::vector<int32> &alignment = alignments_reader.Value(key);
 
-      int32 dim = feats.NumCols();
-      for (int32 r = 0; r < feats.NumRows(); ++r) {
-        for (int32 c = 0; c < dim; ++c) {
-          fprintf(fp_data, "%f ", feats(r, c));
+        if ((int32) alignment.size() != feats.NumRows()) {
+          KALDI_WARN<< "Alignment has wrong size "<< (alignment.size()) << " vs. "<< (feats.NumRows());
+          num_other_error++;
+          continue;
         }
-        fprintf(fp_data, "\n");
-        fprintf(fp_label, "%d\n", alignment[r]);
-        ++cur_count;
 
-        if (cur_count == batch_size) {
-          fclose(fp_data);
-          fclose(fp_label);
-          ++batch_id;
-          KALDI_LOG << "Batch: " << batch_id;
-          sprintf(str, "%d", batch_id);
-          std::string fname = output_dir + "/data_batch_" + str;
-          fp_data = fopen(fname.c_str(), "w");
-          fname = output_dir + "/label_batch_" + str;
-          fp_label = fopen(fname.c_str(), "w");
-          cur_count = 0;
+        int32 dim = feats.NumCols();
+        for (int32 r = 0; r < feats.NumRows(); ++r) {
+          for (int32 c = 0; c < dim; ++c) {
+            fprintf(fp_data, "%f ", feats(r, c));
+          }
+          fprintf(fp_data, "\n");
+          fprintf(fp_label, "%d\n", alignment[r]);
+          ++cur_count;
+
+          if (cur_count == batch_size) {
+            fclose(fp_data);
+            fclose(fp_label);
+            ++batch_id;
+            KALDI_LOG<< "Batch: " << batch_id;
+            sprintf(str, "%d", batch_id);
+            std::string fname = output_dir + "/data_batch_" + str;
+            fp_data = fopen(fname.c_str(), "w");
+            fname = output_dir + "/label_batch_" + str;
+            fp_label = fopen(fname.c_str(), "w");
+            cur_count = 0;
+          }
+        }
+      } else {
+        int32 dim = feats.NumCols();
+        for (int32 r = 0; r < feats.NumRows(); ++r) {
+          for (int32 c = 0; c < dim; ++c) {
+            fprintf(fp_data, "%f ", feats(r, c));
+          }
+          fprintf(fp_data, "\n");
+          fprintf(fp_label, "0\n");
+          ++cur_count;
+
+          if (cur_count == batch_size) {
+            fclose(fp_data);
+            fclose(fp_label);
+            ++batch_id;
+            KALDI_LOG<< "Batch: " << batch_id;
+            sprintf(str, "%d", batch_id);
+            std::string fname = output_dir + "/data_batch_" + str;
+            fp_data = fopen(fname.c_str(), "w");
+            fname = output_dir + "/label_batch_" + str;
+            fp_label = fopen(fname.c_str(), "w");
+            cur_count = 0;
+          }
         }
       }
       ++num_done;
