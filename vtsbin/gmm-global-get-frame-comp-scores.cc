@@ -15,9 +15,9 @@ int main(int argc, char *argv[]) {
     typedef kaldi::int32 int32;
 
     const char *usage =
-        "Print out per-frame pre-Gaussian log-likelihoods for each utterance, as an archive\n"
+        "Print out per-frame pre-Gaussian (log-)likelihoods or posteriors for each utterance, as an archive\n"
             "of matrices of floats.\n"
-            "Usage:  gmm-global-get-frame-comp-likes [options] <model-in> <feature-rspecifier> "
+            "Usage:  gmm-global-get-frame-comp-scores [options] <model-in> <feature-rspecifier> "
             "<likes-out-wspecifier> [<noise-rspecifier>]\n"
             "e.g.: gmm-global-get-frame-comp-likes 1.mdl scp:train.scp ark:1.likes\n";
 
@@ -25,7 +25,10 @@ int main(int argc, char *argv[]) {
 
     bool apply_log = true;
     po.Register("apply-log", &apply_log,
-                "Output log likelihoods or likelihoods.");
+                "Output log score or not.");
+
+    std::string type = "likelihood";
+    po.Register("compute-posterior", &type, "Output 'likelihood' or 'posterior'.");
 
     int32 num_cepstral = 13;
     int32 num_fbank = 26;
@@ -47,6 +50,13 @@ int main(int argc, char *argv[]) {
     bool have_noise = false;
     if (po.NumArgs() == 4) {
       have_noise = true;
+    }
+
+    bool out_likes = true;
+    if (type != "likelihood" && type != "posterior"){
+      KALDI_ERR<< "Invalid output feature type: " << type << "!";
+    } else if (type == "posterior"){
+      out_likes = false;
     }
 
     std::string model_filename = po.GetArg(1),
@@ -76,17 +86,21 @@ int main(int argc, char *argv[]) {
       std::string key = feature_reader.Key();
       const Matrix<BaseFloat> &mat = feature_reader.Value();
       int32 file_frames = mat.NumRows();
-      Matrix<BaseFloat> likes(file_frames, gmm.NumGauss());
+      Matrix<BaseFloat> scores(file_frames, gmm.NumGauss());
 
       if (!have_noise) {
         // no noise..
         for (int32 i = 0; i < file_frames; i++) {
           Vector<BaseFloat> loglikes;
-          gmm.LogLikelihoods(mat.Row(i), &loglikes);
+          if(out_likes) {
+            gmm.LogLikelihoods(mat.Row(i), &loglikes);
+          }else {
+            gmm.ComponentPosteriors(mat.Row(i), &loglikes);
+          }
           if (!apply_log) {
             loglikes.ApplyExp();
           }
-          likes.CopyRowFromVec(loglikes, i);
+          scores.CopyRowFromVec(loglikes, i);
         }
       } else {
         // have noise
@@ -118,17 +132,21 @@ int main(int argc, char *argv[]) {
 
         for (int32 i = 0; i < file_frames; i++) {
           Vector<BaseFloat> loglikes;
-          noise_gmm.LogLikelihoods(mat.Row(i), &loglikes);
+          if(out_likes){
+            noise_gmm.LogLikelihoods(mat.Row(i), &loglikes);
+          }else{
+            noise_gmm.ComponentPosteriors(mat.Row(i), &loglikes);
+          }
           if (!apply_log) {
             loglikes.ApplyExp();
           }
-          likes.CopyRowFromVec(loglikes, i);
+          scores.CopyRowFromVec(loglikes, i);
         }
       }
 
-      tot_like += likes.Sum();
+      tot_like += scores.Sum();
       tot_frames += file_frames;
-      likes_writer.Write(key, likes);
+      likes_writer.Write(key, scores);
       num_done++;
     }
     KALDI_LOG<< "Done " << num_done << " files; " << num_err
