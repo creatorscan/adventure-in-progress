@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
             "of matrices of floats.\n"
             "Usage:  gmm-global-get-frame-comp-scores [options] <model-in> <feature-rspecifier> "
             "<likes-out-wspecifier> [<noise-rspecifier>]\n"
-            "e.g.: gmm-global-get-frame-comp-likes 1.mdl scp:train.scp ark:1.likes\n";
+            "e.g.: gmm-global-get-frame-comp-scores 1.mdl scp:train.scp ark:1.likes\n";
 
     ParseOptions po(usage);
 
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
                 "Output log score or not.");
 
     std::string type = "likelihood";
-    po.Register("compute-posterior", &type, "Output 'likelihood' or 'posterior'.");
+    po.Register("type", &type, "Output 'likelihood' or 'posterior'.");
 
     int32 num_cepstral = 13;
     int32 num_fbank = 26;
