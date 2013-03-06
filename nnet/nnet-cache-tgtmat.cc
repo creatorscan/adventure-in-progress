@@ -58,7 +58,7 @@ void CacheTgtMat::AddData(const CuMatrix<BaseFloat> &features, const CuMatrix<Ba
   // lazy buffers allocation
   if (features_.NumRows() != cachesize_) {
     features_.Resize(cachesize_, features.NumCols());
-    targets_.Resize(cachesize_, targets_.NumCols());
+    targets_.Resize(cachesize_, targets.NumCols());
   }
 
   // warn if segment longer than half-cache 
