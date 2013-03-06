@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Decoder
-      for (int i = total_args; i <= 2 ; ++i) {
+      for (int i = total_args; i >= 2 ; --i) {
 
         KALDI_LOG << "Decoder: " << i;
 
