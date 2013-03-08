@@ -39,6 +39,12 @@ int main(int argc, char *argv[]) {
     po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
     po.Register("l1-penalty", &l1_penalty, "L1 penalty (promote sparsity)");
 
+    std::string learn_factors = "";
+    po.Register(
+        "learn-factors",
+        &learn_factors,
+        "Learning factor for each updatable layer, separated by ',' and work together with learn rate");
+
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
                 "Feature transform Neural Network");
@@ -79,7 +85,11 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
 
-    nnet.SetLearnRate(learn_rate, NULL);
+    if(learn_factors == ""){
+      nnet.SetLearnRate(learn_rate, NULL);
+    }else{
+      nnet.SetLearnRate(learn_rate, learn_factors.c_str());
+    }
     nnet.SetMomentum(momentum);
     nnet.SetL2Penalty(l2_penalty);
     nnet.SetL1Penalty(l1_penalty);
@@ -177,22 +187,22 @@ int main(int argc, char *argv[]) {
           if (num_bls % 2 != 0) {
             KALDI_WARN
                 << "Odd number of <biasedlinearity> layers, weight tying is not applied!";
-          } else {
-            for (int32 i = 0, j = tot_layers - 1; i < j;) {
-              if (nnet.Layer(i)->GetType() != Component::kBiasedLinearity) {
-                ++i;
-              }
-              if (nnet.Layer(j)->GetType() != Component::kBiasedLinearity) {
-                --j;
-              }
-              if(nnet.Layer(i)->GetType() == Component::kBiasedLinearity && nnet.Layer(j)->GetType() == Component::kBiasedLinearity) {
-                BiasedLinearity& bl1 = dynamic_cast<BiasedLinearity&>(*nnet.Layer(i));
-                BiasedLinearity& bl2 = dynamic_cast<BiasedLinearity&>(*nnet.Layer(j));
-                bl1.SetLinearityWeight(bl2.GetLinearityWeight(), true);
+              } else {
+                for (int32 i = 0, j = tot_layers - 1; i < j;) {
+                  if (nnet.Layer(i)->GetType() != Component::kBiasedLinearity) {
+                    ++i;
+                  }
+                  if (nnet.Layer(j)->GetType() != Component::kBiasedLinearity) {
+                    --j;
+                  }
+                  if(nnet.Layer(i)->GetType() == Component::kBiasedLinearity && nnet.Layer(j)->GetType() == Component::kBiasedLinearity) {
+                    BiasedLinearity& bl1 = dynamic_cast<BiasedLinearity&>(*nnet.Layer(i));
+                    BiasedLinearity& bl2 = dynamic_cast<BiasedLinearity&>(*nnet.Layer(j));
+                    bl1.SetLinearityWeight(bl2.GetLinearityWeight(), true);
+                  }
+                }
               }
             }
-          }
-        }
         tot_t += nnet_in.NumRows();
       }
 
