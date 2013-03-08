@@ -199,6 +199,8 @@ int main(int argc, char *argv[]) {
                     BiasedLinearity& bl1 = dynamic_cast<BiasedLinearity&>(*nnet.Layer(i));
                     BiasedLinearity& bl2 = dynamic_cast<BiasedLinearity&>(*nnet.Layer(j));
                     bl1.SetLinearityWeight(bl2.GetLinearityWeight(), true);
+                    ++i;
+                    --j;
                   }
                 }
               }
