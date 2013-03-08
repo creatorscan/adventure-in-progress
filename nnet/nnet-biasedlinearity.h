@@ -93,6 +93,24 @@ class BiasedLinearity : public UpdatableComponent {
     bias_.AddVec(-learn_rate_, bias_corr_);
   }
 
+  /*
+   * This function is used to tying the weights between different layers
+   */
+  void SetLinearityWeight(const CuMatrix<BaseFloat> &weight, bool trans) {
+    if (trans){
+      Matrix<BaseFloat> mat;
+      weight.CopyToMat(&mat);
+      mat.Transpose();
+      linearity_.CopyFromMat(mat);
+    }else{
+      linearity_.CopyFromMat(weight);
+    }
+  }
+
+  const CuMatrix<BaseFloat>& GetLinearityWeight(){
+    return linearity_;
+  }
+
  private:
   CuMatrix<BaseFloat> linearity_;
   CuVector<BaseFloat> bias_;
