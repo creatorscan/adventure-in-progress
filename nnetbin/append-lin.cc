@@ -7,7 +7,9 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "nnet/nnet-nnet.h"
+#include "nnet/nnet-component.h"
 #include "nnet/nnet-biasedlinearity.h"
+#include "nnet/nnet-maskedbl.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -20,11 +22,18 @@ int main(int argc, char *argv[]) {
         "e.g.:\n"
         " append-lin --binary=false nnet.mdl nnet_lin.mdl\n";
 
+    ParseOptions po(usage);
 
     bool binary_write = false;
-    
-    ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
+
+    bool diagblock = false;
+    int32 blockdim = 123;
+    int32 numblocks = 9;
+    po.Register("diagonal-block", &diagblock, "Use diagonal block LIN");
+    po.Register("block-dim", &blockdim, "Dimension of each block (square block)");
+    po.Register("num-blocks", &numblocks, "Number of blocks in the LIN");
+    
 
     po.Read(argc, argv);
 
@@ -43,13 +52,37 @@ int main(int argc, char *argv[]) {
       nnet.Read(ki.Stream(), binary_read);
     }
     
+    Component *lin;
     int32 in_dim = nnet.InputDim();
-    BiasedLinearity lin(in_dim, in_dim, NULL);
-    lin.SetToIdentity();
+
+    if(diagblock){
+      if(blockdim * numblocks != in_dim){
+        KALDI_ERR<< "Invalid block configuration: [dim: " << blockdim << ", num: " << numblocks << "], input dim: " << in_dim;
+      }
+      MaskedBL mbl(in_dim, in_dim, NULL);
+      mbl.SetToIdentity();
+      Matrix<BaseFloat> mask(in_dim, in_dim, kSetZero);
+      for(int32 i=0, offset=0; i<numblocks; ++i, offset+=blockdim){
+        for(int32 j=0; j<blockdim; ++j){
+          for(int32 k=0; k<blockdim; ++k){
+            mask(offset+j, offset+k)=1.0;
+          }
+        }
+      }
+      mbl.SetMask(mask);
+
+      lin=&mbl;
+
+    } else {
+      BiasedLinearity bl(in_dim, in_dim, NULL);
+      bl.SetToIdentity();
+
+      lin=&bl;
+    }
 
     {
       Output ko(model_out_filename, binary_write);
-      lin.Write(ko.Stream(), binary_write);
+      lin->Write(ko.Stream(), binary_write);
       nnet.Write(ko.Stream(), binary_write);
     }
 
