@@ -62,6 +62,7 @@ class Component {
     kCMVNBL,
     kPosNegBL,
     kGaussBL,
+    kMaskedBL,
 
     kActivationFunction = 0x0200, 
     kSoftmax, 

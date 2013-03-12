@@ -120,7 +120,7 @@ class BiasedLinearity : public UpdatableComponent {
     bias_.SetZero();
   }
 
- private:
+ protected:
   CuMatrix<BaseFloat> linearity_;
   CuVector<BaseFloat> bias_;
 
