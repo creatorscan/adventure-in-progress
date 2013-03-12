@@ -1,13 +1,12 @@
-// nnetbin/append-lin.cc
+// nnetbin/sub-nnet.cc
 
 /*
- * Append LIN network to the original nnet.
+ * Extract the specified layers from a nnet .
  *
  */
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "nnet/nnet-nnet.h"
-#include "nnet/nnet-biasedlinearity.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -15,10 +14,10 @@ int main(int argc, char *argv[]) {
     typedef kaldi::int32 int32;
 
     const char *usage =
-        "Append a LIN to the existing nnet.\n"
-        "Usage:  append-lin [options] <nnet-in> <nnet-out>\n"
+        "Extract layers from an existing nnet.\n"
+        "Usage:  sub-nnet [options] <nnet-in> <nnet-out> <layer-ids ...>\n"
         "e.g.:\n"
-        " append-lin --binary=false nnet.mdl nnet_lin.mdl\n";
+        " sub-nnet --binary=false nnet.mdl nnet_sub.mdl\n";
 
 
     bool binary_write = false;
@@ -28,7 +27,9 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 2) {
+    int32 num_args = po.NumArgs();
+
+    if (num_args < 3) {
       po.PrintUsage();
       exit(1);
     }
@@ -42,15 +43,13 @@ int main(int argc, char *argv[]) {
       Input ki(model_in_filename, &binary_read);
       nnet.Read(ki.Stream(), binary_read);
     }
-    
-    int32 in_dim = nnet.InputDim();
-    BiasedLinearity lin(in_dim, in_dim, NULL);
-    lin.SetToIdentity();
 
     {
       Output ko(model_out_filename, binary_write);
-      lin.Write(ko.Stream(), binary_write);
-      nnet.Write(ko.Stream(), binary_write);
+
+      for (int32 i=3; i<num_args; ++i){
+        nnet.Layer(i)->Write(ko.Stream(), binary_write);
+      }
     }
 
     KALDI_LOG << "Written model to " << model_out_filename;
