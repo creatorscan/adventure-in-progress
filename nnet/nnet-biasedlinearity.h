@@ -19,6 +19,7 @@
 #define KALDI_NNET_BIASEDLINEARITY_H
 
 #include "nnet/nnet-component.h"
+#include "cudamatrix/cu-math.h"
 
 namespace kaldi {
 
@@ -69,6 +70,7 @@ class BiasedLinearity : public UpdatableComponent {
 
   void Update(const CuMatrix<BaseFloat> &input,
               const CuMatrix<BaseFloat> &err) {
+
     // compute gradient
     if (average_grad_) {
       linearity_corr_.AddMatMat(1.0 / input.NumRows(), err, kTrans, input,
@@ -109,6 +111,13 @@ class BiasedLinearity : public UpdatableComponent {
 
   const CuMatrix<BaseFloat>& GetLinearityWeight(){
     return linearity_;
+  }
+
+  void SetToIdentity(){
+    Matrix<BaseFloat> mat(linearity_.NumRows(), linearity_.NumCols());
+    mat.SetUnit();
+    linearity_.CopyFromMat(mat);
+    bias_.SetZero();
   }
 
  private:
