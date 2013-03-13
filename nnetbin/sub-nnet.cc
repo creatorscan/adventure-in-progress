@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
       Output ko(model_out_filename, binary_write);
 
       for (int32 i=3; i<num_args; ++i){
-        nnet.Layer(i)->Write(ko.Stream(), binary_write);
+        nnet.Layer(i-3)->Write(ko.Stream(), binary_write);
       }
     }
 
