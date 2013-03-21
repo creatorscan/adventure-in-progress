@@ -35,6 +35,9 @@ int main(int argc, char *argv[]) {
                 "Dimension of each block (square block)");
     po.Register("num-blocks", &numblocks, "Number of blocks in the LIN");
 
+    bool shared = false;
+    po.Register("shared", &shared, "Use shared diagonal block LIN");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 2) {
@@ -72,6 +75,10 @@ int main(int argc, char *argv[]) {
           }
         }
         mbl.SetMask(mask);
+
+        if (shared){
+          mbl.SetSharing(numblocks, blockdim, blockdim);
+        }
 
         mbl.Write(ko.Stream(), binary_write);
 
