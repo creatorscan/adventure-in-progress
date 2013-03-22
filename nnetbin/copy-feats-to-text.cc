@@ -25,6 +25,9 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+    std::string suffix = "txt";
+    po.Register("suffix", &suffix, "Suffix for the text data filename.");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 2) {
@@ -43,7 +46,7 @@ int main(int argc, char *argv[]) {
       std::string key = kaldi_reader.Key();
       const Matrix<BaseFloat> &feat = kaldi_reader.Value();
 
-      std::ofstream fdat((out_dir+"/"+key+".txt").c_str());
+      std::ofstream fdat((out_dir+"/"+key+"."+suffix).c_str());
 
       for(int32 r=0; r<feat.NumRows(); ++r){
         for (int32 c=0; c<feat.NumCols(); ++c){
