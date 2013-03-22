@@ -37,7 +37,8 @@ const struct Component::key_value Component::kMarkerMap[] = { {
     { Component::kCopy, "<copy>" }, { Component::kDropoutBL, "<dropoutbl>" },
     { Component::kRelu, "<relu>"}, {Component::kSoftRelu, "<softrelu>"},
     {Component::kCMVNBL, "<cmvnbl>"}, {Component::kPosNegBL, "<posnegbl>"},
-    {Component::kGaussBL, "<gaussbl>"}, {Component::kMaskedBL, "<maskedbl>"}};
+    {Component::kGaussBL, "<gaussbl>"}, {Component::kMaskedBL, "<maskedbl>"},
+    {Component::kMaskedRbm, "<maskedrbm>"}};
 
 const char* Component::TypeToMarker(ComponentType t) {
   int32 N = sizeof(kMarkerMap) / sizeof(kMarkerMap[0]);
@@ -86,6 +87,9 @@ Component* Component::Read(std::istream &is, bool binary, Nnet *nnet) {
       break;
     case Component::kRbm:
       p_comp = new Rbm(dim_in, dim_out, nnet);
+      break;
+    case Component::kMaskedRbm:
+      p_comp = new MaskedRbm(dim_in, dim_out, nnet);
       break;
     case Component::kExpand:
       p_comp = new Expand(dim_in, dim_out, nnet);

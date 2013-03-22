@@ -57,7 +57,8 @@ class RbmBase : public UpdatableComponent {
   virtual RbmNodeType HidType() const = 0;
 
   virtual void WriteAsNnet(std::ostream& os, bool binary) const = 0;
-  virtual void WriteAsAutoEncoder(std::ostream& os, bool isEncoder, bool binary) const = 0;
+  virtual void WriteAsAutoEncoder(std::ostream& os, bool isEncoder,
+                                  bool binary) const = 0;
 };
 
 class Rbm : public RbmBase {
@@ -293,6 +294,82 @@ class Rbm : public RbmBase {
 
   };
 
-  }  // namespace
+class MaskedRbm : public Rbm {
+ public:
+  MaskedRbm(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet)
+      : Rbm(dim_in, dim_out, nnet)
+  {
+  }
+
+  ~MaskedRbm()
+  {
+  }
+
+  ComponentType GetType() const {
+    return kMaskedRbm;
+  }
+
+  // initialize MaskedRbm with a plain Rbm
+  void ReadRbm(std::istream &is, bool binary) {
+
+    std::string token;
+
+    int first_char = Peek(is, binary);
+    if (first_char == EOF) {
+      KALDI_ERR << "Empty model file!";
+    }
+
+    ReadToken(is, binary, &token);
+    Component::ComponentType comp_type = Component::MarkerToType(token);
+
+    KALDI_ASSERT(comp_type == Component::kRbm);
+
+    ReadBasicType(is, binary, &output_dim_);
+    ReadBasicType(is, binary, &input_dim_);
+
+    Rbm::ReadData(is, binary);
+
+  }
+
+  void ReadData(std::istream &is, bool binary) {
+    Rbm::ReadData(is, binary);
+
+    mask_.Read(is, binary);
+
+    KALDI_ASSERT(mask_.NumRows() == output_dim_);
+    KALDI_ASSERT(mask_.NumCols() == input_dim_);
+  }
+
+  void WriteData(std::ostream &os, bool binary) const {
+
+    Rbm::WriteData(os, binary);
+
+    mask_.Write(os, binary);
+  }
+
+  void RbmUpdate(const CuMatrix<BaseFloat> &pos_vis,
+                 const CuMatrix<BaseFloat> &pos_hid,
+                 const CuMatrix<BaseFloat> &neg_vis,
+                 const CuMatrix<BaseFloat> &neg_hid) {
+
+    Rbm::RbmUpdate(pos_vis, pos_hid, neg_vis, neg_hid);
+
+    vis_hid_.MulElements(mask_);
+  }
+
+  void SetMask(const Matrix<BaseFloat> &mask) {
+    KALDI_ASSERT(mask.NumRows() == output_dim_);
+    KALDI_ASSERT(mask.NumCols() == input_dim_);
+
+    mask_.CopyFromMat(mask);
+    vis_hid_.MulElements(mask_);
+  }
+
+ private:
+  CuMatrix<BaseFloat> mask_;  ///< Matrix for weight mask
+
+};
+
+}  // namespace
 
 #endif

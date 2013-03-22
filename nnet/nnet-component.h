@@ -78,7 +78,8 @@ class Component {
     kBlockLinearity,
     kBias,
     kWindow,
-    kLog
+    kLog,
+    kMaskedRbm
   } ComponentType;
   /// Pair of type and marker
   struct key_value {
