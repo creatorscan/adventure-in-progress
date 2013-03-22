@@ -9,7 +9,8 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   nnet-forward nnet-copy rbm-train-cd1-frmshuff rbm-convert-to-nnet nnet-trim-n-last-transforms \
 		   nnet-train-mmi-sequential dropoutbl-to-biasedlinearity train-noise-cmvn posnegbl-create \
 		   posnegbl-forward posnegbl-train batched-feats gaussbl-create gaussbl-forward gaussbl-train \
-		   rbms-convert-to-autoencoder compute-feats-mse weight-tied-ae-train append-lin sub-nnet
+		   rbms-convert-to-autoencoder compute-feats-mse weight-tied-ae-train append-lin sub-nnet \
+		   rbm-to-maskedrbm
 
 OBJFILES =
 
