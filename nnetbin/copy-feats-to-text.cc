@@ -21,22 +21,31 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Copy features into text format.\n"
-            "Usage: copy-feats-to-text [options] in-rspecifier out-dir\n";
+            "Usage: copy-feats-to-text [options] in-rspecifier\n";
 
     ParseOptions po(usage);
+
+    std::string data_directory = "";
+    po.Register("data-directory", &data_directory, "The directory for the text data.");
+
+    std::string data_suffix = "txt";
+    po.Register("data-suffix", &data_suffix, "The suffix for the text data");
 
     std::string suffix = "txt";
     po.Register("suffix", &suffix, "Suffix for the text data filename.");
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 2) {
+    if (po.NumArgs() != 1) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string rspecifier = po.GetArg(1);
-    std::string out_dir = po.GetArg(2);
+
+    if (data_directory != "") {
+      data_directory += "/";
+    }
 
     int32 total_frames = 0;
 
@@ -46,7 +55,7 @@ int main(int argc, char *argv[]) {
       std::string key = kaldi_reader.Key();
       const Matrix<BaseFloat> &feat = kaldi_reader.Value();
 
-      std::ofstream fdat((out_dir+"/"+key+"."+suffix).c_str());
+      std::ofstream fdat((data_directory+key+"."+data_suffix).c_str());
 
       for(int32 r=0; r<feat.NumRows(); ++r){
         for (int32 c=0; c<feat.NumCols(); ++c){
