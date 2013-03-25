@@ -29,9 +29,10 @@ int main(int argc, char *argv[]) {
     po.Register("dim", &dim, "Feature dimension");
 
     std::string data_directory = "";
-    po.Register("data-directory", &data_directory, "The directory for the text data.");
+    po.Register("data-directory", &data_directory,
+                "The directory for the text data.");
 
-    std::string data_suffix = "";
+    std::string data_suffix = "txt";
     po.Register("data-suffix", &data_suffix, "The suffix for the text data");
 
     po.Read(argc, argv);
@@ -46,7 +47,7 @@ int main(int argc, char *argv[]) {
 
     KALDI_ASSERT(dim > 0);
 
-    int32 total_files = 0 , total_frames = 0;
+    int32 total_files = 0, total_frames = 0;
     int32 max_frames = 1000, delta_frames = 500;
 
     BaseFloatMatrixWriter kaldi_writer(wspecifier);
@@ -54,43 +55,47 @@ int main(int argc, char *argv[]) {
 
     std::ifstream fscp(in_file_list.c_str());
 
-    while(fscp.good()){
+    while (fscp.good()) {
       std::string key;
       fscp >> key;
 
+      if(key=="") continue;
+
       std::string fname;
-      if (data_directory != ""){
+      if (data_directory != "") {
         fname = data_directory + "/";
       }
-      fname += (key + data_suffix);
+      fname = fname + key + "." + data_suffix;
       std::ifstream fdat(fname.c_str());
+
       int32 num_frames = 0;
-      while(fdat.good()){
-        if(num_frames >= max_frames){
+      while (fdat.good()) {
+        if (num_frames >= max_frames) {
           max_frames += delta_frames;
           data.Resize(max_frames, dim, kCopyData);
         }
-        for(int32 i=0; i< dim; ++i){
-          fdat >> data(num_frames, i);
-          if (!fdat.good()) {
-            KALDI_ERR << "Data format error for the file " << fname;
-          }
+        for (int32 i = 0; i < dim; ++i) {
+          BaseFloat val;
+          fdat >> val;
+          data(num_frames, i) = val;
         }
-        ++num_frames;
+        if (fdat.good()) {
+          ++num_frames;
+        }
       }
 
       {
-        Matrix<BaseFloat> feat(num_frames, dim);
-        feat.CopyFromMat(SubMatrix<BaseFloat>(data, 0, num_frames, 0, dim), kNoTrans);
+        Matrix<BaseFloat> feat(SubMatrix<BaseFloat>(data, 0, num_frames, 0, dim), kNoTrans);
         kaldi_writer.Write(key, feat);
       }
+
       total_frames += num_frames;
       total_files += 1;
 
-      KALDI_LOG << "Done " << key << ", " << num_frames << " frames.";
+      KALDI_LOG<< "Done " << key << ", " << num_frames << " frames.";
     }
 
-    KALDI_LOG << "Totally " << total_files << " files, " << total_frames << " frames.";
+    KALDI_LOG<< "Totally " << total_files << " files, " << total_frames << " frames.";
 
     return 0;
   } catch (const std::exception &e) {
