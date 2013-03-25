@@ -79,8 +79,11 @@ int main(int argc, char *argv[]) {
         ++num_frames;
       }
 
-      Matrix<BaseFloat> feat(SubMatrix<BaseFloat>(data, 0, num_frames, 0, dim), kNoTrans);
-      kaldi_writer.Write(key, feat);
+      {
+        Matrix<BaseFloat> feat(num_frames, dim);
+        feat.CopyFromMat(SubMatrix<BaseFloat>(data, 0, num_frames, 0, dim), kNoTrans);
+        kaldi_writer.Write(key, feat);
+      }
       total_frames += num_frames;
       total_files += 1;
 
