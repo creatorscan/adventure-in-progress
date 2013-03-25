@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     }
     
     KALDI_ASSERT(nnet.LayerCount() == 1);
-    KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kRbm);
+    KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kRbm || nnet.Layer(0)->GetType() == Component::kMaskedRbm);
     RbmBase& rbm = dynamic_cast<RbmBase&>(*nnet.Layer(0));
 
     {
