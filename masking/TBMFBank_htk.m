@@ -1,7 +1,7 @@
-function [noisyFBank, noisySpectrum, mask]=IBMFBank_htk(noisywav, cleanwav, localSNR, useDynamic)
+function [noisyFBank, noisySpectrum, mask]=TBMFBank_htk(noisywav, cleanwav, localSNR, useDynamic)
 % 
 % This function extract 24D log Mel FBanks from WAV
-% format wave file. The signal is masked by Ideal Binary Mask(IBM) in the
+% format wave file. The signal is masked by Target Binary Mask(TBM) in the
 % power spectrum domain before FBank feature extraction. Requires stereo
 % data.
 %
@@ -13,12 +13,12 @@ function [noisyFBank, noisySpectrum, mask]=IBMFBank_htk(noisywav, cleanwav, loca
 % Inputs:
 %   noisywav - noisy speech signal, WAV format
 %   cleanwav - clean speech signal, WAV format
-%   localSNR - SNR threshold used for estimating IBM
+%   localSNR - SNR threshold used for estimating TBM
 %
 % Outputs:
-%   noisyFBank - FBank features of the IBM masked noisy signal
+%   noisyFBank - FBank features of the TBM masked noisy signal
 %   noisySpectrum - FFT spectrum magnitude features before masking
-%   mask - Estimated IBM mask
+%   mask - Estimated TBM mask
 %
 % Apr.18, 2013
 %
@@ -31,7 +31,6 @@ end
 if nargin <4
     useDynamic=0;
 end
-
 
 %% for wav format, needs to read the native integer data, not the normalized value
 [noisy_s, noisy_fs] = wavread(noisywav,'native');
@@ -109,16 +108,17 @@ noisy_dataFreq=rfft(noisy_dataFrm, fftlen, 2);
 clean_dataFreq=rfft(clean_dataFrm, fftlen, 2);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Compute the Ideal Binary Mask and apply it on the spectrum
+% Compute the Target Binary Mask and apply it on the spectrum
 % 
-% compute the noise spectrum assumes additive noise
-noise = noisy_dataFreq - clean_dataFreq;
+% compute the long term average energy in each frequency channel for the
+% target speech signal
+cleanAvgE = mean(abs(clean_dataFreq).^2, 1);
 % compute the noisy spectrum for output purpose only
 noisySpectrum = abs(noisy_dataFreq);
-% compute the SNR and threshold it to produce the ideal binary mask
-SNR = abs(clean_dataFreq).^2 ./ abs(noise).^2;
-mask = zeros( size(SNR) );
-mask ( SNR > 10^(0.1*localSNR) ) = 1;
+% compute the target speech ratio and threshold it to produce the target binary mask
+ratio = abs(clean_dataFreq).^2 ./ cleanAvgE(ones(numfrm,1),:);
+mask = zeros( size(ratio) );
+mask ( ratio > 10^(0.1*localSNR) ) = 1;
 % apply the mask (mask is only applied to magnitude, phase is the same)
 noisy_dataFreq = abs(noisy_dataFreq) .* mask .* exp(j*angle(noisy_dataFreq));
 
@@ -262,11 +262,6 @@ if useDynamic==1,
     noisyFBank=[noisyFBank dltftr accftr];
     
 end
-
-    
-    
-
-
 
 
 

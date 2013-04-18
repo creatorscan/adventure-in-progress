@@ -61,8 +61,6 @@ preEmphmat(1,1)=1-preEmph;
 for i=2:windowsize,
 	preEmphmat(i-1,i)=-preEmph;
 end
-size(dataFrm)
-size(preEmphmat)
 dataFrm=dataFrm*preEmphmat;
 
 % hamming window
