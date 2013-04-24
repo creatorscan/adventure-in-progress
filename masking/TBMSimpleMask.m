@@ -103,7 +103,7 @@ dataFreq=rfft(dataFrm, fftlen, 2);
 % Compute the Target Binary Mask and apply it on the spectrum
 % 
 % compute the noise spectrum using the starting and ending frames
-noiseFreq = mean(dataFreq([1:numNoiseFrames end-numNoiseFrames:end],:),1);
+noiseFreq = mean(dataFreq([1:numNoiseFrames end-numNoiseFrames+1:end],:),1);
 % compute the clean spectrum
 cleanFreq = dataFreq - noiseFreq(ones(numfrm, 1), :);
 % compute the long term average energy in each frequency channel for the
