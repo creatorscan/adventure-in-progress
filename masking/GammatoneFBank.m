@@ -4,7 +4,10 @@ function dataFBank=GammatoneFBank(filename, useDynamic, figurePath)
 % format wave file.
 %
 %
-% Apr.19, 2013
+% Apr.19, 2013 (r168)
+%
+% V2: Apr. 24, 2013
+%   Output the 68D Gammatone FBanks directly.
 %
 
 if nargin < 1
