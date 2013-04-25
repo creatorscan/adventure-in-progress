@@ -6,8 +6,8 @@ function dataFBank=GammatoneFBank(filename, useDynamic, figurePath)
 %
 % Apr.19, 2013 (r168)
 %
-% V2: Apr. 24, 2013
-%   Output the 68D Gammatone FBanks directly.
+% V2: Apr. 25, 2013
+%   Pre-emphasis the time domain signal.
 %
 
 if nargin < 1
@@ -57,6 +57,11 @@ specWinSize=5;
 % spectral integration step
 specWinStep=3;
 
+%% Pre-Emphasis
+for i=length(s):2,
+    s(i)=s(i)-preEmph*s(i-1);
+end
+s(1)=(1-preEmph)*s(1);
 
 %% Gammatone Filter Banks
 % create an erb-spaced filterbank between lofreq and hifreq Hz with 68
