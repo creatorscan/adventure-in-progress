@@ -1,8 +1,7 @@
-function [maskedFBank, oriSpectrum, mask] = TBMNoiseMask(wavfname, localSNR, useDynamic, method)
+function [maskedFBank, noisyPowerSpec, cleanPowerSpec, mask] = IBMSpeechMask(wavfname, cleanCanonicalSpec, localSNR, useDynamic)
 % 
 % This function extract 24D log Mel FBanks from WAV
-% format wave file. The noise spectrum is estimated using the specified
-% noise tracking algorithm. Then the TBM is estimated using this noise
+% format wave file. The estimated clean speech spectrum is use for the IBM 
 % estimation.
 % 
 % The extracted features are exactly the same as using HTK. 
@@ -13,7 +12,9 @@ function [maskedFBank, oriSpectrum, mask] = TBMNoiseMask(wavfname, localSNR, use
 %
 % Inputs:
 %   wavfname - input speech signal, WAV format
-%   localSNR - SNR threshold used for estimating TBM
+%   cleanCanonicalSpec - canonical spectral features of recognized clean 
+%       speech, complex frequences
+%   localSNR - SNR threshold used for estimating IBM
 %   useDynamic - Whether dynamic parameters are computed
 %   method - Noise tracking algorithm
 %
@@ -22,19 +23,15 @@ function [maskedFBank, oriSpectrum, mask] = TBMNoiseMask(wavfname, localSNR, use
 %   oriSpectrum - FFT spectrum magnitude features before masking
 %   mask - Estimated mask
 %
-% Apr.24, 2013
+% Apr.25, 2013
 %
 
 switch nargin
-    case 1
+    case 2
         localSNR=0;
         useDynamic=0;
-        method='mcra';
-    case 2
-        useDynamic=0;
-        method='mcra';
     case 3
-        method='mcra';
+        useDynamic=0;
     case 4
     otherwise
         disp('Incorrect number of input arguments!');
@@ -42,11 +39,10 @@ switch nargin
 end
 
 
-%% for wav format, needs to read the native integer data, not the normalized value
-[s, fs] = wavread(wavfname,'native');
-s = double(s);
-
 %% %%%%%%%   Common parameters
+% sampling rate
+fs = 8000;
+
 % window length is 25.0ms
 windowsize = fix(0.025 * fs);
 
@@ -65,90 +61,38 @@ preEmph = 0.97;
 
 % FFT length
 fftlen = pow2(nextpow2(windowsize));
+Nby2 = fftlen/2;
 
 % number of FBank channels
 numChans = 24;
 
-% noise frames
-numNoiseFrames = 20;
-
-%% %%%%%%%  split the samples into overlapping frames
-numsam = length(s(:)); % the same to clean_s
-numfrm = fix((numsam-windowsize+targetrate)/targetrate);
-indf = targetrate * (0:(numfrm-1)).';
-inds = (1:windowsize);
-% the frmdata is organized that each row is a frame.
-dataFrm = s(indf(:,ones(1,windowsize))+inds(ones(numfrm,1),:));
-
-%% %%%%%%%  Pre-Processing
-% ZeroMeanSource, done per frame
-frameMean = mean(dataFrm, 2);
-dataFrm = dataFrm - frameMean(:, ones(1, windowsize));
-
-% pre-emphasise
-preEmphmat = eye(windowsize);
-preEmphmat(1,1) = 1 - preEmph;
-for i=2:windowsize,
-	preEmphmat(i-1,i) = -preEmph;
-end
-dataFrm = dataFrm * preEmphmat;
-
-% hamming window
-hamWin = 0.54 - 0.46 * cos(2*pi*(0:windowsize-1)/(windowsize-1));
-for fid=1:numfrm,
-	dataFrm(fid,:) = dataFrm(fid,:).*hamWin;
-end
-
 %% Computing Spectrum Features
-
-% FFT
-Nby2=fftlen/2;
-dataFreq=rfft(dataFrm, fftlen, 2);
+noisySpec=Spectrum_htk(wavfname, 0); % no dynamic is required
+numfrm = size(noisySpec, 1);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Compute the Target Binary Mask and apply it on the spectrum
+% Compute the Ideal Binary Mask and apply it on the spectrum
 % 
-% compute the noisy spectrum for output purpose only
-oriSpectrum = abs(dataFreq);
-% compute the noisy speech power spectrum
-dataPowerSpec = oriSpectrum.^2;
-% Estimate the noise power spectrum
-noisePowerSpec = zeros(size(dataPowerSpec));
-params = initialise_parameters(dataPowerSpec(1,:)', fs, method);
-noisePowerSpec(1,:)=params.noise_ps';
-for i=2:numfrm,
-    params = noise_estimation(dataPowerSpec(i,:)', method, params);
-    noisePowerSpec(i,:)=params.noise_ps';
+% compute the power spectrum for both clean and noisy speech
+cleanCanonicalPowerSpec = abs(cleanCanonicalSpec).^2;
+noisyPowerSpec = abs(noisySpec).^2;
+% estimate the clean power spectrum by multiplying the canonical with the
+% noisy, it seems worse the results
+cleanPowerSpec = zeros(size(noisyPowerSpec));
+for i=1:numfrm,
+    rt=(noisyPowerSpec(i,:)*cleanCanonicalPowerSpec(i,:)')/(cleanCanonicalPowerSpec(i,:)*cleanCanonicalPowerSpec(i,:)');
+    cleanPowerSpec(i,:)=rt*cleanCanonicalPowerSpec(i,:);
 end
-% compute clean power spectrum
-cleanPowerSpec = dataPowerSpec - noisePowerSpec;
-avgCleanPS = mean(cleanPowerSpec, 1);
+% % thus, simply use the canonical as the clean one
+%cleanPowerSpec=cleanCanonicalPowerSpec;
+
 % compute the SNR and threshold it to produce the ideal binary mask
-SNR = cleanPowerSpec ./ avgCleanPS(ones(numfrm,1),:);
+SNR = cleanPowerSpec ./ abs(noisySpec - cleanCanonicalSpec).^2;
 mask = zeros( size(SNR) );
-mask ( SNR > 10^(0.1*localSNR) ) = 1;
-% % smoothing the mask
-% radius=3;
-% smoothMask =zeros(size(mask));
-% for i=1:size(mask,1),
-%     for k=1:size(mask,2),
-%         cnt=0;
-%         for s=-radius:radius,
-%             for t=-radius:radius,
-%                 if i+s > 0 && i+s <size(mask,1) && k+t >0 && k+t <size(mask,2),
-%                     cnt=cnt+mask(i+s, k+t);
-%                 end
-%             end
-%         end
-%         if cnt > radius^2/2
-%             smoothMask(i,k)=1;
-%         end
-%     end
-% end
-% mask=smoothMask;             
+mask ( SNR > 10^(0.1*localSNR) ) = 1;        
         
 % apply the mask (mask is only applied to magnitude, phase is the same)
-dataFreq = abs(dataFreq) .* mask .* exp(j*angle(dataFreq));
+dataFreq = abs(noisySpec) .* mask .* exp(j*angle(noisySpec));
 
 %% Computing FBank features
 % Frequency resolution
