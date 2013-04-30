@@ -7,7 +7,10 @@ function dataFBank=GammatoneFBank(filename, useDynamic, figurePath)
 % Apr.19, 2013 (r168)
 %
 % V2: Apr. 25, 2013
-%   Pre-emphasis the time domain signal.
+%   Pre-emphasis the time domain signal. [Feature accepted!]
+%	
+% V3: Apr. 30, 2013
+%	Directly using 24 filters to avoid spectral integration.
 %
 
 if nargin < 1
@@ -49,7 +52,8 @@ fftlen=pow2(nextpow2(windowsize));
 numChans=24;
 
 % number of Gammatone filters
-numFilters=68;
+%numFilters=68;
+numFilters=24;
 
 % spectral integration windowsize
 specWinSize=5;
@@ -90,15 +94,16 @@ for i=1:numfrm,
     filterFrm(i, :)=hamWin * reshape(dataFrm(i, :, :), windowsize, numFilters);
 end
 
-%% spectral integration
-specWin=zeros(numChans, numFilters);
-for i=1:numChans
-    sid=max(1, 1+(i-2)*specWinStep);
-    eid=min(specWinSize+(i-2)*specWinStep, numFilters);
-    specWin(i, sid:eid)=ones(1,eid-sid+1);
-end
-specWin=specWin./specWinSize;
-specFrm=filterFrm * specWin';
+%%% spectral integration
+%specWin=zeros(numChans, numFilters);
+%for i=1:numChans
+    %sid=max(1, 1+(i-2)*specWinStep);
+    %eid=min(specWinSize+(i-2)*specWinStep, numFilters);
+    %specWin(i, sid:eid)=ones(1,eid-sid+1);
+%end
+%specWin=specWin./specWinSize;
+%specFrm=filterFrm * specWin';
+specFrm=filterFrm;
 
 
 %% log compression
