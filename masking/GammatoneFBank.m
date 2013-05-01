@@ -10,7 +10,10 @@ function dataFBank=GammatoneFBank(filename, useDynamic, figurePath)
 %   Pre-emphasis the time domain signal. [Feature accepted!]
 %	
 % V3: Apr. 30, 2013
-%	Directly using 24 filters to avoid spectral integration.
+%	Directly using 24 filters to avoid spectral integration. [Feature rejected!]
+%
+% V4: May. 1, 2013
+%	Hamming window spectral integration
 %
 
 if nargin < 1
@@ -52,8 +55,7 @@ fftlen=pow2(nextpow2(windowsize));
 numChans=24;
 
 % number of Gammatone filters
-%numFilters=68;
-numFilters=24;
+numFilters=68;
 
 % spectral integration windowsize
 specWinSize=5;
@@ -94,16 +96,24 @@ for i=1:numfrm,
     filterFrm(i, :)=hamWin * reshape(dataFrm(i, :, :), windowsize, numFilters);
 end
 
-%%% spectral integration
-%specWin=zeros(numChans, numFilters);
-%for i=1:numChans
-    %sid=max(1, 1+(i-2)*specWinStep);
-    %eid=min(specWinSize+(i-2)*specWinStep, numFilters);
-    %specWin(i, sid:eid)=ones(1,eid-sid+1);
-%end
-%specWin=specWin./specWinSize;
-%specFrm=filterFrm * specWin';
-specFrm=filterFrm;
+%% spectral integration
+specWin=zeros(numChans, numFilters);
+specHamWin=0.54-0.46*cos(2*pi*(0:specWinSize-1)/(specWinSize-1));
+for i=1:numChans,
+    sid=1+(i-2)*specWinStep;
+    eid=specWinSize+(i-2)*specWinStep;
+    for k=1:specWinSize,
+		t=sid+k-1;
+		if t<=0,
+			t=1;
+		end
+		if t>numFilters,
+			t=numFilters;
+		end
+		specWin(i, t)=specWin(i, t)+specHamWin(k);
+	end
+end
+specFrm=filterFrm * specWin';
 
 
 %% log compression
