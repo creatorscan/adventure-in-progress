@@ -13,7 +13,14 @@ function dataFBank=GammatoneFBank(filename, useDynamic, figurePath)
 %	Directly using 24 filters to avoid spectral integration. [Feature rejected!]
 %
 % V4: May. 1, 2013
-%	Hamming window spectral integration
+%	Hamming window spectral integration. [Feature rejected!]
+%	
+% V5: May. 2, 2013
+%	Current feature extraction steps:
+%		1) first order pre-emphasis
+%		2) 68D gammatone fbank analysis
+%		3) hamming temporal integration (framing)
+%		4) rectanglar spectral integration (dimension reduction)
 %
 
 if nargin < 1
@@ -98,21 +105,12 @@ end
 
 %% spectral integration
 specWin=zeros(numChans, numFilters);
-specHamWin=0.54-0.46*cos(2*pi*(0:specWinSize-1)/(specWinSize-1));
-for i=1:numChans,
-    sid=1+(i-2)*specWinStep;
-    eid=specWinSize+(i-2)*specWinStep;
-    for k=1:specWinSize,
-		t=sid+k-1;
-		if t<=0,
-			t=1;
-		end
-		if t>numFilters,
-			t=numFilters;
-		end
-		specWin(i, t)=specWin(i, t)+specHamWin(k);
-	end
+for i=1:numChans
+    sid=max(1, 1+(i-2)*specWinStep);
+    eid=min(specWinSize+(i-2)*specWinStep, numFilters);
+    specWin(i, sid:eid)=ones(1,eid-sid+1);
 end
+%specWin=specWin./specWinSize;
 specFrm=filterFrm * specWin';
 
 
