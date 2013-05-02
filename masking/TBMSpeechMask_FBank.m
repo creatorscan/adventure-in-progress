@@ -140,7 +140,7 @@ if useDynamic==1,
     % set the first half win to the original first feature
     oriftr(1:dltW,:)=maskedFBank(ones(dltW,1),:);
     % set the last half win to the original last feature
-    oriftr((end-dltW+1):end,:)=maksedFBank(end*ones(dltW,1),:);
+    oriftr((end-dltW+1):end,:)=maskedFBank(end*ones(dltW,1),:);
     % copy the original features
     oriftr((dltW+1):(end-dltW),:)=maskedFBank;
     
