@@ -143,15 +143,17 @@ private:
   CuVector<BaseFloat> gamma2_pos_, gamma2_neg_;
 
   // fantasy particles (needed for negative phase of SAP)
-  CuMatrix<BaseFloat> fp_ha_;
-  CuMatrix<BaseFloat> fp_hs_;
   CuMatrix<BaseFloat> fp_vt_;
+  CuMatrix<BaseFloat> ha_, haprob_, fp_ha_; /// for clean RBM hidden activations
+  CuMatrix<BaseFloat> hs_, hsprob_, fp_hs_; /// for noise RBM hidden activations
+  CuMatrix<BaseFloat> fp_v; /// for clean RBM input
+  CuMatrix<BaseFloat> fp_s; /// for noise RBM input
 
 
   RbmNodeType vis_type_;
   RbmNodeType hid_type_;
 
-  int32 num_gibbs_iters_; ///< number of gibbs iterations to perform
+
 
   int32 vis_dim_; ///< visible layer dim, same for \tilde{v}, v and s
   int32 clean_hid_dim_; ///< hidden layer dim for clean GRBM
@@ -162,6 +164,9 @@ private:
   BaseFloat weight_cost_;
 
   int32 batch_size_;
+
+  int32 num_gibbs_iters_; ///< number of gibbs iterations to perform
+  int32 num_pos_iters_;
 
 };
 

@@ -10,12 +10,9 @@
 namespace kaldi {
 
 void RoRbm::Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
-                  CuMatrix<BaseFloat> *ha,
                   CuMatrix<BaseFloat> *s,
-                  CuMatrix<BaseFloat> *hs,
                   CuMatrix<BaseFloat> *v_condmean,
-                  CuMatrix<BaseFloat> *z,
-                  int32 nIters, int32 start_z, BaseFloat z_momentum) {
+                  CuMatrix<BaseFloat> *z, int32 start_z, BaseFloat z_momentum) {
 
   int32 n = vt_cn.NumRows();  // number of instances in current bunch
   KALDI_ASSERT(vt_cn.NumCols()==vis_dim_);
@@ -34,15 +31,15 @@ void RoRbm::Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
   CuVector<BaseFloat> inv_gamma2_tmp(gamma2_.Dim());
   CuVector<BaseFloat> vec_tmp(vis_dim_);
 
-  for (int32 k = 0; k < nIters; ++k) {
+  for (int32 k = 0; k < num_pos_iters_; ++k) {
     // downsample - from hidden to visible
     /* needed for sprob_0, clean GRBM */
-    mu.AddMatMat(1.0, *ha, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // ha * W
+    mu.AddMatMat(1.0, ha_, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // ha * W
     mu.MulColsVec(clean_vis_sigma2_);  // sigma2 * (ha * W)
     mu.AddVecToRows(1.0, clean_vis_bias_, 1.0);  // b + sigma2 * (ha * W)
     /* needed for sprob_1, noise RBM */
     phi_s.AddVecToRows(1.0, d_, 0.0);  // d
-    phi_s.AddMatMat(1.0, *hs, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
+    phi_s.AddMatMat(1.0, hs_, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
 
     /* needed for sprob_1, noisy input */
     mu_hat.CopyFromMat(vt_cn);
@@ -126,15 +123,15 @@ void RoRbm::Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
     /* normalise the masked vt_cn */
     // NOT implemented yet, as may not be compulsory
     /* sample the hidden variables */
-    mat_tmp.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
-    mat_tmp.AddMatMat(1.0, *v, kNoTrans, clean_vis_hid_, kTrans, 1.0);  // v*W + c
-    cu::Sigmoid(mat_tmp, &mat_tmp);  // 1.0 ./ (1.0 + exp(v*W + c))
-    cu_rand_.BinarizeProbs(mat_tmp, ha);  // binarize
+    haprob_.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
+    haprob_.AddMatMat(1.0, *v, kNoTrans, clean_vis_hid_, kTrans, 1.0);  // v*W + c
+    cu::Sigmoid(haprob_, &haprob_);  // 1.0 ./ (1.0 + exp(v*W + c))
+    cu_rand_.BinarizeProbs(haprob_, &ha_);  // binarize
 
-    mat_tmp.AddVecToRows(1.0, e_, 0.0);  // e
-    mat_tmp.AddMatMat(1.0, *s, kNoTrans, U_, kTrans, 1.0);  // s*U + e
-    cu::Sigmoid(mat_tmp, &mat_tmp);  // 1.0 ./ (1.0 + exp(s*U + e))
-    cu_rand_.BinarizeProbs(mat_tmp, hs);  // binarize
+    hsprob_.AddVecToRows(1.0, e_, 0.0);  // e
+    hsprob_.AddMatMat(1.0, *s, kNoTrans, U_, kTrans, 1.0);  // s*U + e
+    cu::Sigmoid(hsprob_, &hsprob_);  // 1.0 ./ (1.0 + exp(s*U + e))
+    cu_rand_.BinarizeProbs(hsprob_, &hs_);  // binarize
 
     /* collect smooth estimates */
     if (start_z >= 0) {  // negative z indicates no collection
@@ -148,24 +145,22 @@ void RoRbm::Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
   }  // end iteration k
 }  // end Infer()
 
-void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
-                  int32 nGibbsIters) {
-  int32 n = batchdata.NumRows();
-  KALDI_ASSERT(batchdata.NumCols()==vis_dim_);
+/*
+ * vt_cn: the noisy inputs
+ * v: the clean version of the inputs
+ */
+void RoRbm::Learn(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> &v) {
+  KALDI_ASSERT(vt_cn.NumCols()==vis_dim_);
 
-  CuMatrix<BaseFloat> vt(n, vis_dim_);
-  CuMatrix<BaseFloat> vt_cn(n, vis_dim_);
+  int32 n = vt_cn.NumRows();
+  if(n!=batch_size_){
+    /* Resize the necessary variables */
+  }
+
   CuMatrix<BaseFloat> mat_tmp(n, vis_dim_);
-  CuMatrix<BaseFloat> v(n, vis_dim_);
   CuMatrix<BaseFloat> s(n, vis_dim_);
   CuMatrix<BaseFloat> v_condmean(n, vis_dim_), fp_vt_condmean(n, vis_dim_);
   CuMatrix<BaseFloat> z(n, vis_dim_);
-
-  CuMatrix<BaseFloat> ha(n, clean_hid_dim_);
-  CuMatrix<BaseFloat> haprob(n, clean_hid_dim_);
-
-  CuMatrix<BaseFloat> hs(n, noise_hid_dim_);
-  CuMatrix<BaseFloat> hsprob(n, noise_hid_dim_);
 
   CuVector<BaseFloat> vec_tmp(vis_dim_), vec_tmp2(vis_dim_);
   CuVector<BaseFloat> s_mu(vis_dim_);
@@ -186,11 +181,9 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
 
   /* add noise to the training data */
   // NOT implemented
-  vt.CopyFromMat(batchdata);
 
   /* normalize the data */
   // NOT implemented
-  vt_cn.CopyFromMat(vt);
 
   /* noise RBM hidden bias conversion, e = ee - s_mu * U */
   e_.CopyFromVec(ee_);  // ee
@@ -199,15 +192,15 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   e_.AddRowSumMat(-1.0, mat_tmp, 1.0);  // ee - s_mu * U
 
   /* initialize the clean RBM hidden states */
-  haprob.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
-  haprob.AddMatMat(1.0, vt_cn, kNoTrans, clean_vis_hid_, kTrans, 1.0);
-  cu::Sigmoid(haprob, &haprob);
-  cu_rand_.BinarizeProbs(haprob, &ha);
+  haprob_.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
+  haprob_.AddMatMat(1.0, vt_cn, kNoTrans, clean_vis_hid_, kTrans, 1.0);
+  cu::Sigmoid(haprob_, &haprob_);
+  cu_rand_.BinarizeProbs(haprob_, &ha_);
 
   /* initialize the noise RBM hidden states */
-  cu_rand_.RandUniform(&hs);
+  cu_rand_.RandUniform(&hs_);
 
-  Infer(vt_cn, &v, &ha, &s, &hs, &v_condmean, &z, posPhaseInters, -1, 0.0);
+  Infer(vt_cn, &v, &s, &v_condmean, &z, -1, 0.0);
 
   /* use more smoother version */
   v.CopyFromMat(v_condmean);
@@ -219,11 +212,9 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   mat_tmp.MulColsVec(lamt2_);  // vt_cn .* lamt2
   bt_pos_.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(vt_cn .* lamt2)
 
-  mat_tmp.CopyFromMat(vt_cn);  // vt_cn
-  mat_tmp.MulColsVec(bt_);  // vt_cn .* bt
-  vt.CopyFromMat(vt_cn);  // vt_cn
-  vt.Power(2.0);  // vt_cn.^2
-  mat_tmp.AddMat(-0.5, vt, 1.0);  // -0.5 * vt_cn.^2 + vt_cn .* bt
+  mat_tmp.AddVecToRows(1.0, bt_, 0.0); // bt
+  mat_tmp.AddMat(-0.5, vt_cn, 1.0); // -0.5 * vt_cn + bt
+  mat_tmp.MulElements(vt_cn); // -0.5 * vt_cn.*vt_cn + vt_cn .* bt
   lamt2_pos_.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(-0.5 * vt_cn.^2 + vt_cn .* bt)
 
   mat_tmp.CopyFromMat(vt_cn);  // vt_cn
@@ -241,7 +232,7 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   ee_pos_.AddColSumMat(1.0, hs, 0.0);
 
   /* update using SAP */
-  for (int32 kk = 0; kk < nGibbsIters; ++kk) {
+  for (int32 kk = 0; kk < num_gibbs_iters_; ++kk) {
 
     /* #1. p(s|hs, ha, vt) */
     mu.AddMatMat(1.0, fp_ha_, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // fp_ha * W
