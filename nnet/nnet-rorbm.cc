@@ -41,8 +41,8 @@ void RoRbm::Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
     mu.MulColsVec(clean_vis_sigma2_);  // sigma2 * (ha * W)
     mu.AddVecToRows(1.0, clean_vis_bias_, 1.0);  // b + sigma2 * (ha * W)
     /* needed for sprob_1, noise RBM */
-    phi_s.AddVecToRows(1.0, noise_vis_bias_, 0.0);  // d
-    phi_s.AddMatMat(1.0, *hs, kNoTrans, noise_vis_hid_, kNoTrans, 1.0);  // d + hs * U
+    phi_s.AddVecToRows(1.0, d_, 0.0);  // d
+    phi_s.AddMatMat(1.0, *hs, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
 
     /* needed for sprob_1, noisy input */
     mu_hat.CopyFromMat(vt_cn);
@@ -131,8 +131,8 @@ void RoRbm::Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
     cu::Sigmoid(mat_tmp, &mat_tmp);  // 1.0 ./ (1.0 + exp(v*W + c))
     cu_rand_.BinarizeProbs(mat_tmp, ha);  // binarize
 
-    mat_tmp.AddVecToRows(1.0, noise_hid_bias_, 0.0);  // e
-    mat_tmp.AddMatMat(1.0, *s, kNoTrans, noise_vis_hid_, kTrans, 1.0);  // s*U + e
+    mat_tmp.AddVecToRows(1.0, e_, 0.0);  // e
+    mat_tmp.AddMatMat(1.0, *s, kNoTrans, U_, kTrans, 1.0);  // s*U + e
     cu::Sigmoid(mat_tmp, &mat_tmp);  // 1.0 ./ (1.0 + exp(s*U + e))
     cu_rand_.BinarizeProbs(mat_tmp, hs);  // binarize
 
@@ -171,8 +171,6 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   CuVector<BaseFloat> s_mu(vis_dim_);
   s_mu.Set(0.9);  // moving average of the mean of the layer s
 
-
-
   CuMatrix<BaseFloat> mu(n, vis_dim_);
   CuMatrix<BaseFloat> phi_s(n, vis_dim_);
   CuMatrix<BaseFloat> mu_hat(n, vis_dim_), mu_t_hat(n, vis_dim_);
@@ -186,13 +184,6 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
 
   CuVector<BaseFloat> lamt2_hat(vis_dim_);
 
-  CuVector<BaseFloat> bt_inc(vis_dim_);
-  CuVector<BaseFloat> lamt2_inc(vis_dim_);
-  CuVector<BaseFloat> gamma2_inc(vis_dim_);
-  CuVector<BaseFloat> d_inc(vis_dim_);
-  CuVector<BaseFloat> ee_inc(noise_hid_dim_);
-  CuMatrix<BaseFloat> U_inc(noise_vis_hid_.NumRows(), noise_vis_hid_.NumCols());
-
   /* add noise to the training data */
   // NOT implemented
   vt.CopyFromMat(batchdata);
@@ -202,10 +193,10 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   vt_cn.CopyFromMat(vt);
 
   /* noise RBM hidden bias conversion, e = ee - s_mu * U */
-  noise_hid_bias_.CopyFromVec(noise_hid_bias_ori_);  // ee
-  mat_tmp.CopyFromMat(noise_vis_hid_);  // U
+  e_.CopyFromVec(ee_);  // ee
+  mat_tmp.CopyFromMat(U_);  // U
   mat_tmp.MulColsVec(s_mu);  // s_mu * U
-  noise_hid_bias_.AddRowSumMat(-1.0, mat_tmp, 1.0);  // ee - s_mu * U
+  e_.AddRowSumMat(-1.0, mat_tmp, 1.0);  // ee - s_mu * U
 
   /* initialize the clean RBM hidden states */
   haprob.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
@@ -226,28 +217,28 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   /* positive phase gradient */
   mat_tmp.CopyFromMat(vt_cn);  // vt_cn
   mat_tmp.MulColsVec(lamt2_);  // vt_cn .* lamt2
-  bt_pos.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(vt_cn .* lamt2)
+  bt_pos_.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(vt_cn .* lamt2)
 
   mat_tmp.CopyFromMat(vt_cn);  // vt_cn
   mat_tmp.MulColsVec(bt_);  // vt_cn .* bt
   vt.CopyFromMat(vt_cn);  // vt_cn
   vt.Power(2.0);  // vt_cn.^2
   mat_tmp.AddMat(-0.5, vt, 1.0);  // -0.5 * vt_cn.^2 + vt_cn .* bt
-  lamt2_pos.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(-0.5 * vt_cn.^2 + vt_cn .* bt)
+  lamt2_pos_.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(-0.5 * vt_cn.^2 + vt_cn .* bt)
 
   mat_tmp.CopyFromMat(vt_cn);  // vt_cn
   mat_tmp.AddMat(1.0, v, -1.0);  // v - vt_cn
   mat_tmp.Power(2.0);  // (v - vt_cn).^2
   mat_tmp.MulElements(s);  // s .* (v - vt_cn).^2
   mat_tmp.Scale(-0.5);  // -0.5 * s.* (v - vt_cn).^2
-  gamma2_pos.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(-0.5 * s.* (v - vt_cn).^2)
-  gamma2_pos.DivElements(clean_vis_sigma2_);  // sum(-0.5 * s.* (v - vt_cn).^2) ./ var_vec
+  gamma2_pos_.AddColSumMat(1.0, mat_tmp, 0.0);  // sum(-0.5 * s.* (v - vt_cn).^2)
+  gamma2_pos_.DivElements(clean_vis_sigma2_);  // sum(-0.5 * s.* (v - vt_cn).^2) ./ var_vec
 
   mat_tmp.CopyFromMat(s);  // s
   mat_tmp.AddVecToRows(-1.0, s_mu, 1.0);  // s - s_mu
-  U_pos.AddMatMat(1.0, hs, kTrans, mat_tmp, kNoTrans, 0.0);
-  d_pos.AddColSumMat(1.0, mat_tmp, 0.0);
-  ee_pos.AddColSumMat(1.0, hs, 0.0);
+  U_pos_.AddMatMat(1.0, hs, kTrans, mat_tmp, kNoTrans, 0.0);
+  d_pos_.AddColSumMat(1.0, mat_tmp, 0.0);
+  ee_pos_.AddColSumMat(1.0, hs, 0.0);
 
   /* update using SAP */
   for (int32 kk = 0; kk < nGibbsIters; ++kk) {
@@ -257,8 +248,8 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
     mu.MulColsVec(clean_vis_sigma2_);  // (fp_ha * W) .* var_vec
     mu.AddVecToRows(1.0, clean_vis_bias_, 1.0);  // (fp_ha * W) .* var_vec + b
 
-    phi_s.AddVecToRows(1.0, noise_vis_bias_, 0.0);  // d
-    phi_s.AddMatMat(1.0, fp_hs_, kNoTrans, noise_vis_hid_, kNoTrans, 1.0);  // fp_hs * U + d
+    phi_s.AddVecToRows(1.0, d_, 0.0);  // d
+    phi_s.AddMatMat(1.0, fp_hs_, kNoTrans, U_, kNoTrans, 1.0);  // fp_hs * U + d
 
     mu_hat.CopyFromMat(fp_vt_);  // fp_vt
     mu_hat.MulColsVec(gamma2_);  // fp_vt .* gamma2
@@ -409,8 +400,8 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
     cu::Sigmoid(haprob, &haprob);
     cu_rand_.BinarizeProbs(haprob, &fp_ha_);
 
-    hsprob.AddVecToRows(1.0, noise_hid_bias_, 0.0); // e
-    hsprob.AddMatMat(1.0, fp_s, kNoTrans, noise_vis_hid_, kTrans, 1.0); // fp_s * U' + e
+    hsprob.AddVecToRows(1.0, e_, 0.0); // e
+    hsprob.AddMatMat(1.0, fp_s, kNoTrans, U_, kTrans, 1.0); // fp_s * U' + e
     cu::Sigmoid(hsprob, &hsprob);
     cu_rand_.BinarizeProbs(hsprob, &fp_hs_);
 
@@ -421,58 +412,58 @@ void RoRbm::Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters,
   /* negative phase gradients */
   mat_tmp.CopyFromMat(fp_vt_); // fp_vt
   mat_tmp.MulColsVec(lamt2_); // fp_vt .* lamt2
-  bt_neg.AddColSumMat(1.0, mat_tmp, 0.0);
+  bt_neg_.AddColSumMat(1.0, mat_tmp, 0.0);
 
   mat_tmp.AddVecToRows(1.0, bt_, 0.0); // bt
   mat_tmp.AddMat(-0.5, fp_vt_, 1.0); // -0.5 * fp_vt + bt
   mat_tmp.MulElements(fp_vt_); // -0.5 * fp_vt.^2 + fp_vt .* bt
-  lamt2_neg.AddColSumMat(1.0, mat_tmp, 0.0);
+  lamt2_neg_.AddColSumMat(1.0, mat_tmp, 0.0);
 
   mat_tmp.CopyFromMat(fp_v); // fp_v
   mat_tmp.AddMat(-1.0, fp_vt_, 1.0); // fp_v - fp_vt
   mat_tmp.Power(2.0); // (fp_v - fp_vt).^2
   mat_tmp.MulElements(fp_s); // fp_s .* (fp_v - fp_vt).^2
   mat_tmp.MulColsVec(clean_vis_inv_sigma2_); // fp_s .* (fp_v - fp_vt).^2 ./ var_vec
-  gamma2_neg.AddColSumMat(-0.5, mat_tmp, 0.0); // -0.5 * fp_s .* (fp_v - fp_vt).^2 ./ var_vec
+  gamma2_neg_.AddColSumMat(-0.5, mat_tmp, 0.0); // -0.5 * fp_s .* (fp_v - fp_vt).^2 ./ var_vec
 
   mat_tmp.CopyFromMat(fp_s); // fp_s
   mat_tmp.AddVecToRows(-1.0, s_mu, 1.0); // fp_s - s_mu
-  U_neg.AddMatMat(1.0, fp_hs_, kTrans, mat_tmp, kNoTrans, 0.0); // (fp_s - s_mu)' * fp_hs
-  d_neg.AddColSumMat(1.0, mat_tmp, 0.0);
-  ee_neg.AddColSumMat(1.0, fp_hs_, 0.0);
+  U_neg_.AddMatMat(1.0, fp_hs_, kTrans, mat_tmp, kNoTrans, 0.0); // (fp_s - s_mu)' * fp_hs
+  d_neg_.AddColSumMat(1.0, mat_tmp, 0.0);
+  ee_neg_.AddColSumMat(1.0, fp_hs_, 0.0);
 
   /////////////////////////////////////////////////////////////////
   BaseFloat lr = learn_rate_ / n;
   BaseFloat wc = -learn_rate_ * weight_cost_;
 
-  bt_pos.AddVec(-1.0, bt_neg, 1.0); // bt_pos - bt_neg
-  bt_inc.AddVec(lr, bt_pos, momentum_ ); // momentum * bt_inc + epsilon/n * (bt_pos - bt_neg)
-  bt_inc.AddVec(wc, bt_, 1.0); // momentum * bt_inc + epsilon/n * (bt_pos - bt_neg) - epsilon * wtcost * bt
+  bt_pos_.AddVec(-1.0, bt_neg_, 1.0); // bt_pos - bt_neg
+  bt_corr_.AddVec(lr, bt_pos_, momentum_ ); // momentum * bt_inc + epsilon/n * (bt_pos - bt_neg)
+  bt_corr_.AddVec(wc, bt_, 1.0); // momentum * bt_inc + epsilon/n * (bt_pos - bt_neg) - epsilon * wtcost * bt
 
-  lamt2_pos.AddVec(-1.0, lamt2_neg, 1.0); // lamt2_pos - lamt2_neg
-  lamt2_inc.AddVec(lr, lamt2_pos, momentum_);
-  lamt2_inc.AddVec(wc, lamt2_, 1.0);
+  lamt2_pos_.AddVec(-1.0, lamt2_neg_, 1.0); // lamt2_pos - lamt2_neg
+  lamt2_corr_.AddVec(lr, lamt2_pos_, momentum_);
+  lamt2_corr_.AddVec(wc, lamt2_, 1.0);
 
-  gamma2_pos.AddVec(-1.0, gamma2_neg, 1.0);
-  gamma2_inc.AddVec(lr, gamma2_pos, momentum_);
-  gamma2_inc.AddVec(wc, gamma2_, 1.0);
+  gamma2_pos_.AddVec(-1.0, gamma2_neg_, 1.0);
+  gamma2_corr_.AddVec(lr, gamma2_pos_, momentum_);
+  gamma2_corr_.AddVec(wc, gamma2_, 1.0);
 
-  d_pos.AddVec(-1.0, d_neg, 1.0);
-  d_inc.AddVec(lr, d_pos, momentum_);
+  d_pos_.AddVec(-1.0, d_neg_, 1.0);
+  d_corr_.AddVec(lr, d_pos_, momentum_);
 
-  ee_pos.AddVec(-1.0, ee_neg, 1.0);
-  ee_inc.AddVec(lr, ee_pos, momentum_);
+  ee_pos_.AddVec(-1.0, ee_neg_, 1.0);
+  ee_corr_.AddVec(lr, ee_pos_, momentum_);
 
-  U_pos.AddMat(-1.0, U_neg, 1.0);
-  U_inc.AddMat(lr, U_pos, momentum_);
-  U_inc.AddMat(wc, noise_vis_hid_, 1.0);
+  U_pos_.AddMat(-1.0, U_neg_, 1.0);
+  U_corr_.AddMat(lr, U_pos_, momentum_);
+  U_corr_.AddMat(wc, U_, 1.0);
 
-  bt_.AddVec(1.0, bt_inc, 1.0);
-  lamt2_.AddVec(1.0, lamt2_inc, 1.0);
-  gamma2_.AddVec(1.0, gamma2_inc, 1.0);
-  noise_vis_bias_.AddVec(1.0, d_inc, 1.0);
-  noise_hid_bias_ori_.AddVec(1.0, ee_inc, 1.0);
-  noise_vis_hid_.AddMat(1.0, U_inc, 1.0);
+  bt_.AddVec(1.0, bt_corr_, 1.0);
+  lamt2_.AddVec(1.0, lamt2_corr_, 1.0);
+  gamma2_.AddVec(1.0, gamma2_corr_, 1.0);
+  d_.AddVec(1.0, d_corr_, 1.0);
+  ee_.AddVec(1.0, ee_corr_, 1.0);
+  U_.AddMat(1.0, U_corr_, 1.0);
 
   gamma2_.ApplyFloor(0.0);
   lamt2_.ApplyFloor(0.0);

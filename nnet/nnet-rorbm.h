@@ -130,9 +130,9 @@ private:
   CuMatrix<BaseFloat> U_corr_; ///< Matrix for noise RBM weight updates
   CuVector<BaseFloat> d_corr_; ///< Vector for noise visible bias updates
   CuVector<BaseFloat> ee_corr_; ///< Vector for noise hidden bias updates
-  CuVector<BaseFloat> gamma2_corr_; ///< Vector for gamm2 updates
   CuVector<BaseFloat> bt_corr_; ///< Vector for input bias updates
   CuVector<BaseFloat> lamt2_corr_; ///< Vector for input variance updates
+  CuVector<BaseFloat> gamma2_corr_; ///< Vector for gamm2 updates
 
 
   CuMatrix<BaseFloat> U_pos_, U_neg_;
