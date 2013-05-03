@@ -316,6 +316,26 @@ void CuMatrix<Real>::Set(Real value) {
   }
 }
 
+template<typename Real>
+void CuMatrix<Real>::Add(Real value) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_add_const(dimGrid, dimBlock, data_, value, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    mat_.Add(value);
+  }
+}
+
 
 
 template<typename Real> 
@@ -338,6 +358,91 @@ void CuMatrix<Real>::ApplyLog() {
   }
 }
 
+
+template<typename Real>
+void CuMatrix<Real>::ApplyExp() {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_apply_exp(dimGrid, dimBlock, data_, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    mat_.ApplyExp();
+  }
+}
+
+
+template<typename Real>
+void CuMatrix<Real>::Power(Real pow) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_power(dimGrid, dimBlock, data_, pow, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    mat_.Power(pow);
+  }
+}
+
+template<typename Real>
+void CuMatrix<Real>::Scale(Real value) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_scale(dimGrid, dimBlock, data_, value, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    mat_.Scale(value);
+  }
+}
+
+template<typename Real>
+void CuMatrix<Real>::InvertElements() {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    assert(num_cols_ == A.NumCols());
+    assert(num_rows_ == A.NumRows());
+    assert(stride_ == A.Stride());
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_invert_elements(dimGrid, dimBlock, data_, A.Data(), Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    mat_.InvertElements();
+  }
+}
 
 
 template<typename Real>
@@ -364,6 +469,30 @@ void CuMatrix<Real>::MulElements(const CuMatrix<Real>& A) {
   }
 }
 
+
+template<typename Real>
+void CuMatrix<Real>::DivElements(const CuMatrix<Real>& A) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    assert(num_cols_ == A.NumCols());
+    assert(num_rows_ == A.NumRows());
+    assert(stride_ == A.Stride());
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_div_elements(dimGrid, dimBlock, data_, A.Data(), Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    mat_.DivElements(A.mat_);
+  }
+}
 
 
 template<typename Real>
@@ -414,6 +543,30 @@ void CuMatrix<Real>::MulRowsVec(const CuVector<Real> &scale) {
   }
 }
 
+
+template<typename Real>
+void CuMatrix<Real>::DivColsVec(const CuVector<Real> &div) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    assert(div.Dim() == NumRows());
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_div_cols_vec(dimGrid, dimBlock, data_, div.Data(), Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    Vector<Real> tmp(div.Vec());
+    tmp.InvertElements();
+    mat_.MulColsVec(tmp);
+  }
+}
 
 
 template<typename Real>
@@ -523,6 +676,45 @@ void CuMatrix<Real>::AddVecToRows(Real alpha, const CuVector<Real> &row, Real be
 }
 
 
+template<typename Real>
+void CuMatrix<Real>::LogAddExpMat(const CuMatrix<Real>& A) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    assert(A.NumRows() == NumRows());
+    assert(A.NumCols() == NumCols());
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_log_add_exp_mat(dimGrid, dimBlock, A.Data(), data_, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    // CPU implementation
+    for (MatrixIndexT i = 0; i < num_rows_; i++) {
+        for (MatrixIndexT j = 0; j < num_cols_; j++) {
+          Real fa = mat_(i, j);
+          Real fb = (A.Mat())(i,j);
+          Real max;
+          if (fb > fa) {
+            mat_(i,j) = exp(fa-fb) + 1.0;
+            max=fb;
+          }else{
+            mat_(i,j) = 1.0 + exp(fb-fa);
+            max=fa;
+          }
+          mat_(i,j)=max + std::log(mat_(i,j));
+        }
+    }
+  }
+}
+
+
 
 /**
  * C++ templated wrapper of ANSI-C CUBLAS function GEMM (matrix multiply)
@@ -576,6 +768,8 @@ void CuMatrix<Real>::AddMatMat(
     mat_.AddMatMat(alpha, A.mat_, transA, B.mat_, transB, beta);
   }
 }
+
+
 
 
 

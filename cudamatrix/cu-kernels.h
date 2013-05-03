@@ -42,15 +42,24 @@ namespace kaldi {
  * CuMatrix
  */
 template<typename Real> inline void cuda_set_const(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_add_const(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_power(dim3 Gr, dim3 Bl, Real *mat, Real pow, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_scale(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_apply_floor(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_apply_log(dim3 Gr, dim3 Bl, Real *mat, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_apply_exp(dim3 Gr, dim3 Bl, Real *mat, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_mul_elements(dim3 Gr, dim3 Bl, Real *mat, const Real *A, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_div_elements(dim3 Gr, dim3 Bl, Real *mat, const Real *A, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_mul_cols_vec(dim3 Gr, dim3 Bl, Real *mat, const Real *scale, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_mul_rows_vec(dim3 Gr, dim3 Bl, Real *mat, const Real *scale, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_div_cols_vec(dim3 Gr, dim3 Bl, Real *mat, const Real *vec_div, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_div_rows_vec(dim3 Gr, dim3 Bl, Real *mat, const Real *vec_div, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add_mat(dim3 Gr, dim3 Bl, Real alpha, const Real *A, Real beta, Real *dst, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add_vec_to_cols(dim3 Gr, dim3 Bl, Real alpha, const Real *col, Real beta, Real *dst, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add_vec_to_rows(dim3 Gr, dim3 Bl, Real alpha, const Real *row, Real beta, Real *dst, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
- 
+template<typename Real> inline void cuda_log_add_exp_mat(dim3 Gr, dim3 Bl, const Real *A, Real *dst, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+
+
 /*
  * CuVector
  */
@@ -90,14 +99,22 @@ template<typename Real> inline void cuda_copy(dim3 Gr, dim3 Bl, Real *y, const R
  * CuMatrix 
  */
 template<> inline void cuda_set_const<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_set_const(Gr,Bl,mat,value,d); }
+template<> inline void cuda_add_const<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_add_const(Gr,Bl,mat,value,d); }
+template<> inline void cuda_power<float>(dim3 Gr, dim3 Bl, float *mat, float pow, MatrixDim d) { cudaF_power(Gr,Bl,mat,pow,d); }
+template<> inline void cuda_scale<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_scale(Gr,Bl,mat,value,d); }
+template<> inline void cuda_apply_floor<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_apply_floor(Gr,Bl,mat,value,d); }
 template<> inline void cuda_apply_log<float>(dim3 Gr, dim3 Bl, float *mat, MatrixDim d) { cudaF_apply_log(Gr,Bl,mat,d); }
+template<> inline void cuda_apply_exp<float>(dim3 Gr, dim3 Bl, float *mat, MatrixDim d) { cudaF_apply_exp(Gr,Bl,mat,d); }
 template<> inline void cuda_mul_elements<float>(dim3 Gr, dim3 Bl, float *mat, const float *A, MatrixDim d) { cudaF_mul_elements(Gr,Bl,mat,A,d); }
+template<> inline void cuda_div_elements<float>(dim3 Gr, dim3 Bl, float *mat, const float *A, MatrixDim d) { cudaF_div_elements(Gr,Bl,mat,A,d); }
 template<> inline void cuda_mul_cols_vec<float>(dim3 Gr, dim3 Bl, float *mat, const float *scale, MatrixDim d) { cudaF_mul_cols_vec(Gr,Bl,mat,scale,d); }
 template<> inline void cuda_mul_rows_vec<float>(dim3 Gr, dim3 Bl, float *mat, const float *scale, MatrixDim d) { cudaF_mul_rows_vec(Gr,Bl,mat,scale,d); }
+template<> inline void cuda_div_cols_vec<float>(dim3 Gr, dim3 Bl, float *mat, const float *vec_div, MatrixDim d) { cudaF_div_cols_vec(Gr,Bl,mat,vec_div,d); }
 template<> inline void cuda_div_rows_vec<float>(dim3 Gr, dim3 Bl, float *mat, const float *vec_div, MatrixDim d) { cudaF_div_rows_vec(Gr,Bl,mat,vec_div,d); }
 template<> inline void cuda_add_mat<float>(dim3 Gr, dim3 Bl, float alpha, const float *A, float beta, float *dst, MatrixDim d) { cudaF_add_mat(Gr,Bl,alpha,A,beta,dst,d); }
 template<> inline void cuda_add_vec_to_cols<float>(dim3 Gr, dim3 Bl, float alpha, const float *col, float beta, float *dst, MatrixDim d) { cudaF_add_vec_to_cols(Gr,Bl,alpha,col,beta,dst,d); }
 template<> inline void cuda_add_vec_to_rows<float>(dim3 Gr, dim3 Bl, float alpha, const float *row, float beta, float *dst, MatrixDim d) { cudaF_add_vec_to_rows(Gr,Bl,alpha,row,beta,dst,d); }
+template<> inline void cuda_log_add_exp_mat<float>(dim3 Gr, dim3 Bl, const float *A, float *dst, MatrixDim d) { cudaF_log_add_exp_mat(Gr,Bl,A,dst,d); }
  
 /*
  * CuVector
@@ -137,14 +154,22 @@ template<> inline void cuda_copy<float>(dim3 Gr, dim3 Bl, float *y, const float 
  * CuMatrix 
  */
 template<> inline void cuda_set_const<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_set_const(Gr,Bl,mat,value,d); }
+template<> inline void cuda_add_const<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_add_const(Gr,Bl,mat,value,d); }
+template<> inline void cuda_power<double>(dim3 Gr, dim3 Bl, double *mat, double pow, MatrixDim d) { cudaD_power(Gr,Bl,mat,pow,d); }
+template<> inline void cuda_scale<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_scale(Gr,Bl,mat,value,d); }
+template<> inline void cuda_apply_floor<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_apply_floor(Gr,Bl,mat,value,d); }
 template<> inline void cuda_apply_log<double>(dim3 Gr, dim3 Bl, double *mat, MatrixDim d) { cudaD_apply_log(Gr,Bl,mat,d); }
+template<> inline void cuda_apply_exp<double>(dim3 Gr, dim3 Bl, double *mat, MatrixDim d) { cudaD_apply_exp(Gr,Bl,mat,d); }
 template<> inline void cuda_mul_elements<double>(dim3 Gr, dim3 Bl, double *mat, const double *A, MatrixDim d) { cudaD_mul_elements(Gr,Bl,mat,A,d); }
+template<> inline void cuda_div_elements<double>(dim3 Gr, dim3 Bl, double *mat, const double *A, MatrixDim d) { cudaD_div_elements(Gr,Bl,mat,A,d); }
 template<> inline void cuda_mul_cols_vec<double>(dim3 Gr, dim3 Bl, double *mat, const double *scale, MatrixDim d) { cudaD_mul_cols_vec(Gr,Bl,mat,scale,d); }
 template<> inline void cuda_mul_rows_vec<double>(dim3 Gr, dim3 Bl, double *mat, const double *scale, MatrixDim d) { cudaD_mul_rows_vec(Gr,Bl,mat,scale,d); }
+template<> inline void cuda_div_cols_vec<double>(dim3 Gr, dim3 Bl, double *mat, const double *vec_div, MatrixDim d) { cudaD_div_cols_vec(Gr,Bl,mat,vec_div,d); }
 template<> inline void cuda_div_rows_vec<double>(dim3 Gr, dim3 Bl, double *mat, const double *vec_div, MatrixDim d) { cudaD_div_rows_vec(Gr,Bl,mat,vec_div,d); }
 template<> inline void cuda_add_mat<double>(dim3 Gr, dim3 Bl, double alpha, const double *A, double beta, double *dst, MatrixDim d) { cudaD_add_mat(Gr,Bl,alpha,A,beta,dst,d); }
 template<> inline void cuda_add_vec_to_cols<double>(dim3 Gr, dim3 Bl, double alpha, const double *col, double beta, double *dst, MatrixDim d) { cudaD_add_vec_to_cols(Gr,Bl,alpha,col,beta,dst,d); }
 template<> inline void cuda_add_vec_to_rows<double>(dim3 Gr, dim3 Bl, double alpha, const double *row, double beta, double *dst, MatrixDim d) { cudaD_add_vec_to_rows(Gr,Bl,alpha,row,beta,dst,d); }
+template<> inline void cuda_log_add_exp_mat<double>(dim3 Gr, dim3 Bl, const double *A, double *dst, MatrixDim d) { cudaD_log_add_exp_mat(Gr,Bl,A,dst,d); }
  
 /*
  * CuVector

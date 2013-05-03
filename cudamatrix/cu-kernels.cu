@@ -127,6 +127,48 @@ static void _set_const(Real* mat, Real value, MatrixDim d) {
     mat[index] = value;
 }
 
+template<typename Real>
+__global__
+static void _add_const(Real* mat, Real value, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows )
+    mat[index] = mat[index] + value;
+}
+
+template<typename Real>
+__global__
+static void _power(Real* mat, Real pw, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows )
+    mat[index] = pow(mat[index], pw);
+}
+
+template<typename Real>
+__global__
+static void _scale(Real* mat, Real value, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows )
+    mat[index] = mat[index] * value;
+}
+
+
+template<typename Real>
+__global__
+static void _apply_floor(Real* mat, Real value, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows ) {
+    if (mat[index] < value) mat[index] = value;
+  }
+}
+
 
 template<typename Real>
 __global__
@@ -141,12 +183,34 @@ static void _apply_log(Real* mat, MatrixDim d) {
 
 template<typename Real>
 __global__
+static void _apply_exp(Real* mat, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows )
+    mat[index] = exp(mat[index]);
+}
+
+
+template<typename Real>
+__global__
 static void _mul_elements(Real* mat, const Real* A, MatrixDim d) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
   int32_cuda index = i + j*d.stride;
   if ( i < d.cols  &&  j < d.rows )
     mat[index] = mat[index] * A[index];
+}
+
+
+template<typename Real>
+__global__
+static void _div_elements(Real* mat, const Real* A, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows )
+    mat[index] = mat[index] / A[index];
 }
 
 
@@ -169,6 +233,28 @@ static void _mul_rows_vec(Real* mat, const Real* scale, MatrixDim d) {
   int32_cuda index = i + j*d.stride;
   if ( i < d.cols  &&  j < d.rows )
     mat[index] *= scale[j];
+}
+
+
+template<typename Real>
+__global__
+static void _div_cols_vec(Real* mat, const Real* vec_div, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+
+  if( i >= d.cols ) return;
+
+  //invert divider in shared memory
+  __shared__ Real inv[16];
+  if(threadIdx.y==0) {
+    inv[threadIdx.x] = 1.0/vec_div[i];
+  }
+  __syncthreads();
+ 
+  //multiply elements
+  if ( i < d.cols  &&  j < d.rows )
+    mat[index] *= inv[threadIdx.x];
 }
 
 
@@ -204,6 +290,28 @@ static void _add_mat(Real alpha, const Real* A, Real beta, Real* dst, MatrixDim 
     dst[index] = alpha*A[index] + beta*dst[index];
 }
 
+
+template<typename Real>
+__global__
+static void _log_add_exp_mat(const Real* A, Real* dst, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows ) {
+  	// find max
+  	double fa = A[index];
+  	double fb = dst[index];
+  	double max, sum;
+  	if(fa > fb) {
+  	  sum = 1.0 + exp(fb - fa);
+  	  max=fa;
+  	}else{
+  	  sum = exp(fa-fb) + 1.0;
+  	  max=fb;
+  	}
+  	dst[index] = max + log(sum);
+  }
+}
 
 
 template<typename Real>
@@ -573,12 +681,36 @@ void cudaF_set_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
 
+void cudaF_add_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
+  _add_const<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaF_power(dim3 Gr, dim3 Bl, float* mat, float pow, MatrixDim d) {
+  _power<<<Gr,Bl>>>(mat,pow,d);
+}
+
+void cudaF_scale(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
+  _scale<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaF_apply_floor(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
+  _apply_floor<<<Gr,Bl>>>(mat,value,d); 
+}
+
 void cudaF_apply_log(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) {
   _apply_log<<<Gr,Bl>>>(mat,d); 
 }
 
+void cudaF_apply_exp(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) {
+  _apply_exp<<<Gr,Bl>>>(mat,d); 
+}
+
 void cudaF_mul_elements(dim3 Gr, dim3 Bl, float* mat, const float* A, MatrixDim d) {
   _mul_elements<<<Gr,Bl>>>(mat,A,d); 
+}
+
+void cudaF_div_elements(dim3 Gr, dim3 Bl, float* mat, const float* A, MatrixDim d) {
+  _div_elements<<<Gr,Bl>>>(mat,A,d); 
 }
 
 void cudaF_mul_cols_vec(dim3 Gr, dim3 Bl, float* mat, const float* scale, MatrixDim d) {
@@ -587,6 +719,10 @@ void cudaF_mul_cols_vec(dim3 Gr, dim3 Bl, float* mat, const float* scale, Matrix
 
 void cudaF_mul_rows_vec(dim3 Gr, dim3 Bl, float* mat, const float* scale, MatrixDim d) {
   _mul_rows_vec<<<Gr,Bl>>>(mat,scale,d);
+}
+
+void cudaF_div_cols_vec(dim3 Gr, dim3 Bl, float* mat, const float* vec_div, MatrixDim d) {
+  _div_cols_vec<<<Gr,Bl>>>(mat, vec_div, d);
 }
 
 void cudaF_div_rows_vec(dim3 Gr, dim3 Bl, float* mat, const float* vec_div, MatrixDim d) {
@@ -611,6 +747,9 @@ void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim 
   _apply_mask<<<Gr,Bl>>>(mat,mask,dmat,dmask); 
 }
 
+void cudaF_log_add_exp_mat(dim3 Gr, dim3 Bl, const float* A, float* dst, MatrixDim d) {
+  _log_add_exp_mat<<<Gr,Bl>>>(A,dst,d); 
+}
 
 /*
  * CuVector
@@ -701,12 +840,36 @@ void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
 
+void cudaD_add_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
+  _add_const<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaD_power(dim3 Gr, dim3 Bl, double* mat, double pow, MatrixDim d) {
+  _power<<<Gr,Bl>>>(mat,pow,d);
+}
+
+void cudaD_scale(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
+  _scale<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaD_apply_floor(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
+  _apply_floor<<<Gr,Bl>>>(mat,value,d); 
+}
+
 void cudaD_apply_log(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) {
   _apply_log<<<Gr,Bl>>>(mat,d); 
 }
 
+void cudaD_apply_exp(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) {
+  _apply_exp<<<Gr,Bl>>>(mat,d); 
+}
+
 void cudaD_mul_elements(dim3 Gr, dim3 Bl, double* mat, const double* A, MatrixDim d) {
   _mul_elements<<<Gr,Bl>>>(mat,A,d); 
+}
+
+void cudaD_div_elements(dim3 Gr, dim3 Bl, double* mat, const double* A, MatrixDim d) {
+  _div_elements<<<Gr,Bl>>>(mat,A,d); 
 }
 
 void cudaD_mul_cols_vec(dim3 Gr, dim3 Bl, double* mat, const double* scale, MatrixDim d) {
@@ -715,6 +878,10 @@ void cudaD_mul_cols_vec(dim3 Gr, dim3 Bl, double* mat, const double* scale, Matr
 
 void cudaD_mul_rows_vec(dim3 Gr, dim3 Bl, double* mat, const double* scale, MatrixDim d) {
   _mul_rows_vec<<<Gr,Bl>>>(mat,scale,d);
+}
+
+void cudaD_div_cols_vec(dim3 Gr, dim3 Bl, double* mat, const double* vec_div, MatrixDim d) {
+  _div_cols_vec<<<Gr,Bl>>>(mat, vec_div, d);
 }
 
 void cudaD_div_rows_vec(dim3 Gr, dim3 Bl, double* mat, const double* vec_div, MatrixDim d) {
@@ -738,6 +905,9 @@ void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim
   _apply_mask<<<Gr,Bl>>>(mat,mask,dmat,dmask); 
 }
 
+void cudaD_log_add_exp_mat(dim3 Gr, dim3 Bl, const double* A, double* dst, MatrixDim d) {
+  _log_add_exp_mat<<<Gr,Bl>>>(A,dst,d); 
+}
 
 
 /*

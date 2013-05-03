@@ -34,6 +34,10 @@ namespace kaldi {
  */
 namespace cu {
 
+  /// Square root
+  /// Y = sqrt(X)
+
+
   /// Rectified linear unit relu
   /// Y = max(0, X)
   template<typename Real>

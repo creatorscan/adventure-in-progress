@@ -78,12 +78,21 @@ class CuVector {
   /// Math operations
   void SetZero();
   void Set(Real value);
+  void Add(Real value);
+  void Power(Real pow);
+  void ApplyLog();
+  /// set all the elements smaller than value to value
+  void ApplyFloor(Real value);
   void AddVec(Real alpha, const CuVector<Real> &vec, Real beta=1.0); 
   /// Sum the rows of the matrix, add to vector
   void AddRowSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta=1.0);
   /// Sum the columns of the matrix, add to vector
   void AddColSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta=1.0); 
   void InvertElements(); 
+  /// Multiply the other vector element by element
+  void MulElements(const CuVector<Real> &vec);
+  /// Divide the other vector element by element
+  void DivElements(const CuVector<Real> &vec);
 
   /// Accessor to non-GPU vector
   const VectorBase<Real>& Vec() const {

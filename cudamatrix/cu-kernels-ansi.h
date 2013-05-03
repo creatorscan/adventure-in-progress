@@ -42,15 +42,23 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda *mat, int32_cuda value, Matr
  * CuMatrix 
  */
 void cudaF_set_const(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
+void cudaF_add_const(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
+void cudaF_power(dim3 Gr, dim3 Bl, float *mat, float pow, MatrixDim d);
+void cudaF_scale(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
+void cudaF_apply_floor(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_apply_log(dim3 Gr, dim3 Bl, float *mat, MatrixDim d);
+void cudaF_apply_exp(dim3 Gr, dim3 Bl, float *mat, MatrixDim d);
 void cudaF_mul_elements(dim3 Gr, dim3 Bl, float *mat, const float *A, MatrixDim d);
+void cudaF_div_elements(dim3 Gr, dim3 Bl, float *mat, const float *A, MatrixDim d);
 void cudaF_mul_cols_vec(dim3 Gr, dim3 Bl, float *mat, const float *scale, MatrixDim d);
 void cudaF_mul_rows_vec(dim3 Gr, dim3 Bl, float *mat, const float *scale, MatrixDim d);
+void cudaF_div_cols_vec(dim3 Gr, dim3 Bl, float *mat, const float *vec_div, MatrixDim d);
 void cudaF_div_rows_vec(dim3 Gr, dim3 Bl, float *mat, const float *vec_div, MatrixDim d);
 void cudaF_add_mat(dim3 Gr, dim3 Bl, float alpha, const float *A, float beta, float *dst, MatrixDim d);
 void cudaF_add_vec_to_cols(dim3 Gr, dim3 Bl, float alpha, const float *col, float beta, float *dst, MatrixDim d);
 void cudaF_add_vec_to_rows(dim3 Gr, dim3 Bl, float alpha, const float *row, float beta, float *dst, MatrixDim d);
- 
+void cudaF_log_add_exp_mat(dim3 Gr, dim3 Bl, const float *A, float *dst, MatrixDim d);
+
 /*
  * CuVector
  */
@@ -88,14 +96,22 @@ void cudaF_copy(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *co
  * CuMatrix 
  */
 void cudaD_set_const(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
+void cudaD_add_const(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
+void cudaD_power(dim3 Gr, dim3 Bl, double *mat, double pow, MatrixDim d);
+void cudaD_scale(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
+void cudaD_apply_floor(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_apply_log(dim3 Gr, dim3 Bl, double *mat, MatrixDim d);
+void cudaD_apply_exp(dim3 Gr, dim3 Bl, double *mat, MatrixDim d);
 void cudaD_mul_elements(dim3 Gr, dim3 Bl, double *mat, const double *A, MatrixDim d);
+void cudaD_div_elements(dim3 Gr, dim3 Bl, double *mat, const double *A, MatrixDim d);
 void cudaD_mul_cols_vec(dim3 Gr, dim3 Bl, double *mat, const double *scale, MatrixDim d);
 void cudaD_mul_rows_vec(dim3 Gr, dim3 Bl, double *mat, const double *scale, MatrixDim d);
+void cudaD_div_cols_vec(dim3 Gr, dim3 Bl, double *mat, const double *vec_div, MatrixDim d);
 void cudaD_div_rows_vec(dim3 Gr, dim3 Bl, double *mat, const double *vec_div, MatrixDim d);
 void cudaD_add_mat(dim3 Gr, dim3 Bl, double alpha, const double *A, double beta, double *dst, MatrixDim d);
 void cudaD_add_vec_to_cols(dim3 Gr, dim3 Bl, double alpha, const double *col, double beta, double *dst, MatrixDim d);
 void cudaD_add_vec_to_rows(dim3 Gr, dim3 Bl, double alpha, const double *row, double beta, double *dst, MatrixDim d);
+void cudaD_log_add_exp_mat(dim3 Gr, dim3 Bl, const double *A, double *dst, MatrixDim d);
  
 /*
  * CuVector

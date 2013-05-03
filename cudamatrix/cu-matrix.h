@@ -126,24 +126,36 @@ class CuMatrix {
   /// Math operations, some calling kernels
   void SetZero();
   void Set(Real value);
+  void Add(Real value);
   void ApplyLog();
+  void ApplyExp();
+  void Power(Real pow);
+  void Scale(Real value);
+  void InvertElements();
   /// Multiply two matrices elementhwise: C = A .* C
   void MulElements(const CuMatrix<Real>& A);
+  /// Divide two matrices element-wise: C = C ./ A
+  void DivElements(const CuMatrix<Real>& A);
   /// scale i'th column by scale[i]
   void MulColsVec(const CuVector<Real> &scale); 
   /// scale i'th row by scale[i]
   void MulRowsVec(const CuVector<Real> &scale); 
-  /// divide i'th row by scale[i]
+  /// divide i'th column by div[i]
+  void DivColsVec(const CuVector<Real> &idv);
+  /// divide i'th row by div[i]
   void DivRowsVec(const CuVector<Real> &div);
   /// B = aplha * A + beta * B
   void AddMat(Real alpha, const CuMatrix<Real>& A, Real beta=1.0);
-  /// B = aplha * row + beta * B
+  /// [each col of *this] = alpha * col + beta * [the col of *this]
   void AddVecToCols(Real alpha, const CuVector<Real> &col, Real beta=1.0);
-  /// B = aplha * row + beta * B
+  /// [each row of *this] = alpha * row + beta * [the row of *this]
   void AddVecToRows(Real alpha, const CuVector<Real> &row, Real beta=1.0);
   /// C = alpha * A(^T)*B(^T) + beta * C
   void AddMatMat(Real alpha, const CuMatrix<Real>& A, MatrixTransposeType transA,
                  const CuMatrix<Real>& B, MatrixTransposeType transB, Real beta);
+
+  /// B = log ( exp(A) + exp(B) )
+  void LogAddExpMat(const CuMatrix<Real>& A);
 
   /// Accessor to the non-CUDA matrix
   const MatrixBase<Real>& Mat() const {

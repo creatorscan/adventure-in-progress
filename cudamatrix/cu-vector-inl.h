@@ -240,7 +240,89 @@ void CuVector<Real>::Set(Real value) {
   }
 }
 
+template<typename Real>
+void CuVector<Real>::Add(Real value) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
 
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_add_const(dimGrid, dimBlock, data_, value, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.Add(value);
+  }
+}
+
+template<typename Real>
+void CuVector<Real>::Power(Real power) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_power(dimGrid, dimBlock, data_, power, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.ApplyPow(power);
+  }
+}
+
+template<typename Real>
+void CuVector<Real>::ApplyLog() {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_apply_log(dimGrid, dimBlock, data_, value, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.ApplyLog();
+  }
+}
+
+template<typename Real>
+void CuVector<Real>::ApplyFloor(Real value) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_apply_floor(dimGrid, dimBlock, data_, value, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.ApplyFloor(value);
+  }
+}
 
 template<typename Real>
 void CuVector<Real>::AddVec(Real alpha, const CuVector<Real> &vec, Real beta) {
@@ -379,6 +461,48 @@ void CuVector<Real>::InvertElements() {
   }
 }
 
+template<typename Real>
+void CuVector<Real>::MulElements(const CuVector<Real> &vec) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK*8, 1);
+    dim3 dimGrid(n_blocks(dim_, CUBLOCK*8));
+    MatrixDim d = {1, dim_, dim_};
+
+    cuda_mul_elements(dimGrid, dimBlock, data_, vec.Data(), d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.MulElements(vec.Vec());
+  }
+}
+
+
+template<typename Real>
+void CuVector<Real>::DivElements(const CuVector<Real> &vec) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK*8, 1);
+    dim3 dimGrid(n_blocks(dim_, CUBLOCK*8));
+    MatrixDim d = {1, dim_, dim_};
+
+    cuda_div_elements(dimGrid, dimBlock, data_, vec.Data(), d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.DivElements(vec.Vec());
+  }
+}
  
 } // namespace kaldi
 
