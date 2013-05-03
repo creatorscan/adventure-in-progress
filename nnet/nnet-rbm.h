@@ -316,7 +316,7 @@ class MaskedRbm : public Rbm {
 
     int first_char = Peek(is, binary);
     if (first_char == EOF) {
-      KALDI_ERR << "Empty model file!";
+      KALDI_ERR<< "Empty model file!";
     }
 
     ReadToken(is, binary, &token);

@@ -79,7 +79,8 @@ class Component {
     kBias,
     kWindow,
     kLog,
-    kMaskedRbm
+    kMaskedRbm,
+    kRoRbm
   } ComponentType;
   /// Pair of type and marker
   struct key_value {
