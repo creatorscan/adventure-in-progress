@@ -110,7 +110,7 @@ for i=1:numChans
     eid=min(specWinSize+(i-2)*specWinStep, numFilters);
     specWin(i, sid:eid)=ones(1,eid-sid+1);
 end
-%specWin=specWin./specWinSize;
+specWin=specWin./specWinSize;
 specFrm=filterFrm * specWin';
 
 
