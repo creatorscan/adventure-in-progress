@@ -8,13 +8,12 @@
 #ifndef KALDI_NNET_RORBM_H_
 #define KALDI_NNET_RORBM_H_
 
-
 #include "nnet/nnet-component.h"
 #include "cudamatrix/cu-math.h"
 #include "nnet/nnet-rbm.h"
 #include "cudamatrix/cu-rand.h"
 
-namespace kaldi{
+namespace kaldi {
 /*
  * Robust RBM
  *
@@ -29,7 +28,16 @@ class RoRbm : public RbmBase {
    * dim_out: the hidden dimension of the clean speech RBM;
    */
   RoRbm(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet)
-      : Rbm(dim_in, dim_out, nnet)
+      : RbmBase(dim_in, dim_out, nnet),
+        vis_dim_(dim_in),
+        clean_hid_dim_(dim_out),
+        noise_hid_dim_(0),
+        z_momentum_(0.0),
+        num_gibbs_iters_(1),
+        num_pos_iters_(1),
+        z_start_iter_(-1),
+        batch_size_(0),
+        first_data_bunch_(true)
   {
   }
 
@@ -40,35 +48,11 @@ class RoRbm : public RbmBase {
     return kRoRbm;
   }
 
-  void ReadData(std::istream &is, bool binary) {
-    //TODO::
+  /* Read model from file */
+  void ReadData(std::istream &is, bool binary);
 
-  }
-
-  void WriteData(std::ostream &os, bool binary) const {
-    //TODO::
-
-  }
-
-  // UpdatableComponent API
-  void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
-    KALDI_ERR << "Not implemented for RoRbm!";
-  }
-
-  void BackpropagateFnc(const CuMatrix<BaseFloat> &in,
-                        CuMatrix<BaseFloat> *out) {
-    KALDI_ERR<< "Cannot backpropagate through RBM!"
-    << "Better convert it to <BiasedLinearity>";
-  }
-
-  // RBM training API
-  void Reconstruct(const CuMatrix<BaseFloat> &hid_state, CuMatrix<BaseFloat> *vis_probs) {
-    KALDI_ERR << "Not implemented for RoRbm!";
-  }
-
-  void RbmUpdate(const CuMatrix<BaseFloat> &pos_vis, const CuMatrix<BaseFloat> &pos_hid, const CuMatrix<BaseFloat> &neg_vis, const CuMatrix<BaseFloat> &neg_hid) {
-    KALDI_ERR << "Not implemented for RoRbm!";
-  }
+  /* Write model to file */
+  void WriteData(std::ostream &os, bool binary) const;
 
   /*
    * Visible unit type for the clean speech RBM.
@@ -81,96 +65,192 @@ class RoRbm : public RbmBase {
    * Hidden unit type for the clean speech RBM.
    */
   RbmNodeType HidType() const {
-    return hid_type_;
+    return clean_hid_type_;
   }
 
+  RbmNodeType CleanHidType() const {
+    return clean_hid_type_;
+  }
+
+  RbmNodeType NoiseHidType() const {
+    return noise_hid_type_;
+  }
+
+  /*
+   * To do posterior inference in a single object RoRbm conditioned on a vt_cn image
+   */
+  void Infer(CuMatrix<BaseFloat> &v);
+
+  void Learn(const CuMatrix<BaseFloat> &vt, CuMatrix<BaseFloat> &v);
+
+  void AddNoiseToBatchData();
+
+  void NormalizeBatchData();
+
+  void InitializeInferVars();
+
+  void InitializeLearnVars();
+
+  void InferChangeBatchSize(int32 bs);
+
+  void LearnChangeBatchSize(int32 bs);
+
+  void SetZMomentum(BaseFloat value) {
+    z_momentum_ = value;
+  }
+
+  BaseFloat GetZMomentum(BaseFloat value) {
+    return z_momentum_;
+  }
+
+  void SetZStartIter(int32 value) {
+    z_start_iter_ = value;
+  }
+
+  int32 GetZStartIter() {
+    return z_start_iter_;
+  }
+
+  void SetNumGibbsIters(int32 value) {
+    num_gibbs_iters_ = value;
+  }
+
+  int32 GetNumGibbsIters() {
+    return num_gibbs_iters_;
+  }
+
+  void SetNumPosIters(int32 value) {
+    num_pos_iters_ = value;
+  }
+
+  int32 GetNumPosIters() {
+    return num_pos_iters_;
+  }
+
+  void SetNormalizationParams(BaseFloat cc, BaseFloat k, BaseFloat eps) {
+    norm_cc_ = cc;
+    norm_k_ = k;
+    norm_eps_ = eps;
+  }
+
+  /*
+   * Functions inhereted from RbmBase.
+   */
   void WriteAsNnet(std::ostream& os, bool binary) const {
-    KALDI_ERR << "Not implemented for RoRbm!";
+    KALDI_ERR<< "Not implemented for RoRbm!";
   }
 
   void WriteAsAutoEncoder(std::ostream& os, bool isEncoder, bool binary) const {
     KALDI_ERR << "Not implemented for RoRbm!";
   }
 
-  /*
-   * To do posterior inference in a single object RoRbm conditioned on a vt_cn image
-   */
-  void Infer(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v,
-             CuMatrix<BaseFloat> *ha,
-             CuMatrix<BaseFloat> *s,
-             CuMatrix<BaseFloat> *hs, CuMatrix<BaseFloat> *v_condmean,
-             CuMatrix<BaseFloat> *z,
-             int32 nIters, int32 start_z, BaseFloat z_momentum);
+  void Reconstruct(const CuMatrix<BaseFloat> &hid_state, CuMatrix<BaseFloat> *vis_probs) {
+    KALDI_ERR << "Not implemented for RoRbm!";
+  }
 
-  void Learn(const CuMatrix<BaseFloat> &batchdata, int32 posPhaseInters, int32 nGibbsIters);
+  void RbmUpdate(const CuMatrix<BaseFloat> &pos_vis, const CuMatrix<BaseFloat> &pos_hid, const CuMatrix<BaseFloat> &neg_vis, const CuMatrix<BaseFloat> &neg_hid) {
+    KALDI_ERR << "Not implemented for RoRbm!";
+  }
+
+  void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
+    KALDI_ERR<< "Not implemented for RoRbm!";
+  }
+
+  void BackpropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
+    KALDI_ERR<< "Not implemented for RoRbm!";
+  }
 
 private:
   // Model parameters for the noisy input
-  CuVector<BaseFloat> bt_; ///< Input bias vector \tilde{b}
-  CuVector<BaseFloat> lamt2_; ///< Input variance vector 1.0/{\tilde{\sigma}^2}
+  CuVector<BaseFloat> bt_;///< Input bias vector \tilde{b}
+  CuVector<BaseFloat> lamt2_;///< Input variance vector 1.0/{\tilde{\sigma}^2}
 
   // Model parameters for the gating function
-  CuVector<BaseFloat> gamma2_; ///< Gating vector gamma_square
+  CuVector<BaseFloat> gamma2_;///< Gating vector gamma_square
 
   // Model parameters for the clean GRBM
-  CuMatrix<BaseFloat> clean_vis_hid_;        ///< Matrix with neuron weights, size [clean_hid_dim_, vis_dim_]
+  CuMatrix<BaseFloat> clean_vis_hid_;///< Matrix with neuron weights, size [clean_hid_dim_, vis_dim_]
   CuVector<BaseFloat> clean_vis_bias_;///< Vector with biases
   CuVector<BaseFloat> clean_hid_bias_;///< Vector with biases
-  CuVector<BaseFloat> clean_vis_inv_sigma2_; ///< Inverse standard deviation of the clean GRBM inputs, 1.0/{\sigma}^2
-  CuVector<BaseFloat> clean_vis_sigma_; ///< Standard deviation of the clean GRM inputs, \sigma
+  CuVector<BaseFloat> clean_vis_sigma_;///< Standard deviation of the clean GRM inputs, \sigma
   CuVector<BaseFloat> clean_vis_sigma2_;
 
   // Model parameters for the noise indicator RBM
-  CuMatrix<BaseFloat> U_; // noise_vis_hid_; ///< Weight matrix U, size [noise_hid_dim_, vis_dim_]
-  CuVector<BaseFloat> d_; // noise_vis_bias_; ///< Visible bias vector d
-  CuVector<BaseFloat> e_; // noise_hid_bias_; ///< Hidden bias vector e
-  CuVector<BaseFloat> ee_; // noise_hid_bias_ori_; ///< Hidden bias vector ee
+  CuMatrix<BaseFloat> U_;// noise_vis_hid_; ///< Weight matrix U, size [noise_hid_dim_, vis_dim_]
+  CuVector<BaseFloat> d_;// noise_vis_bias_; ///< Visible bias vector d
+  CuVector<BaseFloat> ee_;// noise_hid_bias_ori_; ///< Hidden bias vector ee, This is model parameter
 
   // Variables for parameter updates
-  CuMatrix<BaseFloat> U_corr_; ///< Matrix for noise RBM weight updates
-  CuVector<BaseFloat> d_corr_; ///< Vector for noise visible bias updates
-  CuVector<BaseFloat> ee_corr_; ///< Vector for noise hidden bias updates
-  CuVector<BaseFloat> bt_corr_; ///< Vector for input bias updates
-  CuVector<BaseFloat> lamt2_corr_; ///< Vector for input variance updates
-  CuVector<BaseFloat> gamma2_corr_; ///< Vector for gamm2 updates
-
+  CuMatrix<BaseFloat> U_corr_;///< Matrix for noise RBM weight updates
+  CuVector<BaseFloat> d_corr_;///< Vector for noise visible bias updates
+  CuVector<BaseFloat> ee_corr_;///< Vector for noise hidden bias updates
+  CuVector<BaseFloat> bt_corr_;///< Vector for input bias updates
+  CuVector<BaseFloat> lamt2_corr_;///< Vector for input variance updates
+  CuVector<BaseFloat> gamma2_corr_;///< Vector for gamm2 updates
 
   CuMatrix<BaseFloat> U_pos_, U_neg_;
   CuVector<BaseFloat> d_pos_, d_neg_;
   CuVector<BaseFloat> ee_pos_, ee_neg_;
-  CuVector<BaseFloat> bt_pos_, bt_neg_;  // visible node bias
+  CuVector<BaseFloat> bt_pos_, bt_neg_;// visible node bias
   CuVector<BaseFloat> lamt2_pos_, lamt2_neg_;
   CuVector<BaseFloat> gamma2_pos_, gamma2_neg_;
 
-  // fantasy particles (needed for negative phase of SAP)
-  CuMatrix<BaseFloat> fp_vt_;
-  CuMatrix<BaseFloat> ha_, haprob_, fp_ha_; /// for clean RBM hidden activations
-  CuMatrix<BaseFloat> hs_, hsprob_, fp_hs_; /// for noise RBM hidden activations
-  CuMatrix<BaseFloat> fp_v; /// for clean RBM input
-  CuMatrix<BaseFloat> fp_s; /// for noise RBM input
+  // intermediate variables
+  /* size: [n, vis_dim_/clean_hid_dim_/noise_hid_dim_]
+   * fp_*: fantasy particles (needed for negative phase of SAP)
+   *
+   */
+  CuMatrix<BaseFloat> vt_cn_, vt_cn_0_, fp_v_, fp_vt_;
+  CuMatrix<BaseFloat> ha_, haprob_, fp_ha_;  /// for clean RBM hidden activations
+  CuMatrix<BaseFloat> hs_, hsprob_, fp_hs_;/// for noise RBM hidden activations
+  CuMatrix<BaseFloat> mu_, mu_hat_, mu_t_hat_;
+  CuMatrix<BaseFloat> s_, phi_s_, fp_s_, z_;
+  CuMatrix<BaseFloat> log_sprob_0_, log_sprob_1_;
+  CuMatrix<BaseFloat> mat_tmp_;
+  CuMatrix<BaseFloat> v_condstd_, fp_vt_condstd_;
+  CuMatrix<BaseFloat> v_condmean_, fp_vt_condmean_;
 
+  /* size: [noise_hid_dim_, vis_dim_] */
+  CuMatrix<BaseFloat> U_tmp_;
+
+  /* size: [1, vis_dim_]*/
+  CuVector<BaseFloat> e_;  // noise_hid_bias_ after normaliztion, i.e. normalized ee
+  CuVector<BaseFloat> std_hat_;
+  CuVector<BaseFloat> inv_gamma2_tmp_;
+  CuVector<BaseFloat> vec_tmp_, vec_tmp2_;
+  CuVector<BaseFloat> s_mu_;
+  CuVector<BaseFloat> lamt2_hat_;
+
+  /* size: [1, batch_size_] */
+  CuVector<BaseFloat> vec_col_, vec_r_;
 
   RbmNodeType vis_type_;
-  RbmNodeType hid_type_;
+  RbmNodeType clean_hid_type_;
+  RbmNodeType noise_hid_type_;
 
-
-
-  int32 vis_dim_; ///< visible layer dim, same for \tilde{v}, v and s
-  int32 clean_hid_dim_; ///< hidden layer dim for clean GRBM
-  int32 noise_hid_dim_; ///< hidden layer dim for noise indicator RBM
+  int32 vis_dim_;///< visible layer dim, same for \tilde{v}, v and s
+  int32 clean_hid_dim_;///< hidden layer dim for clean GRBM
+  int32 noise_hid_dim_;///< hidden layer dim for noise indicator RBM
 
   CuRand<BaseFloat> cu_rand_;
 
-  BaseFloat weight_cost_;
+  BaseFloat z_momentum_;
+  int32 z_start_iter_;
+
+  int32 num_gibbs_iters_;///< number of gibbs iterations to perform
+  int32 num_pos_iters_;
 
   int32 batch_size_;
 
-  int32 num_gibbs_iters_; ///< number of gibbs iterations to perform
-  int32 num_pos_iters_;
+  bool first_data_bunch_;
+
+  /* data normalization params */
+  BaseFloat norm_cc_;
+  BaseFloat norm_k_;
+  BaseFloat norm_eps_;
 
 };
 
 }  // namespace
-
 
 #endif /* KALDI_NNET_RORBM_H_ */
