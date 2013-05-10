@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
                 "Number of Gibbs iterations");
     po.Register("num-pos-iters", &num_pos_iters,
                 "Number of iterations for positive statistics accumulation");
-    po.Register("z-start-iter", &z - start - iter,
+    po.Register("z-start-iter", &z_start_iter,
                 "Iteration to start z accumulation");
 
     int32 bunchsize = 512, cachesize = 32768;
