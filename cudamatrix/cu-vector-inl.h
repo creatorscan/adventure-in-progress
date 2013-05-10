@@ -292,7 +292,7 @@ void CuVector<Real>::ApplyLog() {
     dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
     ::MatrixDim d = { 1, Dim(), Dim() };
 
-    cuda_apply_log(dimGrid, dimBlock, data_, value, d);
+    cuda_apply_log(dimGrid, dimBlock, data_, d);
     cuSafeCall(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());

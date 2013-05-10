@@ -426,14 +426,10 @@ void CuMatrix<Real>::InvertElements() {
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
 
-    assert(num_cols_ == A.NumCols());
-    assert(num_rows_ == A.NumRows());
-    assert(stride_ == A.Stride());
-
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
 
-    cuda_invert_elements(dimGrid, dimBlock, data_, A.Data(), Dim());
+    cuda_invert_elements(dimGrid, dimBlock, data_, Dim());
     cuSafeCall(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
