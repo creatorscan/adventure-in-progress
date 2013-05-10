@@ -80,7 +80,8 @@ class Component {
     kWindow,
     kLog,
     kMaskedRbm,
-    kRoRbm
+    kRoRbm,
+    kGRbm
   } ComponentType;
   /// Pair of type and marker
   struct key_value {

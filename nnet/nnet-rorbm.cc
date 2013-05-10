@@ -5,8 +5,9 @@
  *      Author: Troy Lee (troy.lee2008@gmail.com)
  */
 
-#include "nnet/nnet-rorbm.h"
 #include "base/kaldi-math.h"
+#include "nnet/nnet-rorbm.h"
+
 
 namespace kaldi {
 
@@ -153,7 +154,7 @@ void RoRbm::InitializeInferVars() {
 
   vec_tmp_.Resize(vis_dim_);
 
-  InferChagneBatchSize(batch_size_);
+  InferChangeBatchSize(batch_size_);
 
 }
 
@@ -259,7 +260,7 @@ void RoRbm::ReadData(std::istream &is, bool binary) {
 
   KALDI_ASSERT(bt_.Dim() == vis_dim_);
   KALDI_ASSERT(lamt2_.Dim() == vis_dim_);
-  KALDI_ASEERT(gamma2_.Dim() == vis_dim_);
+  KALDI_ASSERT(gamma2_.Dim() == vis_dim_);
 }
 
 void RoRbm::WriteData(std::ostream &os, bool binary) const {

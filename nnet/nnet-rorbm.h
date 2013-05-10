@@ -34,11 +34,11 @@ class RoRbm : public RbmBase {
         noise_hid_dim_(0),
         z_momentum_(0.0),
         num_gibbs_iters_(1),
-        num_pos_iters_(1),
-        z_start_iter_(-1),
         batch_size_(0),
         first_data_bunch_(true)
   {
+    num_pos_iters_ = 1;
+    z_start_iter_ = -1;
   }
 
   ~RoRbm() {
@@ -160,6 +160,9 @@ class RoRbm : public RbmBase {
     KALDI_ERR<< "Not implemented for RoRbm!";
   }
 
+  virtual void Update(const CuMatrix<BaseFloat> &input, const CuMatrix<BaseFloat> &err) {
+    KALDI_ERR<< "Not implemented for RoRbm!";
+  }
 private:
   // Model parameters for the noisy input
   CuVector<BaseFloat> bt_;///< Input bias vector \tilde{b}
@@ -228,7 +231,7 @@ private:
   RbmNodeType clean_hid_type_;
   RbmNodeType noise_hid_type_;
 
-  int32 vis_dim_;///< visible layer dim, same for \tilde{v}, v and s
+  int32 vis_dim_;  ///< visible layer dim, same for \tilde{v}, v and s
   int32 clean_hid_dim_;///< hidden layer dim for clean GRBM
   int32 noise_hid_dim_;///< hidden layer dim for noise indicator RBM
 
