@@ -28,6 +28,13 @@ int main(int argc, char *argv[]) {
     bool binary = false;
     po.Register("binary", &binary, "Write output in binary mode");
 
+    po.Read(argc, argv);
+
+    if (po.NumArgs() != 2) {
+      po.PrintUsage();
+      exit(1);
+    }
+
     std::string input_filename = po.GetArg(1), target_filename = po.GetArg(2);
 
     bool input_binary;
