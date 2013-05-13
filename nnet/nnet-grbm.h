@@ -79,6 +79,7 @@ class GRbm : public RbmBase {
    * Generate hidden probabilities given the input visible states.
    */
   void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
+    KALDI_LOG << "In PropagateFnc...";
     // precopy bias
     out->AddVecToRows(1.0, hid_bias_, 0.0);
     // copy input to data
@@ -98,6 +99,7 @@ class GRbm : public RbmBase {
    */
   void Reconstruct(const CuMatrix<BaseFloat> &hid_state,
                    CuMatrix<BaseFloat> *vis_probs) {
+    KALDI_LOG << "In Reconstruct ... ";
     // check the dim
     if (output_dim_ != hid_state.NumCols()) {
       KALDI_ERR<< "Nonmatching dims, component:" << output_dim_ << " data:" << hid_state.NumCols();
@@ -134,6 +136,7 @@ class GRbm : public RbmBase {
   void RbmUpdate(const CuMatrix<BaseFloat> &pos_vis, const CuMatrix<BaseFloat> &pos_hid,
       const CuMatrix<BaseFloat> &neg_vis, const CuMatrix<BaseFloat> &neg_hid,
       CuVector<BaseFloat> *avg_hid_probs, bool first_bunch) {
+    KALDI_LOG << "In RbmUpdate ...";
 
     assert(pos_vis.NumRows() == pos_hid.NumRows() &&
         pos_vis.NumRows() == neg_vis.NumRows() &&
@@ -220,7 +223,7 @@ class GRbm : public RbmBase {
       }
 
       /* prepare temporal variables */
-      tmp_mat_n_hid_.Resize(N, input_dim_);
+      tmp_mat_n_hid_.Resize(N, output_dim_);
       tmp_mat_n_hid_.Set(1.0);
       tmp_mat_n_hid_.AddMat(-1.0, pos_hid, 1.0);  // 1 - pos_hidprobs
       tmp_mat_n_hid_.MulElements(pos_hid);// pos_hidprobs .* (1 - pos_hidprobs)
