@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
     std::string epoch_name;
 
     Timer tot_tim;
-    KALDI_LOG<< "################################################################";
+    KALDI_LOG<< "##################################################################";
     KALDI_LOG<< "GRBM TRAINING STARTED [" << currentDateTime() << "]";
 
     // var start learning iteration
@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG<< "******************************************************************";
     KALDI_LOG<< "Model saved to " << target_model_filename;
     KALDI_LOG<< "GRBM TRAININIG FINISHED [" << currentDateTime() << "]";
-    KALDI_LOG<< "################################################################";
+    KALDI_LOG<< "##################################################################";
 
 #if HAVE_CUDA==1
     CuDevice::Instantiate().PrintProfile();
