@@ -138,6 +138,13 @@ int main(int argc, char *argv[]) {
     grbm.SetL2Penalty(l2_penalty);  // weight cost
     grbm.SetVarianceLearnRate(0.0);  // initial variance leanring rate
 
+    if (apply_sparsity){
+      grbm.EnableSparsity();
+      grbm.ConfigSparsity(sparsity_lambda, sparsity_p);
+    }else{
+      grbm.DisableSparsity();
+    }
+
     CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, pos_hid_states,
         neg_vis, neg_hid;
     CuMatrix<BaseFloat> dummy_mse_mat;
