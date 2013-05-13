@@ -546,7 +546,7 @@ void CuMatrix<Real>::DivColsVec(const CuVector<Real> &div) {
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
 
-    assert(div.Dim() == NumRows());
+    assert(div.Dim() == NumCols());
 
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
