@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
                 "Whether to use sparsity in the hidden activations");
 
     BaseFloat learn_rate = 0.001,
-        init_momentum = 0.0, high_momentum = 0.0,
+        init_momentum = 0.5, high_momentum = 0.9,
         l2_penalty = 0.0002,
         var_learn_rate = 0.001,
         sparsity_lambda = 0.01,
