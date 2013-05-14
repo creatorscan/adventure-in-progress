@@ -216,9 +216,9 @@ class GRbm : public RbmBase {
     tmp_mat_n_vis_.DivColsVec(fstd_); // negdata .* (vhw * neg_hidprobs') ./ fstd
     log_fstd_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 1.0);
     // correction
-    log_fstd_corr_.AddVec(std_learn_rate_/N, log_fstd_grad_, momentum_);
+    log_fstd_corr_.AddVec(-std_learn_rate_/N, log_fstd_grad_, momentum_);
     // constrain the updates
-    //log_fstd_corr_.ApplyTruncate(-1.0, 1.0);
+    log_fstd_corr_.ApplyTruncate(-1.0, 1.0);
 
     if ( apply_sparsity_) {
       if(first_bunch) {
