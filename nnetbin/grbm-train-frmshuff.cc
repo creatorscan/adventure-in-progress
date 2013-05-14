@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
                 "Feature transform Neural Network");
 
     int32 bunchsize = 512, cachesize = 32768, maxEpoch = 1000, numCD = 100,
-        momentum_change_epoch = 5;
+        momentum_change_epoch = 5, var_start_iter = 1;
     po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("cachesize", &cachesize,
                 "Size of cache for frame level shuffling");
@@ -101,6 +101,7 @@ int main(int argc, char *argv[]) {
     po.Register("numCD", &numCD, "Number of CD iterations");
     po.Register("momentum-change-epoch", &momentum_change_epoch,
                 "Epoch to use high momentum");
+    po.Register("var-start-epoch", &var_start_iter, "The iteration to start learning visible variance");
 
     po.Read(argc, argv);
 
@@ -155,12 +156,6 @@ int main(int argc, char *argv[]) {
     Timer tot_tim;
     KALDI_LOG<< "##################################################################";
     KALDI_LOG<< "GRBM TRAINING STARTED [" << currentDateTime() << "]";
-
-    // var start learning iteration
-    int32 var_start_iter = 30;
-    if (maxEpoch / 2 < var_start_iter) {
-      var_start_iter = (int32) (maxEpoch / 2);
-    }
 
     bool first_bunch = true;  // indicating the first bunch of data for the whole training process
     for (int32 epoch = 0; epoch < maxEpoch; ++epoch) {
