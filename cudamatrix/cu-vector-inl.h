@@ -304,6 +304,27 @@ void CuVector<Real>::ApplyLog() {
 }
 
 template<typename Real>
+void CuVector<Real>::ApplyExp() {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_apply_exp(dimGrid, dimBlock, data_, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    vec_.ApplyExp();
+  }
+}
+
+template<typename Real>
 void CuVector<Real>::ApplyFloor(Real value) {
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
@@ -321,6 +342,30 @@ void CuVector<Real>::ApplyFloor(Real value) {
   #endif
   {
     vec_.ApplyFloor(value);
+  }
+}
+
+template<typename Real>
+void CuVector<Real>::ApplyTruncate(Real low, Real high) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_apply_truncate(dimGrid, dimBlock, data_, low, high, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    for (MatrixIndexT i = 0; i < dim_; i++) {
+      if(vec_(i) < low) vec_(i)=low;
+      if(vec_(i) > high) vec_(i)=high;
+    }
   }
 }
 

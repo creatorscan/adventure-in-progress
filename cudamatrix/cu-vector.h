@@ -81,8 +81,11 @@ class CuVector {
   void Add(Real value);
   void Power(Real pow);
   void ApplyLog();
+  void ApplyExp();
   /// set all the elements smaller than value to value
   void ApplyFloor(Real value);
+  /// Truncate all the elements to be within the specified range
+  void ApplyTruncate(Real low, Real high);
   void AddVec(Real alpha, const CuVector<Real> &vec, Real beta=1.0); 
   /// Sum the rows of the matrix, add to vector
   void AddRowSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta=1.0);

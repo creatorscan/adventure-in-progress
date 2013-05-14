@@ -169,6 +169,18 @@ static void _apply_floor(Real* mat, Real value, MatrixDim d) {
   }
 }
 
+template<typename Real>
+__global__
+static void _apply_truncate(Real* mat, Real low, Real high, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if ( i < d.cols  &&  j < d.rows ) {
+    if (mat[index] < low) mat[index] = low;
+    if (mat[index] > high) mat[index] = high;
+  }
+}
+
 
 template<typename Real>
 __global__
@@ -697,6 +709,10 @@ void cudaF_apply_floor(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _apply_floor<<<Gr,Bl>>>(mat,value,d); 
 }
 
+void cudaF_apply_truncate(dim3 Gr, dim3 Bl, float* mat, float low, float high, MatrixDim d) {
+  _apply_truncate<<<Gr,Bl>>>(mat,low,high,d); 
+}
+
 void cudaF_apply_log(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) {
   _apply_log<<<Gr,Bl>>>(mat,d); 
 }
@@ -854,6 +870,10 @@ void cudaD_scale(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
 
 void cudaD_apply_floor(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _apply_floor<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaD_apply_truncate(dim3 Gr, dim3 Bl, double* mat, double low, double high, MatrixDim d) {
+  _apply_truncate<<<Gr,Bl>>>(mat,low,high,d); 
 }
 
 void cudaD_apply_log(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) {
