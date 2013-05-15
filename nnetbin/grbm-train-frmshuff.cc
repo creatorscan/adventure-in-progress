@@ -253,7 +253,9 @@ int main(int argc, char *argv[]) {
       }
 
       if (epoch_model_filename != "") {
-        nnet.Write(epoch_model_filename + "_epoch" + to_string(epoch), binary);
+        char ss[100];
+        sprintf(ss, "_epoch%d", epoch);
+        nnet.Write(epoch_model_filename + ss, binary);
       }
 
       std::cout << "\n" << std::flush;
