@@ -36,7 +36,9 @@ class RoRbm : public RbmBase {
         num_gibbs_iters_(1),
         batch_size_(0),
         first_data_bunch_(true),
-        norm_cc_(10), norm_eps_(0), norm_k_(0)
+        norm_cc_(10),
+        norm_eps_(0),
+        norm_k_(0)
   {
     num_pos_iters_ = 1;
     z_start_iter_ = -1;
@@ -81,16 +83,32 @@ class RoRbm : public RbmBase {
     return noise_hid_type_;
   }
 
+  int32 VisDim() const {
+    return vis_dim_;
+  }
+
+  int32 CleanHidDim() const {
+    return clean_hid_dim_;
+  }
+
+  int32 NoiseHidDim() const {
+    return noise_hid_dim_;
+  }
+
+  void ConvertNoiseHidBias(const CuVector<BaseFloat> &s_mu);
+
   /*
    * To do posterior inference in a single object RoRbm conditioned on a vt_cn image
    */
+  void PropagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v_condmean, CuMatrix<BaseFloat> *ha, CuMatrix<BaseFloat> *s, CuMatrix<BaseFloat> *hs);
+
   void Infer(CuMatrix<BaseFloat> &v);
 
   void Learn(const CuMatrix<BaseFloat> &vt, CuMatrix<BaseFloat> &v);
 
-  void AddNoiseToBatchData();
+  void AddNoiseToData(CuMatrix<BaseFloat> &vt_cn);
 
-  void NormalizeBatchData();
+  void NormalizeData(CuMatrix<BaseFloat> &vt_cn);
 
   void InitializeInferVars();
 
@@ -124,12 +142,12 @@ class RoRbm : public RbmBase {
     return num_gibbs_iters_;
   }
 
-  void SetNumPosIters(int32 value) {
-    num_pos_iters_ = value;
+  void SetNumInferenceIters(int32 value) {
+    num_infer_iters_ = value;
   }
 
-  int32 GetNumPosIters() {
-    return num_pos_iters_;
+  int32 GetNumInferenceIters() {
+    return num_infer_iters_;
   }
 
   void SetNormalizationParams(BaseFloat cc, BaseFloat k, BaseFloat eps) {
@@ -157,10 +175,6 @@ class RoRbm : public RbmBase {
     KALDI_ERR << "Not implemented for RoRbm!";
   }
 
-  void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
-    KALDI_ERR<< "Not implemented for RoRbm!";
-  }
-
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
     KALDI_ERR<< "Not implemented for RoRbm!";
   }
@@ -180,8 +194,8 @@ private:
   CuMatrix<BaseFloat> clean_vis_hid_;///< Matrix with neuron weights, size [clean_hid_dim_, vis_dim_]
   CuVector<BaseFloat> clean_vis_bias_;///< Vector with biases
   CuVector<BaseFloat> clean_hid_bias_;///< Vector with biases
-  CuVector<BaseFloat> clean_vis_sigma_;///< Standard deviation of the clean GRM inputs, \sigma
-  CuVector<BaseFloat> clean_vis_sigma2_;
+  CuVector<BaseFloat> clean_vis_std_;///< Standard deviation of the clean GRM inputs, \sigma
+  CuVector<BaseFloat> clean_vis_var_;
 
   // Model parameters for the noise indicator RBM
   CuMatrix<BaseFloat> U_;// noise_vis_hid_; ///< Weight matrix U, size [noise_hid_dim_, vis_dim_]
@@ -208,7 +222,7 @@ private:
    * fp_*: fantasy particles (needed for negative phase of SAP)
    *
    */
-  CuMatrix<BaseFloat> vt_cn_, vt_cn_0_, fp_v_, fp_vt_;
+  CuMatrix<BaseFloat> vt_cn_s_, fp_v_, fp_vt_;
   CuMatrix<BaseFloat> ha_, haprob_, fp_ha_;  /// for clean RBM hidden activations
   CuMatrix<BaseFloat> hs_, hsprob_, fp_hs_;/// for noise RBM hidden activations
   CuMatrix<BaseFloat> mu_, mu_hat_, mu_t_hat_;
@@ -246,7 +260,7 @@ private:
   int32 z_start_iter_;
 
   int32 num_gibbs_iters_;///< number of gibbs iterations to perform
-  int32 num_pos_iters_;
+  int32 num_infer_iters_;
 
   int32 batch_size_;
 
