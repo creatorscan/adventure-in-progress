@@ -35,10 +35,15 @@ class RoRbm : public RbmBase {
         z_momentum_(0.0),
         num_gibbs_iters_(1),
         batch_size_(0),
-        first_data_bunch_(true)
+        first_data_bunch_(true),
+        norm_cc_(10), norm_eps_(0), norm_k_(0)
   {
     num_pos_iters_ = 1;
     z_start_iter_ = -1;
+
+    vis_type_ = RbmNodeType::GAUSSIAN;
+    clean_hid_type_ = RbmNodeType::BERNOULLI;
+    noise_hid_type_ = RbmNodeType::BERNOULLI;
   }
 
   ~RoRbm() {

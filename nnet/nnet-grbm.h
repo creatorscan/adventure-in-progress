@@ -229,7 +229,7 @@ class GRbm : public RbmBase {
       }
 
       /* prepare temporal variables */
-      tmp_mat_n_hid_.Resize(N, output_dim_);
+      tmp_mat_n_hid_.Resize(pos_hid.NumRows(), output_dim_);
       tmp_mat_n_hid_.Set(1.0);
       tmp_mat_n_hid_.AddMat(-1.0, pos_hid, 1.0);  // 1 - pos_hidprobs
       tmp_mat_n_hid_.MulElements(pos_hid);// pos_hidprobs .* (1 - pos_hidprobs)
