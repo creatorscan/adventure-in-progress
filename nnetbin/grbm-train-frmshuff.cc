@@ -19,12 +19,11 @@
 
 namespace kaldi {
 
-template <class T>
-inline std::string to_string (const T& t)
-{
-   std::stringstream ss;
-   ss << t;
-   return ss.str();
+template<class T>
+inline std::string to_string(const T& t) {
+  std::stringstream ss;
+  ss << t;
+  return ss.str();
 }
 
 // Get current date/time, format is YYYY-MM-DD.HH:mm:ss
@@ -49,23 +48,29 @@ int main(int argc, char *argv[]) {
 
   try {
 
-    const char *usage =
-        "Perform GRBM training by contrastive divergence alg.\n"
-            "Usage:  grbm-train-frmshuff [options] <model-in> <feature-rspecifier> <model-out> [<epoch-weight>]\n"
-            "e.g.: \n"
-            " grbm-train-frmshuff rbm.init scp:train.scp rbm.final rbm.epoch\n";
+    const char *usage = "Perform GRBM training by contrastive divergence alg.\n"
+        "Usage:  grbm-train-frmshuff [options] <model-in> <feature-rspecifier> "
+        "<model-out> [<epoch-weight>]\n"
+        "e.g.: \n"
+        " grbm-train-frmshuff rbm.init scp:train.scp rbm.final rbm.epoch\n";
+
+    /*
+     * With numCD=1, apply_sparsity=false, enable_vis_random=false, this is the same as
+     */
 
     ParseOptions po(usage);
-    bool binary = false, apply_sparsity = true;
+    bool binary = false, apply_sparsity = true, enable_vis_random = true,
+        enable_hid_random = true;
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("apply-sparsity", &apply_sparsity,
                 "Whether to use sparsity in the hidden activations");
+    po.Register("enable-visible-randomness", &enable_vis_random,
+                "Add randomness to the visible reconstructions");
+    po.Register("enable-hidden-randomness", &enable_hid_random,
+                "Add randomness to the hidden reconstructions");
 
-    BaseFloat learn_rate = 0.001,
-        init_momentum = 0.5, high_momentum = 0.9,
-        l2_penalty = 0.0002,
-        var_learn_rate = 0.001,
-        sparsity_lambda = 0.01,
+    BaseFloat learn_rate = 0.001, init_momentum = 0.5, high_momentum = 0.9,
+        l2_penalty = 0.0002, var_learn_rate = 0.001, sparsity_lambda = 0.01,
         sparsity_p = 0.2;
 
     po.Register("learn-rate", &learn_rate, "Learning rate");
@@ -91,7 +96,8 @@ int main(int argc, char *argv[]) {
     po.Register("numCD", &numCD, "Number of CD iterations");
     po.Register("momentum-change-epoch", &momentum_change_epoch,
                 "Epoch to use high momentum");
-    po.Register("var-start-epoch", &var_start_iter, "The iteration to start learning visible variance");
+    po.Register("var-start-epoch", &var_start_iter,
+                "The iteration to start learning visible variance");
 
     po.Read(argc, argv);
 
@@ -100,8 +106,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    std::string model_filename = po.GetArg(1),
-        feature_rspecifier = po.GetArg(2);
+    std::string model_filename = po.GetArg(1), feature_rspecifier = po.GetArg(
+        2);
 
     std::string target_model_filename;
     target_model_filename = po.GetArg(3);
@@ -129,10 +135,10 @@ int main(int argc, char *argv[]) {
     grbm.SetL2Penalty(l2_penalty);  // weight cost
     grbm.SetVarianceLearnRate(0.0);  // initial variance leanring rate
 
-    if (apply_sparsity){
+    if (apply_sparsity) {
       grbm.EnableSparsity();
       grbm.ConfigSparsity(sparsity_lambda, sparsity_p);
-    }else{
+    } else {
       grbm.DisableSparsity();
     }
 
@@ -198,9 +204,8 @@ int main(int argc, char *argv[]) {
         cache.Randomize();
         // report
         std::cerr << "Cache #" << ++num_cache << " "
-            << (cache.Randomized() ? "[RND]" : "[NO-RND]")
-            << " segments: " << num_done
-            << " frames: " << tot_t << "\n";
+            << (cache.Randomized() ? "[RND]" : "[NO-RND]") << " segments: "
+            << num_done << " frames: " << tot_t << "\n";
         // train with the cache
         while (!cache.Empty()) {
           // get block of feature/target pairs
@@ -210,20 +215,32 @@ int main(int argc, char *argv[]) {
           /* positive phase */
           // forward pass
           grbm.Propagate(pos_vis, &pos_hid);
-          // generate binary hidden states
-          cu_rand.BinarizeProbs(pos_hid, &pos_hid_states);
+          if (enable_hid_random) {
+            // generate binary hidden states
+            cu_rand.BinarizeProbs(pos_hid, &pos_hid_states);
+          } else {
+            // just copy the probabilities
+            pos_hid_states.CopyFromMat(pos_hid);
+          }
 
           /* negative phase */
           // CD
           for (int32 iterCD = 0; iterCD < numCD; ++iterCD) {
             // reconstruct visible
             grbm.Reconstruct(pos_hid_states, &neg_vis);
-            // add Gaussian noise
-            grbm.SampleVisible(cu_rand, &neg_vis);
+            if (enable_vis_random) {
+              // add Gaussian noise
+              grbm.SampleVisible(cu_rand, &neg_vis);
+            }
             // forward to generate hidden probabilities
             grbm.Propagate(neg_vis, &neg_hid);
-            // generate binary hidden states
-            cu_rand.BinarizeProbs(neg_hid, &pos_hid_states);
+            if (enable_hid_random) {
+              // generate binary hidden states
+              cu_rand.BinarizeProbs(neg_hid, &pos_hid_states);
+            } else {
+              // just copy the probabilities
+              pos_hid_states.CopyFromMat(neg_hid);
+            }
           }
 
           // update step
@@ -243,7 +260,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (epoch_model_filename != "") {
-        nnet.Write(epoch_model_filename + "_epoch"+to_string(epoch), binary);
+        nnet.Write(epoch_model_filename + "_epoch" + to_string(epoch), binary);
       }
 
       std::cout << "\n" << std::flush;
