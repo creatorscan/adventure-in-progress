@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
           cache.GetBunch(&pos_vis, &dummy_cache_vec);
 
           // TRAIN with CD
-          /* postive phase */
+          /* positive phase */
           // forward pass
           grbm.Propagate(pos_vis, &pos_hid);
           // generate binary hidden states

@@ -1,10 +1,10 @@
-// nnetbin/grbm-train-frmshuff.cc
+// nnetbin/rorbm-train-frmshuff.cc
 /*
  * Troy Lee
  *
  */
 
-#include "nnet/nnet-grbm.h"
+#include "nnet/nnet-rorbm.h"
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-loss.h"
 #include "nnet/nnet-cache.h"
@@ -49,49 +49,42 @@ int main(int argc, char *argv[]) {
 
   try {
     const char *usage =
-        "Perform GRBM training by contrastive divergence alg.\n"
-            "Usage:  grbm-train-frmshuff [options] <model-in> <feature-rspecifier> <model-out> [<epoch-weight>]\n"
+        "Perform RoRbm training by contrastive divergence alg.\n"
+            "Usage:  rorbm-train-frmshuff [options] <model-in> <feature-rspecifier> <model-out> [<epoch-weight>]\n"
             "e.g.: \n"
-            " grbm-train-frmshuff rbm.init scp:train.scp rbm.final rbm.epoch\n";
+            " rorbm-train-frmshuff rorbm.init scp:train.scp rorbm.final rorbm.epoch\n";
 
     ParseOptions po(usage);
     bool binary = false, apply_sparsity = true;
     po.Register("binary", &binary, "Write output in binary mode");
-    po.Register("apply-sparsity", &apply_sparsity,
-                "Whether to use sparsity in the hidden activations");
 
-    BaseFloat learn_rate = 0.001,
-        init_momentum = 0.5, high_momentum = 0.9,
-        l2_penalty = 0.0002,
-        var_learn_rate = 0.001,
-        sparsity_lambda = 0.01,
-        sparsity_p = 0.2;
+    int32 cachesize = 32768,
+        bunchsize = 512,
+        maxEpoch = 1000,
+        numCD = 100,
+        momentum_change_epoch = 5,
+        numInferIters = 50;
 
-    po.Register("learn-rate", &learn_rate, "Learning rate");
-    po.Register("init-momentum", &init_momentum, "Initial momentum");
-    po.Register("high-momentum", &high_momentum, "Higher momentum");
-    po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
-    po.Register("var-learn-rate", &var_learn_rate,
-                "Input variance learning rate");
-    po.Register("sparsity-lambda", &sparsity_lambda,
-                "Lambda for weight sparsity");
-    po.Register("sparsity-p", &sparsity_p, "Parameter p for weight sparsity");
-
-    std::string feature_transform;
-    po.Register("feature-transform", &feature_transform,
-                "Feature transform Neural Network");
-
-    int32 bunchsize = 512, cachesize = 32768, maxEpoch = 1000, numCD = 100,
-        momentum_change_epoch = 5, var_start_iter = 1;
-    po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("cachesize", &cachesize,
                 "Size of cache for frame level shuffling");
+    po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("maxEpoch", &maxEpoch, "Maximum number of epochs for training");
     po.Register("numCD", &numCD, "Number of CD iterations");
     po.Register("momentum-change-epoch", &momentum_change_epoch,
-                "Epoch to use high momentum");
-    po.Register("var-start-epoch", &var_start_iter,
-                "The iteration to start learning visible variance");
+                "The epoch iteration to change momentum");
+
+    BaseFloat init_momentum = 0.5,
+        high_momentum = 0.9,
+        norm_k = 0.0,
+        norm_eps = 10.0,
+        norm_cc = 0.0;
+
+    po.Register("init-momentum", &init_momentum, "Initial training momentum");
+    po.Register("high-momentum", &high_momentum, "Higher training momentum");
+
+    std::string feature_transform = "";
+
+    po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
 
     po.Read(argc, argv);
 
@@ -101,51 +94,54 @@ int main(int argc, char *argv[]) {
     }
 
     std::string model_filename = po.GetArg(1),
-        feature_rspecifier = po.GetArg(2);
-
-    std::string target_model_filename;
-    target_model_filename = po.GetArg(3);
-
-    std::string epoch_model_filename;
-    epoch_model_filename = po.GetOptArg(4);
+        feature_rspecifier = po.GetArg(2),
+        target_model_filename = po.GetArg(3),
+        epoch_model_filename = po.GetOptArg(4);
 
     CuRand<BaseFloat> cu_rand;
 
     cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
 
-    Nnet grbm_transf;
+    Nnet rorbm_transf;
     if (feature_transform != "") {
-      grbm_transf.Read(feature_transform);
+      rorbm_transf.Read(feature_transform);
     }
 
     Nnet nnet;
     nnet.Read(model_filename);
     KALDI_ASSERT(nnet.LayerCount()==1);
-    KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kGRbm);
-    GRbm &grbm = dynamic_cast<GRbm&>(*nnet.Layer(0));
+    KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kRoRbm);
+    RoRbm &rorbm = dynamic_cast<RoRbm&>(*nnet.Layer(0));
 
-    grbm.SetLearnRate(learn_rate);
-    grbm.SetMomentum(init_momentum);  // initial momentum
-    grbm.SetL2Penalty(l2_penalty);  // weight cost
-    grbm.SetVarianceLearnRate(0.0);  // initial variance leanring rate
+    //TODO:: general configurations such as learn rates
+    rorbm.SetMomentum(init_momentum);
 
-    if (apply_sparsity) {
-      grbm.EnableSparsity();
-      grbm.ConfigSparsity(sparsity_lambda, sparsity_p);
-    } else {
-      grbm.DisableSparsity();
-    }
+    rorbm.SetNumInferenceIters(numInferIters);
+    rorbm.SetNormalizationParams(norm_cc, norm_k, norm_eps);
 
     CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, pos_hid_states,
-        neg_vis, neg_hid;
+        neg_vis, neg_hid, vt, vt_cn, fp_ha, fp_hs, fp_vt, v_condmean, ha, s, hs;
     CuMatrix<BaseFloat> dummy_mse_mat;
-    CuVector<BaseFloat> avg_hid_probs;
+    CuVector<BaseFloat> avg_hid_probs, s_mu;
     std::vector<int32> dummy_cache_vec;
     std::string epoch_name;
 
     Timer tot_tim;
     KALDI_LOG<< "##################################################################";
     KALDI_LOG<< "GRBM TRAINING STARTED [" << currentDateTime() << "]";
+
+    /* initialize fantasy particles (needed for negative phase of SAP */
+    fp_ha.Resize(bunchsize, rorbm.CleanHidDim());
+    cu_rand.RandUniform(&fp_ha);
+
+    fp_hs.Resize(bunchsize, rorbm.NoiseHidDim());
+    cu_rand.RandUniform(&fp_hs);
+
+    fp_vt.Resize(bunchsize, rorbm.VisDim());
+
+    /* initialize the moving average of the mean of the mask */
+    s_mu.Resize(rorbm.VisDim());
+    s_mu.Set(0.9);
 
     bool first_bunch = true;  // indicating the first bunch of data for the whole training process
     for (int32 epoch = 0; epoch < maxEpoch; ++epoch) {
@@ -164,14 +160,9 @@ int main(int argc, char *argv[]) {
       Cache cache;
       cache.Init(cachesize, bunchsize);
 
-      // configure the variance learning rate
-      if (epoch == var_start_iter) {
-        grbm.SetVarianceLearnRate(var_learn_rate);
-      }
-
       // change momentum if ready
       if (epoch == momentum_change_epoch) {
-        grbm.SetMomentum(high_momentum);
+        rorbm.SetMomentum(high_momentum);
       }
 
       int32 num_done = 0, num_cache = 0;
@@ -185,7 +176,7 @@ int main(int argc, char *argv[]) {
           // push features to GPU
           feats.CopyFromMat(mat);
           // possibly apply transform
-          grbm_transf.Feedforward(feats, &feats_transf);
+          rorbm_transf.Feedforward(feats, &feats_transf);
           // add to cache
           cache.AddData(feats_transf, dummy_cache_vec);
           num_done++;
@@ -204,12 +195,23 @@ int main(int argc, char *argv[]) {
         // train with the cache
         while (!cache.Empty()) {
           // get block of feature/target pairs
-          cache.GetBunch(&pos_vis, &dummy_cache_vec);
+          cache.GetBunch(&vt, &dummy_cache_vec);
 
           // TRAIN with CD
-          /* postive phase */
+          /* normalize the feature */
+          vt_cn.CopyFromMat(vt);
+          rorbm.NormalizeData(vt_cn;
+          rorbm.AddNoiseToData(vt_cn);
+          if (first_bunch) {
+            fp_vt.CopyFromMat(vt_cn);
+          }
+
+          /* convert ee to be regular bias */
+          rorbm.ConvertNoiseHidBias(s_mu);
+
+          /* positive phase */
           // forward pass
-          grbm.Propagate(pos_vis, &pos_hid);
+          rorbm.Propagate(vt_cn, &v_condmean, &ha, &s, &hs);
           // generate binary hidden states
           cu_rand.BinarizeProbs(pos_hid, &pos_hid_states);
 
