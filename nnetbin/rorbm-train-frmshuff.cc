@@ -1,21 +1,10 @@
-// rbmbin/rbm-train-cd1-frmshuff.cc
+// nnetbin/grbm-train-frmshuff.cc
+/*
+ * Troy Lee
+ *
+ */
 
-// Copyright 2012  Karel Vesely
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
-// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
-// MERCHANTABLITY OR NON-INFRINGEMENT.
-// See the Apache 2 License for the specific language governing permissions and
-// limitations under the License.
-
-#include "nnet/nnet-rorbm.h"
+#include "nnet/nnet-grbm.h"
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-loss.h"
 #include "nnet/nnet-cache.h"
@@ -24,58 +13,89 @@
 #include "util/timer.h"
 #include "cudamatrix/cu-device.h"
 #include "cudamatrix/cu-rand.h"
-#include "cudamatrix/cu-math.h"
+
+#include <time.h>
+#include <sstream>
+
+namespace kaldi {
+
+template<class T>
+inline std::string to_string(const T& t)
+                             {
+  std::stringstream ss;
+  ss << t;
+  return ss.str();
+}
+
+// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
+const std::string currentDateTime() {
+  time_t now = time(0);
+  struct tm tstruct;
+  char buf[80];
+  tstruct = *localtime(&now);
+  // Visit http://www.cplusplus.com/reference/clibrary/ctime/strftime/
+  // for more information about date/time format
+  strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+
+  return buf;
+}
+
+}  // end namespace
 
 int main(int argc, char *argv[]) {
+
   using namespace kaldi;
   typedef kaldi::int32 int32;
 
   try {
     const char *usage =
-        "Perform RoRbm training using SAP.\n"
-            "Usage:  rorbm-train-frmshuff [options] <model-in> <feature-rspecifier> <model-out>\n"
+        "Perform GRBM training by contrastive divergence alg.\n"
+            "Usage:  grbm-train-frmshuff [options] <model-in> <feature-rspecifier> <model-out> [<epoch-weight>]\n"
             "e.g.: \n"
-            " rorbm-train-frmshuff rorbm.init scp:train.scp rorbm.out\n";
+            " grbm-train-frmshuff rbm.init scp:train.scp rbm.final rbm.epoch\n";
 
     ParseOptions po(usage);
-    bool binary = false;
+    bool binary = false, apply_sparsity = true;
     po.Register("binary", &binary, "Write output in binary mode");
+    po.Register("apply-sparsity", &apply_sparsity,
+                "Whether to use sparsity in the hidden activations");
 
-    BaseFloat learn_rate = 0.008,
-        init_momentum = 0.0, final_momentum = 0.0,
-        l2_penalty = 0.0,
-        z_momentum = 0.0;
+    BaseFloat learn_rate = 0.001,
+        init_momentum = 0.5, high_momentum = 0.9,
+        l2_penalty = 0.0002,
+        var_learn_rate = 0.001,
+        sparsity_lambda = 0.01,
+        sparsity_p = 0.2;
 
     po.Register("learn-rate", &learn_rate, "Learning rate");
     po.Register("init-momentum", &init_momentum, "Initial momentum");
-    po.Register("final-momentum", &final_momentum, "Final momentum");
+    po.Register("high-momentum", &high_momentum, "Higher momentum");
     po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
-    po.Register("z-momentum", &z_momentum, "Momentum for z");
+    po.Register("var-learn-rate", &var_learn_rate,
+                "Input variance learning rate");
+    po.Register("sparsity-lambda", &sparsity_lambda,
+                "Lambda for weight sparsity");
+    po.Register("sparsity-p", &sparsity_p, "Parameter p for weight sparsity");
 
-    int32 final_momentum_start_iter = -1, num_gibbs_iters = 1,
-        num_pos_iters = 1, z_start_iter = -1;
+    std::string feature_transform;
+    po.Register("feature-transform", &feature_transform,
+                "Feature transform Neural Network");
 
-    po.Register("final-momentum-start-iter", &final_momentum_start_iter,
-                "Final momentum starting iteration");
-    po.Register("num-gibbs-iters", &num_gibbs_iters,
-                "Number of Gibbs iterations");
-    po.Register("num-pos-iters", &num_pos_iters,
-                "Number of iterations for positive statistics accumulation");
-    po.Register("z-start-iter", &z_start_iter,
-                "Iteration to start z accumulation");
-
-    int32 bunchsize = 512, cachesize = 32768;
+    int32 bunchsize = 512, cachesize = 32768, maxEpoch = 1000, numCD = 100,
+        momentum_change_epoch = 5, var_start_iter = 1;
     po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("cachesize", &cachesize,
                 "Size of cache for frame level shuffling");
-
-    int32 max_epoch = 100;
-    po.Register("max-epoch", &max_epoch,
-                "Maximum number of epochs for training");
+    po.Register("maxEpoch", &maxEpoch, "Maximum number of epochs for training");
+    po.Register("numCD", &numCD, "Number of CD iterations");
+    po.Register("momentum-change-epoch", &momentum_change_epoch,
+                "Epoch to use high momentum");
+    po.Register("var-start-epoch", &var_start_iter,
+                "The iteration to start learning visible variance");
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 3) {
+    if (po.NumArgs() != 3 && po.NumArgs() != 4) {
       po.PrintUsage();
       exit(1);
     }
@@ -86,52 +106,73 @@ int main(int argc, char *argv[]) {
     std::string target_model_filename;
     target_model_filename = po.GetArg(3);
 
+    std::string epoch_model_filename;
+    epoch_model_filename = po.GetOptArg(4);
+
+    CuRand<BaseFloat> cu_rand;
+
+    cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
+
+    Nnet grbm_transf;
+    if (feature_transform != "") {
+      grbm_transf.Read(feature_transform);
+    }
+
     Nnet nnet;
     nnet.Read(model_filename);
     KALDI_ASSERT(nnet.LayerCount()==1);
-    KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kRoRbm);
-    RoRbm &rbm = dynamic_cast<RoRbm&>(*nnet.Layer(0));
+    KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kGRbm);
+    GRbm &grbm = dynamic_cast<GRbm&>(*nnet.Layer(0));
 
-    rbm.SetL2Penalty(l2_penalty);
-    rbm.SetZMomentum(z_momentum);
+    grbm.SetLearnRate(learn_rate);
+    grbm.SetMomentum(init_momentum);  // initial momentum
+    grbm.SetL2Penalty(l2_penalty);  // weight cost
+    grbm.SetVarianceLearnRate(0.0);  // initial variance leanring rate
 
-    rbm.SetNumGibbsIters(num_gibbs_iters);
-    rbm.SetNumPosIters(num_pos_iters);
-    rbm.SetZStartIter(z_start_iter);
+    if (apply_sparsity) {
+      grbm.EnableSparsity();
+      grbm.ConfigSparsity(sparsity_lambda, sparsity_p);
+    } else {
+      grbm.DisableSparsity();
+    }
 
-    Timer train_timer;
-    KALDI_LOG<< "RBM TRAINING STARTED";
+    CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, pos_hid_states,
+        neg_vis, neg_hid;
+    CuMatrix<BaseFloat> dummy_mse_mat;
+    CuVector<BaseFloat> avg_hid_probs;
+    std::vector<int32> dummy_cache_vec;
+    std::string epoch_name;
 
-    for (int32 iter = 0; iter < max_epoch; ++iter) {
+    Timer tot_tim;
+    KALDI_LOG<< "##################################################################";
+    KALDI_LOG<< "GRBM TRAINING STARTED [" << currentDateTime() << "]";
+
+    bool first_bunch = true;  // indicating the first bunch of data for the whole training process
+    for (int32 epoch = 0; epoch < maxEpoch; ++epoch) {
+
+      Timer tim;
+      double time_next = 0;
+      KALDI_LOG<< "******************************************************************";
+      KALDI_LOG<< "Epoch " << epoch << " started [" << currentDateTime() << "]";
 
       kaldi::int64 tot_t = 0;
+
+      MseProgress mse;
 
       SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
 
       Cache cache;
-      cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
       cache.Init(cachesize, bunchsize);
 
-      MseProgress mse;
+      // configure the variance learning rate
+      if (epoch == var_start_iter) {
+        grbm.SetVarianceLearnRate(var_learn_rate);
+      }
 
-      CuMatrix<BaseFloat> feats, data_noisy, data_recon;
-      CuMatrix<BaseFloat> dummy_mse_mat;
-      std::vector<int32> dummy_cache_vec;
-
-      Timer tim;
-      double time_next = 0;
-
-      BaseFloat dd = 0.99 * learn_rate / max_epoch;
-      BaseFloat cur_lr = learn_rate - dd * iter;
-      rbm.SetLearnRate(cur_lr);
-
-      if (iter > final_momentum_start_iter)
-        rbm.SetMomentum(final_momentum);
-      else
-        rbm.SetMomentum(init_momentum);
-
-      KALDI_LOG<< "######################################################################";
-      KALDI_LOG<< "#####   Epoch " << iter << " learn_rate: " << cur_lr;
+      // change momentum if ready
+      if (epoch == momentum_change_epoch) {
+        grbm.SetMomentum(high_momentum);
+      }
 
       int32 num_done = 0, num_cache = 0;
       while (1) {
@@ -143,8 +184,10 @@ int main(int argc, char *argv[]) {
           dummy_cache_vec.resize(mat.NumRows());
           // push features to GPU
           feats.CopyFromMat(mat);
+          // possibly apply transform
+          grbm_transf.Feedforward(feats, &feats_transf);
           // add to cache
-          cache.AddData(feats, dummy_cache_vec);
+          cache.AddData(feats_transf, dummy_cache_vec);
           num_done++;
           // next feature file...
           Timer t_features;
@@ -161,16 +204,38 @@ int main(int argc, char *argv[]) {
         // train with the cache
         while (!cache.Empty()) {
           // get block of feature/target pairs
-          cache.GetBunch(&data_noisy, &dummy_cache_vec);
+          cache.GetBunch(&pos_vis, &dummy_cache_vec);
 
-          // TRAIN with CD1
+          // TRAIN with CD
+          /* postive phase */
           // forward pass
-          rbm.Learn(data_noisy, data_recon);
+          grbm.Propagate(pos_vis, &pos_hid);
+          // generate binary hidden states
+          cu_rand.BinarizeProbs(pos_hid, &pos_hid_states);
 
+          /* negative phase */
+          // CD
+          for (int32 iterCD = 0; iterCD < numCD; ++iterCD) {
+            // reconstruct visible
+            grbm.Reconstruct(pos_hid_states, &neg_vis);
+            // add Gaussian noise to reconstruction visible
+            grbm.SampleVisible(cu_rand, &neg_vis);
+            KALDI_LOG<< "4...";
+            // forward to generate hidden probabilities
+            grbm.Propagate(neg_vis, &neg_hid);
+            // generate binary hidden states
+            cu_rand.BinarizeProbs(neg_hid, &pos_hid_states);
+          }
+
+          // update step
+          grbm.RbmUpdate(pos_vis, pos_hid, neg_vis, neg_hid, &avg_hid_probs,
+                         first_bunch);
+          if (first_bunch)
+            first_bunch = false;
           // evaluate mean square error
-          mse.Eval(data_noisy, data_recon, &dummy_mse_mat);
+          mse.Eval(neg_vis, pos_vis, &dummy_mse_mat);
 
-          tot_t += data_noisy.NumRows();
+          tot_t += pos_vis.NumRows();
         }
 
         // stop training when no more data
@@ -178,13 +243,13 @@ int main(int argc, char *argv[]) {
           break;
       }
 
-      feature_reader.Close();
-
-      nnet.Write(target_model_filename, binary);
+      if (epoch_model_filename != "") {
+        nnet.Write(epoch_model_filename + "_epoch" + to_string(epoch), binary);
+      }
 
       std::cout << "\n" << std::flush;
 
-      KALDI_LOG<< "RBM TRAINING FINISHED "
+      KALDI_LOG<< "Epoch " << epoch << " finished [" << currentDateTime() << "] "
       << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
       << ", feature wait " << time_next << "s";
 
@@ -194,8 +259,13 @@ int main(int argc, char *argv[]) {
 
     }
 
-    KALDI_LOG<< "RBM TRAINING FINISHED "
-    << train_timer.Elapsed() << "s, for " << max_epoch << " epochs.";
+      // write the final model to output file
+    nnet.Write(target_model_filename, binary);
+
+    KALDI_LOG<< "******************************************************************";
+    KALDI_LOG<< "Model saved to " << target_model_filename;
+    KALDI_LOG<< "GRBM TRAININIG FINISHED [" << currentDateTime() << "]";
+    KALDI_LOG<< "##################################################################";
 
 #if HAVE_CUDA==1
     CuDevice::Instantiate().PrintProfile();
