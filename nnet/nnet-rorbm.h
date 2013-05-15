@@ -41,9 +41,9 @@ class RoRbm : public RbmBase {
     num_pos_iters_ = 1;
     z_start_iter_ = -1;
 
-    vis_type_ = GAUSSIAN;
-    clean_hid_type_ = BERNOULLI;
-    noise_hid_type_ = BERNOULLI;
+    vis_type_ = RbmBase::GAUSSIAN;
+    clean_hid_type_ = RbmBase::BERNOULLI;
+    noise_hid_type_ = RbmBase::BERNOULLI;
   }
 
   ~RoRbm() {

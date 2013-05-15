@@ -124,13 +124,13 @@ class GRbm : public RbmBase {
     if(data_.NumRows()!=vis_probs->NumRows() || data_.NumCols() != vis_probs->NumCols()) {
       data_.Resize(vis_probs->NumRows(), vis_probs->NumCols());
       data_.SetZero();
-      // generate standard Gaussian random samples
-      rand.RandGaussian(&data_);
-      // scale to the desired standard deviation
-      data_.MulColsVec(fstd_);
-      // shift to the desired mean
-      vis_probs->AddMat(1.0, data_, 1.0);
     }
+    // generate standard Gaussian random samples
+    rand.RandGaussian(&data_);
+    // scale to the desired standard deviation
+    data_.MulColsVec(fstd_);
+    // shift to the desired mean
+    vis_probs->AddMat(1.0, data_, 1.0);
   }
 
   void RbmUpdate(const CuMatrix<BaseFloat> &pos_vis, const CuMatrix<BaseFloat> &pos_hid,
@@ -199,21 +199,21 @@ class GRbm : public RbmBase {
     //
     tmp_mat_n_vis_.CopyFromMat(pos_vis);// data
     tmp_mat_n_vis_.AddVecToRows(-1.0, vis_bias_, 1.0);// data - vb
-    tmp_mat_n_vis_.Power(2.0); // (data - vb).^2
-    tmp_mat_n_vis_.DivColsVec(fvar_); // (data - vb).^2 ./ fvar
+    tmp_mat_n_vis_.Power(2.0);// (data - vb).^2
+    tmp_mat_n_vis_.DivColsVec(fvar_);// (data - vb).^2 ./ fvar
     log_fstd_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 0.0);
     tmp_mat_n_vis_.AddMatMat(1.0, pos_hid, kNoTrans, vis_hid_, kNoTrans, 0.0);// (vhw * pos_hidprobs')
     tmp_mat_n_vis_.MulElements(pos_vis);// data .* (vhw * pos_hidprobs')
-    tmp_mat_n_vis_.DivColsVec(fstd_); // data .* (vhw * pos_hidprobs') ./ fstd
+    tmp_mat_n_vis_.DivColsVec(fstd_);// data .* (vhw * pos_hidprobs') ./ fstd
     log_fstd_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
     tmp_mat_n_vis_.CopyFromMat(neg_vis);// negdata
     tmp_mat_n_vis_.AddVecToRows(-1.0, vis_bias_, 1.0);// negdata - vb
-    tmp_mat_n_vis_.Power(2.0); // (negdata - vb).^2
-    tmp_mat_n_vis_.DivColsVec(fvar_); // (negdata -vb).^2 ./ fvar_
+    tmp_mat_n_vis_.Power(2.0);// (negdata - vb).^2
+    tmp_mat_n_vis_.DivColsVec(fvar_);// (negdata -vb).^2 ./ fvar_
     log_fstd_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
     tmp_mat_n_vis_.AddMatMat(1.0, neg_hid, kNoTrans, vis_hid_, kNoTrans, 0.0);// (vhw * neg_hidprobs')
     tmp_mat_n_vis_.MulElements(neg_vis);// negdata .* (vhw * neg_hidprobs')
-    tmp_mat_n_vis_.DivColsVec(fstd_); // negdata .* (vhw * neg_hidprobs') ./ fstd
+    tmp_mat_n_vis_.DivColsVec(fstd_);// negdata .* (vhw * neg_hidprobs') ./ fstd
     log_fstd_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 1.0);
     // correction
     log_fstd_corr_.AddVec(-std_learn_rate_/N, log_fstd_grad_, momentum_);
@@ -262,9 +262,10 @@ class GRbm : public RbmBase {
     vis_bias_.AddVec(1.0, vis_bias_corr_, 1.0);
     hid_bias_.AddVec(1.0, hid_bias_corr_, 1.0);
 
-    fvar_.CopyFromVec(log_fstd_corr_); // log_fstd
-    fvar_.ApplyExp(); // exp(log_fstd)
+    fvar_.CopyFromVec(log_fstd_corr_);// log_fstd
+    fvar_.ApplyExp();// exp(log_fstd)
     fstd_.MulElements(fvar_);
+    fstd_.ApplyFloor(0.1);
 
     // update variance
     fvar_.CopyFromVec(fstd_);
