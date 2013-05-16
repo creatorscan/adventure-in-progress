@@ -60,16 +60,16 @@ int main(int argc, char *argv[]) {
 
     int32 cachesize = 32768,
         bunchsize = 512,
-        maxEpoch = 1000,
-        numCD = 100,
+        maxepoch = 1000,
+        num_gibbs = 100,
         momentum_change_epoch = 5,
         numInferIters = 50;
 
     po.Register("cachesize", &cachesize,
                 "Size of cache for frame level shuffling");
     po.Register("bunchsize", &bunchsize, "Size of weight update block");
-    po.Register("maxEpoch", &maxEpoch, "Maximum number of epochs for training");
-    po.Register("numCD", &numCD, "Number of CD iterations");
+    po.Register("maxepoch", &maxepoch, "Maximum number of epochs for training");
+    po.Register("num-gibbs", &num_gibbs, "Number of CD iterations");
     po.Register("momentum-change-epoch", &momentum_change_epoch,
                 "The epoch iteration to change momentum");
 
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
     rorbm.SetNormalizationParams(norm_cc, norm_k, norm_eps);
 
     CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, pos_hid_states,
-        neg_vis, neg_hid, vt, vt_cn, fp_ha, fp_hs, fp_vt, v_condmean, ha, s, hs;
+        neg_vis, neg_hid, vt, vt_recon, fp_ha, fp_hs, fp_vt, v_condmean, ha, s, hs;
     CuMatrix<BaseFloat> dummy_mse_mat;
     CuVector<BaseFloat> avg_hid_probs, s_mu;
     std::vector<int32> dummy_cache_vec;
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 
     Timer tot_tim;
     KALDI_LOG<< "##################################################################";
-    KALDI_LOG<< "GRBM TRAINING STARTED [" << currentDateTime() << "]";
+    KALDI_LOG<< "RoRBM TRAINING STARTED [" << currentDateTime() << "]";
 
     /* initialize fantasy particles (needed for negative phase of SAP */
     fp_ha.Resize(bunchsize, rorbm.CleanHidDim());
@@ -198,46 +198,37 @@ int main(int argc, char *argv[]) {
           cache.GetBunch(&vt, &dummy_cache_vec);
 
           // TRAIN with CD
-          /* normalize the feature */
-          vt_cn.CopyFromMat(vt);
-          rorbm.NormalizeData(vt_cn;
-          rorbm.AddNoiseToData(vt_cn);
           if (first_bunch) {
-            fp_vt.CopyFromMat(vt_cn);
+            fp_vt.CopyFromMat(vt);
           }
-
-          /* convert ee to be regular bias */
-          rorbm.ConvertNoiseHidBias(s_mu);
 
           /* positive phase */
-          // forward pass
-          rorbm.Propagate(vt_cn, &v_condmean, &ha, &s, &hs);
-          // generate binary hidden states
-          cu_rand.BinarizeProbs(pos_hid, &pos_hid_states);
+          // forward pass, compute ha, hs, s and v_condmean given the vt_cn
+          rorbm.Inference(vt);
+          rorbm.GetReconstruction(&vt_recon);
+          // compute positive gradient
+          rorbm.CollectPositiveStats(vt);
 
           /* negative phase */
-          // CD
-          for (int32 iterCD = 0; iterCD < numCD; ++iterCD) {
-            // reconstruct visible
-            grbm.Reconstruct(pos_hid_states, &neg_vis);
-            // add Gaussian noise to reconstruction visible
-            grbm.SampleVisible(cu_rand, &neg_vis);
-            KALDI_LOG<< "4...";
-            // forward to generate hidden probabilities
-            grbm.Propagate(neg_vis, &neg_hid);
-            // generate binary hidden states
-            cu_rand.BinarizeProbs(neg_hid, &pos_hid_states);
+          // Gibbs sampling, SAP
+          for (int32 iter = 0; iter < num_gibbs; ++iter) {
+            // Using fantasy particles to do the learning
+            rorbm.SAPIteration();
           }
+          // compute negative gradient
+          rorbm.CollectNegativeStats();
+
 
           // update step
-          grbm.RbmUpdate(pos_vis, pos_hid, neg_vis, neg_hid, &avg_hid_probs,
-                         first_bunch);
+          rorbm.RoRbmUpdate();
+
           if (first_bunch)
             first_bunch = false;
-          // evaluate mean square error
-          mse.Eval(neg_vis, pos_vis, &dummy_mse_mat);
 
-          tot_t += pos_vis.NumRows();
+          // evaluate mean square error
+          mse.Eval(vt, vt_recon, &dummy_mse_mat);
+
+          tot_t += vt.NumRows();
         }
 
         // stop training when no more data
@@ -266,7 +257,7 @@ int main(int argc, char *argv[]) {
 
     KALDI_LOG<< "******************************************************************";
     KALDI_LOG<< "Model saved to " << target_model_filename;
-    KALDI_LOG<< "GRBM TRAININIG FINISHED [" << currentDateTime() << "]";
+    KALDI_LOG<< "RoRBM TRAININIG FINISHED [" << currentDateTime() << "]";
     KALDI_LOG<< "##################################################################";
 
 #if HAVE_CUDA==1
