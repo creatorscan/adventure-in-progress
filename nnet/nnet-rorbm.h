@@ -100,6 +100,7 @@ class RoRbm : public RbmBase {
   /*
    * To do posterior inference in a single object RoRbm conditioned on a vt_cn image
    */
+  void ProgagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> &ha); // conventional interface
   void PropagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v_condmean, CuMatrix<BaseFloat> *ha, CuMatrix<BaseFloat> *s, CuMatrix<BaseFloat> *hs);
 
   void Infer(CuMatrix<BaseFloat> &v);

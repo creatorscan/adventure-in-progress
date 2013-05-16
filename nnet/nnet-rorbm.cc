@@ -290,31 +290,26 @@ void RoRbm::WriteData(std::ostream &os, bool binary) const {
   gamma2_.Write(os, binary);
 }
 
-void RoRbm::PropagateFnc(const CuMatrix<BaseFloat> &vt_cn,
-                         CuMatrix<BaseFloat> *v,
-                         CuMatrix<BaseFloat> *v_condmean,
-                         CuMatrix<BaseFloat> *ha,
-                         CuMatrix<BaseFloat> *s,
-                         CuMatrix<BaseFloat> *hs) {
+
+void void RoRbm::ProgagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *ha) {
+  Inference(vt_cn, &v_, &v_condmean_, )
+}
+void RoRbm::Inference(const CuMatrix<BaseFloat> &vt_cn) {
 
   int32 n = vt_cn.NumRows();
   if (n != batch_size_) {
     /* Resize the necessary variables */
     LearnChangeBatchSize(n);
-    v_condmean->Resize(n, vis_dim_);
-    ha->Resize(n, clean_hid_dim_);
-    s->Resize(n, vis_dim_);
-    hs->Resize(n, vis_dim_);
   }
 
   /* initialize the clean RBM hidden states */
   haprob_.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
   haprob_.AddMatMat(1.0, vt_cn, kNoTrans, clean_vis_hid_, kTrans, 1.0);
   cu::Sigmoid(haprob_, &haprob_);
-  cu_rand_.BinarizeProbs(haprob_, ha);
+  cu_rand_.BinarizeProbs(haprob_, &ha_);
 
   /* initialize the noise RBM hidden states */
-  cu_rand_.RandUniform(hs);
+  cu_rand_.RandUniform(&hs_);
 
   /* do inference */
   z_.SetZero();
@@ -323,12 +318,12 @@ void RoRbm::PropagateFnc(const CuMatrix<BaseFloat> &vt_cn,
   for (int32 k = 0; k < num_infer_iters_; ++k) {
     // downsample - from hidden to visible
     /* needed for sprob_0, clean GRBM */
-    mu_.AddMatMat(1.0, *ha, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // ha * W
+    mu_.AddMatMat(1.0, ha_, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // ha * W
     mu_.MulColsVec(clean_vis_var_);  // var * (ha * W)
     mu_.AddVecToRows(1.0, clean_vis_bias_, 1.0);  // b + var * (ha * W)
     /* needed for sprob_1, noise RBM */
     phi_s_.AddVecToRows(1.0, d_, 0.0);  // d
-    phi_s_.AddMatMat(1.0, *hs, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
+    phi_s_.AddMatMat(1.0, hs_, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
 
     /* needed for sprob_1, noisy input */
     mu_hat_.CopyFromMat(vt_cn);
@@ -380,27 +375,27 @@ void RoRbm::PropagateFnc(const CuMatrix<BaseFloat> &vt_cn,
     log_sprob_1_.ApplyExp();  // exp(log_sprob_1 - log(exp(log_sprob_0) + exp(log_sprob_1)))
 
     /* compute s */
-    cu_rand_.BinarizeProbs(log_sprob_1_, s);
+    cu_rand_.BinarizeProbs(log_sprob_1_, &s_);
 
     /* compute v_condmean */
-    v_condmean->CopyFromMat(mu_);  // mu
+    v_condmean_.CopyFromMat(mu_);  // mu
 
     mat_tmp_.CopyFromMat(vt_cn);  // vt_cn
-    mat_tmp_.MulElements(*s);  // s .* vt_cn
+    mat_tmp_.MulElements(s_);  // s .* vt_cn
     mat_tmp_.MulColsVec(gamma2_);  // gamma2 .* s.* vt_cn
-    v_condmean->AddMat(1.0, mat_tmp_, 1.0);  // gamma2 .* s.* vt_cn + mu
+    v_condmean_.AddMat(1.0, mat_tmp_, 1.0);  // gamma2 .* s.* vt_cn + mu
 
-    mat_tmp_.CopyFromMat(*s);  // s
+    mat_tmp_.CopyFromMat(s_);  // s
     mat_tmp_.MulColsVec(gamma2_);  // gamma2 .* s
     mat_tmp_.Add(1.0);  // gamma2 .* s + 1
-    v_condmean->DivElements(mat_tmp_);  // (gamma2 .* s.* vt_cn + mu) ./ (gamma2 .* s + 1)
+    v_condmean_.DivElements(mat_tmp_);  // (gamma2 .* s.* vt_cn + mu) ./ (gamma2 .* s + 1)
 
     /* compute v_condstd */
     v_condstd_.AddVecToRows(1.0, clean_vis_std_, 0.0);  // std_vec
     mat_tmp_.Power(0.5);  // sqrt(gamma2 .* s + 1)
     v_condstd_.DivElements(mat_tmp_);  // std_vec ./ sqrt(gamma2 .* s + 1)
 
-    /* sample from v */
+    /* sample v */
     cu_rand_.RandGaussian(v);
     v->MulElements(v_condstd_);
     v->AddMat(1.0, v_condmean_, 1.0);
@@ -408,7 +403,7 @@ void RoRbm::PropagateFnc(const CuMatrix<BaseFloat> &vt_cn,
     //TODO::check the correctness
     /* normalise the masked vt_cn */
     vt_cn_s_.CopyFromMat(vt_cn);
-    vt_cn_s_.MulElements(*s);  // vt_cn .* s, when s==1, it is uncorrupted
+    vt_cn_s_.MulElements(s_);  // vt_cn .* s, when s==1, it is uncorrupted
     NormalizeData(vt_cn_s_);  // ncc_func(vt_cn .* s), normalize only on the uncorrupted data
     vt_cn_s_.MulElements(s_);  // keep the normalized uncorrupted data
     mat_tmp_.CopyFromMat(s_);
@@ -440,131 +435,132 @@ void RoRbm::PropagateFnc(const CuMatrix<BaseFloat> &vt_cn,
 
 }
 
-/*
- * Requires: W, b, c, U, d, e, gamma2, std_vec, vt_cn, ha, hs, ncc_func, params
- */
-void RoRbm::Infer(CuMatrix<BaseFloat> &v) {
+///*
+// * Requires: W, b, c, U, d, e, gamma2, std_vec, vt_cn, ha, hs, ncc_func, params
+// */
+//void RoRbm::Infer(CuMatrix<BaseFloat> &v) {
+//
+//  vt_cn_0_.CopyFromMat(vt_cn_);  // save for future use
+//  z_.SetZero();
+//
+//  /* run multiple iterations to denoise */
+//  for (int32 k = 0; k < num_pos_iters_; ++k) {
+//    // downsample - from hidden to visible
+//    /* needed for sprob_0, clean GRBM */
+//    mu_.AddMatMat(1.0, ha_, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // ha * W
+//    mu_.MulColsVec(clean_vis_sigma2_);  // sigma2 * (ha * W)
+//    mu_.AddVecToRows(1.0, clean_vis_bias_, 1.0);  // b + sigma2 * (ha * W)
+//    /* needed for sprob_1, noise RBM */
+//    phi_s_.AddVecToRows(1.0, d_, 0.0);  // d
+//    phi_s_.AddMatMat(1.0, hs_, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
+//
+//    /* needed for sprob_1, noisy input */
+//    mu_hat_.CopyFromMat(vt_cn_);
+//    mu_hat_.MulColsVec(gamma2_);  // gamma2 .* vt_cn
+//    mu_hat_.AddMat(1.0, mu_, 1.0);  // mu + gamma2 .* vt_cn
+//    vec_tmp_.CopyFromVec(gamma2_);  // gamma2
+//    vec_tmp_.Add(1.0);  // gamma2 + 1
+//    mu_hat_.DivColsVec(vec_tmp_);  // (mu + gamma2 .* vt_cn) ./ (gamma2 + 1)
+//
+//    /* needed for sprob_1 */
+//    vec_tmp_.Power(0.5);  // sqrt(gamma2 + 1)
+//    std_hat_.CopyFromVec(clean_vis_sigma_);  // std_vec
+//    std_hat_.DivElements(vec_tmp_);  // std_vec ./ sqrt(gamma2 + 1)
+//
+//    /* compute log_sprob_1 */
+//    log_sprob_1_.CopyFromMat(phi_s_);  // phi_s
+//
+//    mat_tmp_.CopyFromMat(vt_cn_);  // vt_cn
+//    mat_tmp_.Power(2.0);  // vt_cn.^2
+//    vec_tmp_.CopyFromVec(gamma2_);  // gamma2
+//    vec_tmp_.DivElements(clean_vis_sigma2_);  // gamma2 ./ var_vec
+//    mat_tmp_.MulColsVec(vec_tmp_);  // vt_cn.^2 .* gamma2 ./ var_vec
+//    log_sprob_1_.AddMat(-0.5, mat_tmp_, 1.0);  // phi_s - 0.5 * vt_cn.^2 .* gamma2 ./ var_vec
+//
+//    mat_tmp_.CopyFromMat(mu_hat_);  // mu_hat
+//    mat_tmp_.DivColsVec(std_hat_);  // mu_hat ./ std_hat
+//    mat_tmp_.Power(2.0);  // mu_hat.^2 ./ std_hat.^2
+//    log_sprob_1_.AddMat(0.5, mat_tmp_, 1.0);  // phi_s - 0.5 * vt_cn.^2 .* gamma2 ./ var_vec + 0.5 * mu_hat.^2 ./ std_hat.^2
+//
+//    vec_tmp_.CopyFromVec(std_hat_);  // std_hat
+//    vec_tmp_.ApplyLog();  // log(std_hat)
+//    log_sprob_1_.AddVecToRows(1.0, vec_tmp_, 1.0);
+//
+//    /* compute log_sprob_0 */
+//    mat_tmp_.CopyFromMat(mu_);  // mu
+//    mat_tmp_.Power(2.0);  // mu.^2
+//    mat_tmp_.DivColsVec(clean_vis_sigma2_);  // mu.^2 ./ var_vec
+//    log_sprob_0_.AddMat(0.5, mat_tmp_, 0.0);  // mu.^2 ./ var_vec
+//
+//    vec_tmp_.CopyFromVec(clean_vis_sigma_);  // std_vec
+//    vec_tmp_.ApplyLog();  // log(std_vec)
+//    log_sprob_0_.AddVecToRows(1.0, vec_tmp_, 1.0);  // mu.^2 ./ var_vec + log(std_vec)
+//
+//    /* log(exp(log_sprob_0) + exp(log_sprob_1)) */
+//    log_sprob_0_.LogAddExpMat(log_sprob_1_);
+//
+//    /* compute sprob (saved in log_sprob_1) */
+//    log_sprob_1_.AddMat(-1.0, log_sprob_0_);  // log_sprob_1 - log(exp(log_sprob_0) + exp(log_sprob_1))
+//    log_sprob_1_.ApplyExp();  // exp(log_sprob_1 - log(exp(log_sprob_0) + exp(log_sprob_1)))
+//
+//    /* compute s */
+//    cu_rand_.BinarizeProbs(log_sprob_1_, &s_);
+//
+//    /* compute v_condmean */
+//    v_condmean_.CopyFromMat(mu_);  // mu
+//
+//    mat_tmp_.CopyFromMat(vt_cn_);  // vt_cn
+//    mat_tmp_.MulElements(s_);  // s .* vt_cn
+//    mat_tmp_.MulColsVec(gamma2_);  // gamma2 .* s.* vt_cn
+//    v_condmean_.AddMat(1.0, mat_tmp_, 1.0);  // gamma2 .* s.* vt_cn + mu
+//
+//    mat_tmp_.CopyFromMat(s_);  // s
+//    mat_tmp_.MulColsVec(gamma2_);  // gamma2 .* s
+//    mat_tmp_.Add(1.0);  // gamma2 .* s + 1
+//    v_condmean_.DivElements(mat_tmp_);  // (gamma2 .* s.* vt_cn + mu) ./ (gamma2 .* s + 1)
+//
+//    /* compute v_condstd */
+//    v_condstd_.AddVecToRows(1.0, clean_vis_sigma_, 0.0);  // std_vec
+//    mat_tmp_.Power(0.5);  // sqrt(gamma2 .* s + 1)
+//    v_condstd_.DivElements(mat_tmp_);  // std_vec ./ sqrt(gamma2 .* s + 1)
+//
+//    /* sample from v */
+//    cu_rand_.RandGaussian(&v);
+//    v.MulElements(v_condstd_);
+//    v.AddMat(1.0, v_condmean_, 1.0);
+//
+//    /* normalise the masked vt_cn */
+//    vt_cn_.MulElements(s_);  // vt_cn .* s, when s==1, it is uncorrupted
+//    NormalizeBatchData();  // ncc_func(vt_cn .* s), normalize only on the uncorrupted data
+//    vt_cn_.MulElements(s_);  // keep the normalized uncorrupted data
+//    mat_tmp_.CopyFromMat(s_);
+//    mat_tmp_.Add(-1.0);  // change 0 to -1 and 1 to 0
+//    mat_tmp_.MulElements(vt_cn_0_);  // noise components
+//    vt_cn_.AddMat(-1.0, mat_tmp_, 1.0);  // Now for vt_cn, is clean speech when s==1; is noise when s==0
+//
+//    /* sample the hidden variables */
+//    haprob_.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
+//    haprob_.AddMatMat(1.0, v, kNoTrans, clean_vis_hid_, kTrans, 1.0);  // v*W + c
+//    cu::Sigmoid(haprob_, &haprob_);  // 1.0 ./ (1.0 + exp(v*W + c))
+//    cu_rand_.BinarizeProbs(haprob_, &ha_);  // binarize
+//
+//    hsprob_.AddVecToRows(1.0, e_, 0.0);  // e
+//    hsprob_.AddMatMat(1.0, s_, kNoTrans, U_, kTrans, 1.0);  // s*U + e
+//    cu::Sigmoid(hsprob_, &hsprob_);  // 1.0 ./ (1.0 + exp(s*U + e))
+//    cu_rand_.BinarizeProbs(hsprob_, &hs_);  // binarize
+//
+//    /* collect smooth estimates */
+//    if (z_start_iter_ >= 0) {  // negative z indicates no collection
+//      if (k == z_start_iter_) {
+//        z_.CopyFromMat(v_condmean_);
+//      } else if (k > z_start_iter_) {
+//        z_.AddMat(1 - z_momentum_, v_condmean_, z_momentum_);
+//      }
+//    }
+//
+//  }  // end iteration k
+//}  // end Infer()
 
-  vt_cn_0_.CopyFromMat(vt_cn_);  // save for future use
-  z_.SetZero();
-
-  /* run multiple iterations to denoise */
-  for (int32 k = 0; k < num_pos_iters_; ++k) {
-    // downsample - from hidden to visible
-    /* needed for sprob_0, clean GRBM */
-    mu_.AddMatMat(1.0, ha_, kNoTrans, clean_vis_hid_, kNoTrans, 0.0);  // ha * W
-    mu_.MulColsVec(clean_vis_sigma2_);  // sigma2 * (ha * W)
-    mu_.AddVecToRows(1.0, clean_vis_bias_, 1.0);  // b + sigma2 * (ha * W)
-    /* needed for sprob_1, noise RBM */
-    phi_s_.AddVecToRows(1.0, d_, 0.0);  // d
-    phi_s_.AddMatMat(1.0, hs_, kNoTrans, U_, kNoTrans, 1.0);  // d + hs * U
-
-    /* needed for sprob_1, noisy input */
-    mu_hat_.CopyFromMat(vt_cn_);
-    mu_hat_.MulColsVec(gamma2_);  // gamma2 .* vt_cn
-    mu_hat_.AddMat(1.0, mu_, 1.0);  // mu + gamma2 .* vt_cn
-    vec_tmp_.CopyFromVec(gamma2_);  // gamma2
-    vec_tmp_.Add(1.0);  // gamma2 + 1
-    mu_hat_.DivColsVec(vec_tmp_);  // (mu + gamma2 .* vt_cn) ./ (gamma2 + 1)
-
-    /* needed for sprob_1 */
-    vec_tmp_.Power(0.5);  // sqrt(gamma2 + 1)
-    std_hat_.CopyFromVec(clean_vis_sigma_);  // std_vec
-    std_hat_.DivElements(vec_tmp_);  // std_vec ./ sqrt(gamma2 + 1)
-
-    /* compute log_sprob_1 */
-    log_sprob_1_.CopyFromMat(phi_s_);  // phi_s
-
-    mat_tmp_.CopyFromMat(vt_cn_);  // vt_cn
-    mat_tmp_.Power(2.0);  // vt_cn.^2
-    vec_tmp_.CopyFromVec(gamma2_);  // gamma2
-    vec_tmp_.DivElements(clean_vis_sigma2_);  // gamma2 ./ var_vec
-    mat_tmp_.MulColsVec(vec_tmp_);  // vt_cn.^2 .* gamma2 ./ var_vec
-    log_sprob_1_.AddMat(-0.5, mat_tmp_, 1.0);  // phi_s - 0.5 * vt_cn.^2 .* gamma2 ./ var_vec
-
-    mat_tmp_.CopyFromMat(mu_hat_);  // mu_hat
-    mat_tmp_.DivColsVec(std_hat_);  // mu_hat ./ std_hat
-    mat_tmp_.Power(2.0);  // mu_hat.^2 ./ std_hat.^2
-    log_sprob_1_.AddMat(0.5, mat_tmp_, 1.0);  // phi_s - 0.5 * vt_cn.^2 .* gamma2 ./ var_vec + 0.5 * mu_hat.^2 ./ std_hat.^2
-
-    vec_tmp_.CopyFromVec(std_hat_);  // std_hat
-    vec_tmp_.ApplyLog();  // log(std_hat)
-    log_sprob_1_.AddVecToRows(1.0, vec_tmp_, 1.0);
-
-    /* compute log_sprob_0 */
-    mat_tmp_.CopyFromMat(mu_);  // mu
-    mat_tmp_.Power(2.0);  // mu.^2
-    mat_tmp_.DivColsVec(clean_vis_sigma2_);  // mu.^2 ./ var_vec
-    log_sprob_0_.AddMat(0.5, mat_tmp_, 0.0);  // mu.^2 ./ var_vec
-
-    vec_tmp_.CopyFromVec(clean_vis_sigma_);  // std_vec
-    vec_tmp_.ApplyLog();  // log(std_vec)
-    log_sprob_0_.AddVecToRows(1.0, vec_tmp_, 1.0);  // mu.^2 ./ var_vec + log(std_vec)
-
-    /* log(exp(log_sprob_0) + exp(log_sprob_1)) */
-    log_sprob_0_.LogAddExpMat(log_sprob_1_);
-
-    /* compute sprob (saved in log_sprob_1) */
-    log_sprob_1_.AddMat(-1.0, log_sprob_0_);  // log_sprob_1 - log(exp(log_sprob_0) + exp(log_sprob_1))
-    log_sprob_1_.ApplyExp();  // exp(log_sprob_1 - log(exp(log_sprob_0) + exp(log_sprob_1)))
-
-    /* compute s */
-    cu_rand_.BinarizeProbs(log_sprob_1_, &s_);
-
-    /* compute v_condmean */
-    v_condmean_.CopyFromMat(mu_);  // mu
-
-    mat_tmp_.CopyFromMat(vt_cn_);  // vt_cn
-    mat_tmp_.MulElements(s_);  // s .* vt_cn
-    mat_tmp_.MulColsVec(gamma2_);  // gamma2 .* s.* vt_cn
-    v_condmean_.AddMat(1.0, mat_tmp_, 1.0);  // gamma2 .* s.* vt_cn + mu
-
-    mat_tmp_.CopyFromMat(s_);  // s
-    mat_tmp_.MulColsVec(gamma2_);  // gamma2 .* s
-    mat_tmp_.Add(1.0);  // gamma2 .* s + 1
-    v_condmean_.DivElements(mat_tmp_);  // (gamma2 .* s.* vt_cn + mu) ./ (gamma2 .* s + 1)
-
-    /* compute v_condstd */
-    v_condstd_.AddVecToRows(1.0, clean_vis_sigma_, 0.0);  // std_vec
-    mat_tmp_.Power(0.5);  // sqrt(gamma2 .* s + 1)
-    v_condstd_.DivElements(mat_tmp_);  // std_vec ./ sqrt(gamma2 .* s + 1)
-
-    /* sample from v */
-    cu_rand_.RandGaussian(&v);
-    v.MulElements(v_condstd_);
-    v.AddMat(1.0, v_condmean_, 1.0);
-
-    /* normalise the masked vt_cn */
-    vt_cn_.MulElements(s_);  // vt_cn .* s, when s==1, it is uncorrupted
-    NormalizeBatchData();  // ncc_func(vt_cn .* s), normalize only on the uncorrupted data
-    vt_cn_.MulElements(s_);  // keep the normalized uncorrupted data
-    mat_tmp_.CopyFromMat(s_);
-    mat_tmp_.Add(-1.0);  // change 0 to -1 and 1 to 0
-    mat_tmp_.MulElements(vt_cn_0_);  // noise components
-    vt_cn_.AddMat(-1.0, mat_tmp_, 1.0);  // Now for vt_cn, is clean speech when s==1; is noise when s==0
-
-    /* sample the hidden variables */
-    haprob_.AddVecToRows(1.0, clean_hid_bias_, 0.0);  // c
-    haprob_.AddMatMat(1.0, v, kNoTrans, clean_vis_hid_, kTrans, 1.0);  // v*W + c
-    cu::Sigmoid(haprob_, &haprob_);  // 1.0 ./ (1.0 + exp(v*W + c))
-    cu_rand_.BinarizeProbs(haprob_, &ha_);  // binarize
-
-    hsprob_.AddVecToRows(1.0, e_, 0.0);  // e
-    hsprob_.AddMatMat(1.0, s_, kNoTrans, U_, kTrans, 1.0);  // s*U + e
-    cu::Sigmoid(hsprob_, &hsprob_);  // 1.0 ./ (1.0 + exp(s*U + e))
-    cu_rand_.BinarizeProbs(hsprob_, &hs_);  // binarize
-
-    /* collect smooth estimates */
-    if (z_start_iter_ >= 0) {  // negative z indicates no collection
-      if (k == z_start_iter_) {
-        z_.CopyFromMat(v_condmean_);
-      } else if (k > z_start_iter_) {
-        z_.AddMat(1 - z_momentum_, v_condmean_, z_momentum_);
-      }
-    }
-
-  }  // end iteration k
-}  // end Infer()
 
 /*
  * vt_cn: the noisy inputs
