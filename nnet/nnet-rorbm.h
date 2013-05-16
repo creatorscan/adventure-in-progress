@@ -100,16 +100,17 @@ class RoRbm : public RbmBase {
   /*
    * To do posterior inference in a single object RoRbm conditioned on a vt_cn image
    */
-  void ProgagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> &ha); // conventional interface
-  void PropagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *v_condmean, CuMatrix<BaseFloat> *ha, CuMatrix<BaseFloat> *s, CuMatrix<BaseFloat> *hs);
+  void ProgagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *ha); // conventional interface
 
-  void Infer(CuMatrix<BaseFloat> &v);
+  void Inference(const CuMatrix<BaseFloat> &vt_cn);
 
-  void Learn(const CuMatrix<BaseFloat> &vt, CuMatrix<BaseFloat> &v);
+  void CollectPositiveStats(const CuMatrix<BaseFloat> &vt_cn);
 
-  void AddNoiseToData(CuMatrix<BaseFloat> &vt_cn);
+  void SAPIteration();
 
-  void NormalizeData(CuMatrix<BaseFloat> &vt_cn);
+  void CollectNegativeStats();
+
+  void RoRbmUpdate();
 
   void InitializeInferVars();
 
@@ -151,11 +152,6 @@ class RoRbm : public RbmBase {
     return num_infer_iters_;
   }
 
-  void SetNormalizationParams(BaseFloat cc, BaseFloat k, BaseFloat eps) {
-    norm_cc_ = cc;
-    norm_k_ = k;
-    norm_eps_ = eps;
-  }
 
   /*
    * Functions inhereted from RbmBase.
@@ -201,19 +197,19 @@ private:
   // Model parameters for the noise indicator RBM
   CuMatrix<BaseFloat> U_;// noise_vis_hid_; ///< Weight matrix U, size [noise_hid_dim_, vis_dim_]
   CuVector<BaseFloat> d_;// noise_vis_bias_; ///< Visible bias vector d
-  CuVector<BaseFloat> ee_;// noise_hid_bias_ori_; ///< Hidden bias vector ee, This is model parameter
+  CuVector<BaseFloat> e_;// noise_hid_bias_ori_; ///< Hidden bias vector e, This is model parameter
 
   // Variables for parameter updates
   CuMatrix<BaseFloat> U_corr_;///< Matrix for noise RBM weight updates
   CuVector<BaseFloat> d_corr_;///< Vector for noise visible bias updates
-  CuVector<BaseFloat> ee_corr_;///< Vector for noise hidden bias updates
+  CuVector<BaseFloat> e_corr_;///< Vector for noise hidden bias updates
   CuVector<BaseFloat> bt_corr_;///< Vector for input bias updates
   CuVector<BaseFloat> lamt2_corr_;///< Vector for input variance updates
   CuVector<BaseFloat> gamma2_corr_;///< Vector for gamm2 updates
 
   CuMatrix<BaseFloat> U_pos_, U_neg_;
   CuVector<BaseFloat> d_pos_, d_neg_;
-  CuVector<BaseFloat> ee_pos_, ee_neg_;
+  CuVector<BaseFloat> e_pos_, e_neg_;
   CuVector<BaseFloat> bt_pos_, bt_neg_;// visible node bias
   CuVector<BaseFloat> lamt2_pos_, lamt2_neg_;
   CuVector<BaseFloat> gamma2_pos_, gamma2_neg_;
@@ -237,11 +233,10 @@ private:
   CuMatrix<BaseFloat> U_tmp_;
 
   /* size: [1, vis_dim_]*/
-  CuVector<BaseFloat> e_;  // noise_hid_bias_ after normaliztion, i.e. normalized ee
   CuVector<BaseFloat> std_hat_;
   CuVector<BaseFloat> inv_gamma2_tmp_;
   CuVector<BaseFloat> vec_tmp_, vec_tmp2_;
-  CuVector<BaseFloat> s_mu_;
+  //CuVector<BaseFloat> s_mu_;
   CuVector<BaseFloat> lamt2_hat_;
 
   /* size: [1, batch_size_] */
@@ -255,7 +250,12 @@ private:
   int32 clean_hid_dim_;///< hidden layer dim for clean GRBM
   int32 noise_hid_dim_;///< hidden layer dim for noise indicator RBM
 
-  CuRand<BaseFloat> cu_rand_;
+  /* As the seeding is done in the host and it is slow, it's better to use
+   * different random generators for matrices with different sizes.
+   */
+  CuRand<BaseFloat> cu_rand_vis_; ///< random generator for visible data
+  CuRand<BaseFloat> cu_rand_clean_hid_; ///< random generator for clean hidden data
+  CuRand<BaseFloat> cu_rand_noise_hid_; ///< random generator for noise hidden data
 
   BaseFloat z_momentum_;
   int32 z_start_iter_;
@@ -266,11 +266,6 @@ private:
   int32 batch_size_;
 
   bool first_data_bunch_;
-
-  /* data normalization params */
-  BaseFloat norm_cc_;
-  BaseFloat norm_k_;
-  BaseFloat norm_eps_;
 
 };
 
