@@ -48,8 +48,9 @@ int main(int argc, char *argv[]) {
       Output ko(model_out_filename, binary_write);
 
       for (int32 i=3; i<=num_args; ++i){
-        KALDI_LOG << "Write layer " << i-3;
-        (nnet.Layer(i-3))->Write(ko.Stream(), binary_write);
+        std::string layer = po.GetArg(i);
+        KALDI_LOG << "Write out layer " << layer;
+        (nnet.Layer(atoi(layer.c_str())))->Write(ko.Stream(), binary_write);
       }
     }
 
