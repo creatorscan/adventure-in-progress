@@ -33,14 +33,9 @@ class RoRbm : public RbmBase {
         clean_hid_dim_(dim_out),
         noise_hid_dim_(0),
         z_momentum_(0.0),
-        num_gibbs_iters_(1),
         batch_size_(0),
-        first_data_bunch_(true),
-        norm_cc_(10),
-        norm_eps_(0),
-        norm_k_(0)
+        first_data_bunch_(true)
   {
-    num_pos_iters_ = 1;
     z_start_iter_ = -1;
 
     vis_type_ = RbmBase::GAUSSIAN;
@@ -100,25 +95,40 @@ class RoRbm : public RbmBase {
   /*
    * To do posterior inference in a single object RoRbm conditioned on a vt_cn image
    */
-  void ProgagateFnc(const CuMatrix<BaseFloat> &vt_cn, CuMatrix<BaseFloat> *ha); // conventional interface
+  void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
+    Inference(in);
+    out->CopyFromMat(ha_);
+  }
 
   void Inference(const CuMatrix<BaseFloat> &vt_cn);
 
-  void CollectPositiveStats(const CuMatrix<BaseFloat> &vt_cn);
+  void GetReconstruction(CuMatrix<BaseFloat> *v);
+
+  void CollectPositiveStats(const CuMatrix<BaseFloat> &vt_cn,
+                            CuVector<BaseFloat> *s_mu);
 
   void SAPIteration();
 
-  void CollectNegativeStats();
+  void CollectNegativeStats(const CuVector<BaseFloat> &s_mu);
 
   void RoRbmUpdate();
 
-  void InitializeInferVars();
+  void InitInference(int32 batchsize);
 
-  void InitializeLearnVars();
+  void InitTraining(int32 batchsize);
 
-  void InferChangeBatchSize(int32 bs);
+  void InitParticle(const CuMatrix<BaseFloat> &vt) {
+    fp_vt_.CopyFromMat(vt);
 
-  void LearnChangeBatchSize(int32 bs);
+    cu_rand_clean_hid_.RandUniform(&fp_ha_);
+
+    cu_rand_noise_hid_.RandUniform(&fp_hs_);
+
+  }
+
+  void InferBatchsizeChange(int32 batchsize);
+
+  void TrainBatchsizeChange(int32 batchsize);
 
   void SetZMomentum(BaseFloat value) {
     z_momentum_ = value;
@@ -136,14 +146,6 @@ class RoRbm : public RbmBase {
     return z_start_iter_;
   }
 
-  void SetNumGibbsIters(int32 value) {
-    num_gibbs_iters_ = value;
-  }
-
-  int32 GetNumGibbsIters() {
-    return num_gibbs_iters_;
-  }
-
   void SetNumInferenceIters(int32 value) {
     num_infer_iters_ = value;
   }
@@ -151,7 +153,6 @@ class RoRbm : public RbmBase {
   int32 GetNumInferenceIters() {
     return num_infer_iters_;
   }
-
 
   /*
    * Functions inhereted from RbmBase.
@@ -219,7 +220,7 @@ private:
    * fp_*: fantasy particles (needed for negative phase of SAP)
    *
    */
-  CuMatrix<BaseFloat> vt_cn_s_, fp_v_, fp_vt_;
+  CuMatrix<BaseFloat> fp_v_, fp_vt_, v_sample_;
   CuMatrix<BaseFloat> ha_, haprob_, fp_ha_;  /// for clean RBM hidden activations
   CuMatrix<BaseFloat> hs_, hsprob_, fp_hs_;/// for noise RBM hidden activations
   CuMatrix<BaseFloat> mu_, mu_hat_, mu_t_hat_;
@@ -239,28 +240,24 @@ private:
   //CuVector<BaseFloat> s_mu_;
   CuVector<BaseFloat> lamt2_hat_;
 
-  /* size: [1, batch_size_] */
-  CuVector<BaseFloat> vec_col_, vec_r_;
-
   RbmNodeType vis_type_;
   RbmNodeType clean_hid_type_;
   RbmNodeType noise_hid_type_;
 
-  int32 vis_dim_;  ///< visible layer dim, same for \tilde{v}, v and s
+  int32 vis_dim_;///< visible layer dim, same for \tilde{v}, v and s
   int32 clean_hid_dim_;///< hidden layer dim for clean GRBM
   int32 noise_hid_dim_;///< hidden layer dim for noise indicator RBM
 
   /* As the seeding is done in the host and it is slow, it's better to use
    * different random generators for matrices with different sizes.
    */
-  CuRand<BaseFloat> cu_rand_vis_; ///< random generator for visible data
-  CuRand<BaseFloat> cu_rand_clean_hid_; ///< random generator for clean hidden data
-  CuRand<BaseFloat> cu_rand_noise_hid_; ///< random generator for noise hidden data
+  CuRand<BaseFloat> cu_rand_vis_;  ///< random generator for visible data
+  CuRand<BaseFloat> cu_rand_clean_hid_;///< random generator for clean hidden data
+  CuRand<BaseFloat> cu_rand_noise_hid_;///< random generator for noise hidden data
 
   BaseFloat z_momentum_;
   int32 z_start_iter_;
 
-  int32 num_gibbs_iters_;///< number of gibbs iterations to perform
   int32 num_infer_iters_;
 
   int32 batch_size_;
