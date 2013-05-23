@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
             " rorbm-train-frmshuff rorbm.init scp:train.scp rorbm.final rorbm.epoch\n";
 
     ParseOptions po(usage);
-    bool binary = false, apply_sparsity = true;
+    bool binary = false;
     po.Register("binary", &binary, "Write output in binary mode");
 
     int32 cachesize = 32768,
@@ -74,10 +74,7 @@ int main(int argc, char *argv[]) {
                 "The epoch iteration to change momentum");
 
     BaseFloat init_momentum = 0.5,
-        high_momentum = 0.9,
-        norm_k = 0.0,
-        norm_eps = 10.0,
-        norm_cc = 0.0;
+        high_momentum = 0.9;
 
     po.Register("init-momentum", &init_momentum, "Initial training momentum");
     po.Register("high-momentum", &high_momentum, "Higher training momentum");
@@ -98,8 +95,6 @@ int main(int argc, char *argv[]) {
         target_model_filename = po.GetArg(3),
         epoch_model_filename = po.GetOptArg(4);
 
-    CuRand<BaseFloat> cu_rand;
-
     cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
 
     Nnet rorbm_transf;
@@ -117,12 +112,10 @@ int main(int argc, char *argv[]) {
     rorbm.SetMomentum(init_momentum);
 
     rorbm.SetNumInferenceIters(numInferIters);
-    rorbm.SetNormalizationParams(norm_cc, norm_k, norm_eps);
 
-    CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, pos_hid_states,
-        neg_vis, neg_hid, vt, vt_recon, fp_ha, fp_hs, fp_vt, v_condmean, ha, s, hs;
+    CuMatrix<BaseFloat> feats, feats_transf, vt, vt_recon;
     CuMatrix<BaseFloat> dummy_mse_mat;
-    CuVector<BaseFloat> avg_hid_probs, s_mu;
+    CuVector<BaseFloat> s_mu;
     std::vector<int32> dummy_cache_vec;
     std::string epoch_name;
 
@@ -130,21 +123,14 @@ int main(int argc, char *argv[]) {
     KALDI_LOG<< "##################################################################";
     KALDI_LOG<< "RoRBM TRAINING STARTED [" << currentDateTime() << "]";
 
-    /* initialize fantasy particles (needed for negative phase of SAP */
-    fp_ha.Resize(bunchsize, rorbm.CleanHidDim());
-    cu_rand.RandUniform(&fp_ha);
-
-    fp_hs.Resize(bunchsize, rorbm.NoiseHidDim());
-    cu_rand.RandUniform(&fp_hs);
-
-    fp_vt.Resize(bunchsize, rorbm.VisDim());
-
     /* initialize the moving average of the mean of the mask */
     s_mu.Resize(rorbm.VisDim());
     s_mu.Set(0.9);
 
+    rorbm.InitTraining(bunchsize);
+
     bool first_bunch = true;  // indicating the first bunch of data for the whole training process
-    for (int32 epoch = 0; epoch < maxEpoch; ++epoch) {
+    for (int32 epoch = 0; epoch < maxepoch; ++epoch) {
 
       Timer tim;
       double time_next = 0;
@@ -199,7 +185,8 @@ int main(int argc, char *argv[]) {
 
           // TRAIN with CD
           if (first_bunch) {
-            fp_vt.CopyFromMat(vt);
+            rorbm.InitParticle(vt);
+            first_bunch=false;
           }
 
           /* positive phase */
@@ -207,7 +194,7 @@ int main(int argc, char *argv[]) {
           rorbm.Inference(vt);
           rorbm.GetReconstruction(&vt_recon);
           // compute positive gradient
-          rorbm.CollectPositiveStats(vt);
+          rorbm.CollectPositiveStats(vt, &s_mu);
 
           /* negative phase */
           // Gibbs sampling, SAP
@@ -216,14 +203,10 @@ int main(int argc, char *argv[]) {
             rorbm.SAPIteration();
           }
           // compute negative gradient
-          rorbm.CollectNegativeStats();
-
+          rorbm.CollectNegativeStats(s_mu);
 
           // update step
           rorbm.RoRbmUpdate();
-
-          if (first_bunch)
-            first_bunch = false;
 
           // evaluate mean square error
           mse.Eval(vt, vt_recon, &dummy_mse_mat);
