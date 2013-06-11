@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
       total_frames += num_frames;
       total_files += 1;
 
-      KALDI_LOG<< "Done " << key << ", " << num_frames << " frames.";
+      //KALDI_LOG<< "Done " << key << ", " << num_frames << " frames.";
     }
 
     KALDI_LOG<< "Totally " << total_files << " files, " << total_frames << " frames.";
