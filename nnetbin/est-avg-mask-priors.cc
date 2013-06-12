@@ -76,6 +76,11 @@ int main(int argc, char *argv[]) {
         }
 
       num_done++;
+      mask_reader.Next();
+
+      if(num_done % 100 == 0){
+        KALDI_LOG << "Done " << num_done << " files.";
+      }
 
     }
 
