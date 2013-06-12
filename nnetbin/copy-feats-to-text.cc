@@ -31,9 +31,6 @@ int main(int argc, char *argv[]) {
     std::string data_suffix = "txt";
     po.Register("data-suffix", &data_suffix, "The suffix for the text data");
 
-    std::string suffix = "txt";
-    po.Register("suffix", &suffix, "Suffix for the text data filename.");
-
     po.Read(argc, argv);
 
     if (po.NumArgs() != 1) {
