@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
 
     // write the counts if required
     if (pdfcounts_wxfilename != "") {
-      Output ko(out_wxfilename, binary);
+      Output ko(pdfcounts_wxfilename, binary);
       counts.Write(ko.Stream(), binary);
     }
 
