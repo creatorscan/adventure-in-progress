@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
       fdat.close();
 
       num_done++;
-      if (num_done % 100 == 0) {
+      if (num_done % 1000 == 0) {
         KALDI_LOG<< "Done " << num_done << " files.";
       }
 
