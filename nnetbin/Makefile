@@ -11,7 +11,7 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   posnegbl-forward posnegbl-train batched-feats gaussbl-create gaussbl-forward gaussbl-train \
 		   rbms-convert-to-autoencoder compute-feats-mse weight-tied-ae-train append-lin sub-nnet \
 		   rbm-to-maskedrbm copy-feats-to-text copy-feats-from-text rorbm-train-frmshuff grbm-train-frmshuff \
-		   rbm-to-grbm rorbm-init rorbm-train-utt est-avg-mask-priors est-feat-masks
+		   rbm-to-grbm rorbm-init rorbm-train-utt est-avg-mask-priors est-feat-masks interpolate-two-posts
 
 OBJFILES =
 
