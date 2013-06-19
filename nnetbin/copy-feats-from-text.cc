@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     po.Register("data-directory", &data_directory,
                 "The directory for the text data.");
 
-    std::string data_suffix = "txt";
+    std::string data_suffix = "";
     po.Register("data-suffix", &data_suffix, "The suffix for the text data");
 
     po.Read(argc, argv);
@@ -61,13 +61,17 @@ int main(int argc, char *argv[]) {
 
       if(key=="") continue;
 
-      std::string fname;
+      std::string fname="";
       if (data_directory != "") {
         fname = data_directory + "/";
       }
+
+	  fname = fname + key;
+
 	  if (data_suffix != "") {
-      	fname = fname + key + "." + data_suffix;
+      	fname = fname + "." + data_suffix;
 	  }
+
       std::ifstream fdat(fname.c_str());
 
       int32 num_frames = 0;
