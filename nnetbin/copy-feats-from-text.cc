@@ -65,7 +65,9 @@ int main(int argc, char *argv[]) {
       if (data_directory != "") {
         fname = data_directory + "/";
       }
-      fname = fname + key + "." + data_suffix;
+	  if (data_suffix != "") {
+      	fname = fname + key + "." + data_suffix;
+	  }
       std::ifstream fdat(fname.c_str());
 
       int32 num_frames = 0;
