@@ -26,6 +26,9 @@ int main(int argc, char *argv[]) {
     BaseFloat posts1_scale = 1.0;
     po.Register("posts1-scale", &posts1_scale, "Interpolation weight for posterior 1");
 
+    bool apply_log = false;
+    po.Register("apply-log", &apply_log, "Apply log on the final output");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 3) {
@@ -60,6 +63,10 @@ int main(int argc, char *argv[]) {
 
       posts1.Scale(posts1_scale);
       posts1.AddMat(1-posts1_scale, posts2, kNoTrans);
+
+      if (apply_log){
+        posts1.ApplyLog();
+      }
 
       out_posts_writer.Write(key, posts1);
 
