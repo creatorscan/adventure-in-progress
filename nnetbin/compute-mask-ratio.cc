@@ -1,4 +1,4 @@
-// nnetbin/check-all-one-masks.cc
+// nnetbin/compute-mask-ratio.cc
 
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-loss.h"
@@ -18,6 +18,10 @@ int main(int argc, char *argv[]) {
             " check-all-one-masks scp:train.scp\n";
 
     ParseOptions po(usage);
+
+    bool print_per_file = false;
+    po.Register("print-per-file", &print_per_file, "Whether to print per file ratio.");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 1) {
@@ -39,7 +43,8 @@ int main(int argc, char *argv[]) {
     Timer tim;
     double time_next = 0;
 
-    int32 num_done = 0, num_error = 0;
+    int32 num_done = 0;
+    double sum = 0.0, sum2 = 0.0, ratio = 0.0;
 
     while (!feature_reader.Done()) {
       // get the keys
@@ -47,12 +52,17 @@ int main(int argc, char *argv[]) {
       // get feature tgt_mat pair
       const Matrix<BaseFloat> &fea_mat = feature_reader.Value();
 
-      if( fea_mat.Sum() != fea_mat.NumRows() * fea_mat.NumCols() ){
-        KALDI_LOG << fea_key << " have non-1 elements.";
-        num_error++;
-      }
+      ratio = fea_mat.Sum() *1.0 / (fea_mat.NumRows() * fea_mat.NumCols());
+
+      sum += ratio;
+
+      sum2 += (ratio * ratio);
 
       num_done++;
+
+      if (print_per_file) {
+        KALDI_LOG << fea_key << " " << ratio;
+      }
 
       feature_reader.Next();
     }
@@ -63,8 +73,8 @@ int main(int argc, char *argv[]) {
     << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
     << ", feature wait " << time_next << "s";
 
-    KALDI_LOG<< "Done " << num_done << " files, " << num_error
-    << " masks with none 1 elements.";
+    KALDI_LOG<< "Done " << num_done << " files, average mask ratio: " << sum/num_done
+    << ", standard deviation: " << sqrt((sum2 - sum*sum/num_done) / num_done);
 
 #if HAVE_CUDA==1
     CuDevice::Instantiate().PrintProfile();
