@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     std::string data_directory = "";
     po.Register("data-directory", &data_directory, "The directory for the text data.");
 
-    std::string data_suffix = "txt";
+    std::string data_suffix = "";
     po.Register("data-suffix", &data_suffix, "The suffix for the text data");
 
     po.Read(argc, argv);
@@ -52,7 +52,11 @@ int main(int argc, char *argv[]) {
       std::string key = kaldi_reader.Key();
       const Matrix<BaseFloat> &feat = kaldi_reader.Value();
 
-      std::ofstream fdat((data_directory+key+"."+data_suffix).c_str());
+      std::string fname = data_directory+key;
+      if (data_suffix!=""){
+        fname = fname + "." +data_suffix;
+      }
+      std::ofstream fdat(fname.c_str());
 
       for(int32 r=0; r<feat.NumRows(); ++r){
         for (int32 c=0; c<feat.NumCols(); ++c){
