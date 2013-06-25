@@ -1,7 +1,7 @@
-// nnetbin/est-feat-masks.cc
+// nnetbin/est-feat-masks-with-pdf.cc
 //
-// Estimate the masks for each utterance based on the NN posteriors and
-// prior mask patterns.
+// Estimate the masks for each utterance based on the pdf label for each frame.
+// i.e. simply selecting the patterns.
 //
 
 #include "base/kaldi-common.h"
@@ -15,9 +15,9 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Estimate masks for each utterance and save to the specific folder.\n"
-            "Usage:  est-feat-masks [options] <pat-wxfilename> <post-rspecifier>\n"
+            "Usage:  est-feat-masks-with-pdf [options] <pat-wxfilename> <pdf-rspecifier>\n"
             "e.g.: \n"
-            " est-feat-masks --data-directory=mask_est --data-suffix=txt mask_patterns scp:post.scp\n";
+            " est-feat-masks-with-pdf --data-directory=mask_est --data-suffix=txt mask_patterns scp:pdf.scp\n";
 
     ParseOptions po(usage);
 
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     po.Register("data-directory", &data_directory,
                 "The directory for the text data.");
 
-    std::string data_suffix = "txt";
+    std::string data_suffix = "";
     po.Register("data-suffix", &data_suffix, "The suffix for the text data");
 
     po.Read(argc, argv);
