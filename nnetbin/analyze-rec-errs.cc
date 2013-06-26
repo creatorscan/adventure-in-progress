@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     RandomAccessInt32VectorReader s2_reader(s2_rspecifier);
     RandomAccessInt32VectorReader s3_reader(s3_rspecifier);
 
-    int32 num_done = 0, num_no_rec = 0, num_len_err = 0;
+    int32 num_done = 0, num_no_rec = 0, num_len_err = 0, num_frames = 0;
     int32 s1_err = 0, s2_err = 0, s3_err = 0;
     int32 s1w_s2c_s3c = 0, s1c_s2w_s3c = 0, s1w_s2w_s3c = 0;
 
@@ -66,18 +66,20 @@ int main(int argc, char *argv[]) {
         if((s1_rec[i]!=labs[i]) && (s2_rec[i]!=labs[i]) && (s3_rec[i]==labs[i])) ++s1w_s2w_s3c;
       }
       num_done++;
+      num_frames += labs.size();
     }
 
     KALDI_LOG << "Processed " << num_done << " recognition results, "
         << num_no_rec << " have no recognition results,"
         << num_len_err << " have mismatched length.";
     KALDI_LOG << "############################################";
-    KALDI_LOG << "S1 error count: " << s1_err;
-    KALDI_LOG << "S2 error count: " << s2_err;
-    KALDI_LOG << "S3 error count: " << s3_err;
-    KALDI_LOG << "S1 wrong, S2 correct, S3 correct count: " << s1w_s2c_s3c;
-    KALDI_LOG << "S1 correct, S2 wrong, S3 correct count: " << s1c_s2w_s3c;
-    KALDI_LOG << "S1 wrong, S2 wrong, S3 correct count: " << s1w_s2w_s3c;
+    KALDI_LOG << "Total number of frames: " << num_frames;
+    KALDI_LOG << "S1 error count: " << s1_err << " (" << s1_err*1.0/num_frames << ")";
+    KALDI_LOG << "S2 error count: " << s2_err << " (" << s2_err*1.0/num_frames << ")";
+    KALDI_LOG << "S3 error count: " << s3_err << " (" << s3_err*1.0/num_frames << ")";
+    KALDI_LOG << "S1 wrong, S2 correct, S3 correct count: " << s1w_s2c_s3c << " (" << s1w_s2c_s3c*1.0/num_frames << ")";
+    KALDI_LOG << "S1 correct, S2 wrong, S3 correct count: " << s1c_s2w_s3c << " (" << s1c_s2w_s3c*1.0/num_frames << ")";
+    KALDI_LOG << "S1 wrong, S2 wrong, S3 correct count: " << s1w_s2w_s3c << " (" << s1w_s2w_s3c*1.0/num_frames << ")";
     KALDI_LOG << "############################################";
 
   } catch(const std::exception &e) {
