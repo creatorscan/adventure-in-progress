@@ -74,12 +74,12 @@ int main(int argc, char *argv[]) {
         << num_len_err << " have mismatched length.";
     KALDI_LOG << "############################################";
     KALDI_LOG << "Total number of frames: " << num_frames;
-    KALDI_LOG << "S1 error count: " << s1_err << " (" << s1_err*1.0/num_frames << ")";
-    KALDI_LOG << "S2 error count: " << s2_err << " (" << s2_err*1.0/num_frames << ")";
-    KALDI_LOG << "S3 error count: " << s3_err << " (" << s3_err*1.0/num_frames << ")";
-    KALDI_LOG << "S1 wrong, S2 correct, S3 correct count: " << s1w_s2c_s3c << " (" << s1w_s2c_s3c*1.0/num_frames << ")";
-    KALDI_LOG << "S1 correct, S2 wrong, S3 correct count: " << s1c_s2w_s3c << " (" << s1c_s2w_s3c*1.0/num_frames << ")";
-    KALDI_LOG << "S1 wrong, S2 wrong, S3 correct count: " << s1w_s2w_s3c << " (" << s1w_s2w_s3c*1.0/num_frames << ")";
+    KALDI_LOG << "S1 error count: " << s1_err << " (" << s1_err*100.0/num_frames << "%)";
+    KALDI_LOG << "S2 error count: " << s2_err << " (" << s2_err*100.0/num_frames << "%)";
+    KALDI_LOG << "S3 error count: " << s3_err << " (" << s3_err*100.0/num_frames << "%)";
+    KALDI_LOG << "S1 wrong, S2 correct, S3 correct count: " << s1w_s2c_s3c << " (" << s1w_s2c_s3c*100.0/num_frames << "%)";
+    KALDI_LOG << "S1 correct, S2 wrong, S3 correct count: " << s1c_s2w_s3c << " (" << s1c_s2w_s3c*100.0/num_frames << "%)";
+    KALDI_LOG << "S1 wrong, S2 wrong, S3 correct count: " << s1w_s2w_s3c << " (" << s1w_s2w_s3c*100.0/num_frames << "%)";
     KALDI_LOG << "############################################";
 
   } catch(const std::exception &e) {
