@@ -61,9 +61,9 @@ int main(int argc, char *argv[]) {
         if(s1_rec[i]!=labs[i]) ++s1_err;
         if(s2_rec[i]!=labs[i]) ++s2_err;
         if(s3_rec[i]!=labs[i]) ++s3_err;
-        if(s1_rec[i]!=labs[i] && s2_rec[i]==labs[i] && s3_rec[i]==labs[i]) ++s1w_s2c_s3c;
-        if(s1_rec[i]==labs[i] && s2_rec[i]!=labs[i] && s3_rec[i]==labs[i]) ++s1c_s2w_s3c;
-        if(s1_rec[i]!=labs[i] && s2_rec[i]!=labs[i] && s3_rec[i]==labs[i]) ++s1w_s2w_s3c;
+        if((s1_rec[i]!=labs[i]) && (s2_rec[i]==labs[i]) && (s3_rec[i]==labs[i])) ++s1w_s2c_s3c;
+        if((s1_rec[i]==labs[i]) && (s2_rec[i]!=labs[i]) && (s3_rec[i]==labs[i])) ++s1c_s2w_s3c;
+        if((s1_rec[i]!=labs[i]) && (s2_rec[i]!=labs[i]) && (s3_rec[i]==labs[i])) ++s1w_s2w_s3c;
       }
       num_done++;
     }
@@ -76,8 +76,8 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "S2 error count: " << s2_err;
     KALDI_LOG << "S3 error count: " << s3_err;
     KALDI_LOG << "S1 wrong, S2 correct, S3 correct count: " << s1w_s2c_s3c;
-    KALDI_LOG << "S1 correct, S2 wrong, S3 correct count: " << s1w_s2c_s3c;
-    KALDI_LOG << "S1 wrong, S2 wrong, S3 correct count: " << s1w_s2c_s3c;
+    KALDI_LOG << "S1 correct, S2 wrong, S3 correct count: " << s1c_s2w_s3c;
+    KALDI_LOG << "S1 wrong, S2 wrong, S3 correct count: " << s1w_s2w_s3c;
     KALDI_LOG << "############################################";
 
   } catch(const std::exception &e) {
