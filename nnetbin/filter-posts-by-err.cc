@@ -88,6 +88,7 @@ int main(int argc, char *argv[]) {
       std::vector<int32> err_frames(labs.size(), 0);
       int32 num_err_frames = 0;
       for (size_t i = 0; i < labs.size(); i++) {
+        err_frames[i]=0;
         switch (err_pattern) {
           case 0:
             /* at least one error in S1 and S2, S3 correct */
@@ -126,8 +127,8 @@ int main(int argc, char *argv[]) {
         for(size_t r=0; r<err_frames.size(); ++r){
           if (err_frames[r]==1){
             KALDI_LOG << "row " << r << ", size: " << (post1.Row(r)).Dim();
-            out_post1.CopyRowFromVec(Vector<BaseFloat>(post1.Row(r)), k);
-            out_post2.CopyRowFromVec(Vector<BaseFloat>(post2.Row(r)), k);
+            out_post1.CopyRowFromVec(post1.Row(r), k);
+            out_post2.CopyRowFromVec(post2.Row(r), k);
             ++k;
           }
         }
