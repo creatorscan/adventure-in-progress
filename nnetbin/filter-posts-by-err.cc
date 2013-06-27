@@ -88,32 +88,31 @@ int main(int argc, char *argv[]) {
       std::vector<int32> err_frames(labs.size(), 0);
       int32 num_err_frames = 0;
       for (size_t i = 0; i < labs.size(); i++) {
-        err_frames[i]=0;
         switch (err_pattern) {
           case 0:
             /* at least one error in S1 and S2, S3 correct */
             if (((tra1_rec[i] != labs[i]) || (tra2_rec[i] != labs[i]))
                 && (tra3_rec[i] == labs[i])) {
+              err_frames[i] = 1;
               ++num_err_frames;
             }
-            err_frames[i] = 1;
             break;
           case 1:
             /* S1 and S2 are all wrong, S3 correct */
             if ((tra1_rec[i] != labs[i]) && (tra2_rec[i] != labs[i])
                 && (tra3_rec[i] == labs[i])) {
+              err_frames[i] = 1;
               ++num_err_frames;
             }
-            err_frames[i] = 1;
             break;
 
           case 2:
             /* S1 and S2 are all correct, S3 correct */
             if ((tra1_rec[i] == labs[i]) && (tra2_rec[i] == labs[i])
                 && (tra3_rec[i] == labs[i])) {
+              err_frames[i] = 1;
               ++num_err_frames;
             }
-            err_frames[i] = 1;
             break;
         }
       }
@@ -122,11 +121,8 @@ int main(int argc, char *argv[]) {
         Matrix<BaseFloat> out_post1(num_err_frames, post1.NumCols());
         Matrix<BaseFloat> out_post2(num_err_frames, post2.NumCols());
         int32 k = 0;
-        KALDI_LOG << "out_post1 size: " << out_post1.NumRows() << ", " << out_post1.NumCols();
-        KALDI_LOG << "out_post2 size: " << out_post2.NumRows() << ", " << out_post2.NumCols();
         for(size_t r=0; r<err_frames.size(); ++r){
           if (err_frames[r]==1){
-            KALDI_LOG << "row " << r << ", size: " << (post1.Row(r)).Dim();
             out_post1.CopyRowFromVec(post1.Row(r), k);
             out_post2.CopyRowFromVec(post2.Row(r), k);
             ++k;
