@@ -251,6 +251,7 @@ void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
                                int32 feat_dim,
                                int32 num_static,
                                int32 noise_frames,
+                               bool zero_mu_z_deltas,
                                Vector<double> *mu_h,
                                Vector<double> *mu_z,
                                Vector<double> *var_z) {
@@ -286,8 +287,10 @@ void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
 
     ///////////////////////////////////////////////////
     // As we assume the additive noise has 0 delta and delta-delta mean
-    for (i = num_static; i < feat_dim; ++i)
-    (*mu_z)(i) = 0.0;
+    if(zero_mu_z_deltas) {
+      for (i = num_static; i < feat_dim; ++i)
+      (*mu_z)(i) = 0.0;
+    }
 
     ///////////////////////////////////////////////////
     // If we assume the additive noise only, the convoluational noise, mean_h, is set to 0
@@ -1017,7 +1020,7 @@ void CompensateDiagGaussian_FBank(const Vector<double> &mu_h,
                                   int32 num_fbank,
                                   Vector<double> &mean, Vector<double> &cov,
                                   Matrix<double> &Jx,
-                                  Matrix<double> &Jz){
+                                  Matrix<double> &Jz) {
   // compute the necessary transforms
   Vector<double> mu_y_s(num_fbank);
   Vector<double> tmp_fbank(num_fbank);

@@ -88,6 +88,7 @@ void EstimateInitialNoiseModel(const Matrix<BaseFloat> &features,
                                int32 feat_dim,
                                int32 num_static,
                                int32 noise_frames,
+                               bool zero_mu_z_deltas,
                                Vector<double> *mu_h,
                                Vector<double> *mu_z,
                                Vector<double> *var_z);
