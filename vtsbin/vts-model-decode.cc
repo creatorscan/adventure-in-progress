@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
        Estimate the initial noise parameters
        *************************************************/
 
-      EstimateInitialNoiseModel(features, feat_dim, num_cepstral, noise_frames, &mu_h, &mu_z,
+      EstimateInitialNoiseModel(features, feat_dim, num_cepstral, noise_frames, true, &mu_h, &mu_z,
                                 &var_z);
 
       if (g_kaldi_verbose_level >= 1) {
