@@ -121,10 +121,13 @@ int main(int argc, char *argv[]) {
         Matrix<BaseFloat> out_post1(num_err_frames, post1.NumCols());
         Matrix<BaseFloat> out_post2(num_err_frames, post2.NumCols());
         int32 k = 0;
+        KALDI_LOG << "out_post1 size: " << out_post1.NumRows() << ", " << out_post1.NumCols();
+        KALDI_LOG << "out_post2 size: " << out_post2.NumRows() << ", " << out_post2.NumCols();
         for(size_t r=0; r<err_frames.size(); ++r){
           if (err_frames[r]==1){
-            out_post1.CopyRowFromVec(post1.Row(r), k);
-            out_post2.CopyRowFromVec(post2.Row(r), k);
+            KALDI_LOG << "row " << r << ", size: " << (post1.Row(r)).Dim();
+            out_post1.CopyRowFromVec(Vector<BaseFloat>(post1.Row(r)), k);
+            out_post2.CopyRowFromVec(Vector<BaseFloat>(post2.Row(r)), k);
             ++k;
           }
         }
