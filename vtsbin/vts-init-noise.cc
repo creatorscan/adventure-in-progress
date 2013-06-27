@@ -33,6 +33,7 @@ int main(int argc, char* argv[]) {
     ParseOptions po(usage);
     int32 num_static = 13;
     int32 noise_frames = 20;
+    bool zero_mu_z_deltas = true;
 
     po.Register("num-static", &num_static,
                 "Dimension of the static feature coefficients");
@@ -40,6 +41,9 @@ int main(int argc, char* argv[]) {
         "noise-frames",
         &noise_frames,
         "Number of frames at the beginning and ending of each sentence used for noise estimation");
+
+    po.Register("zero-mu-z-deltas", &zero_mu_z_deltas,
+                    "Constrain the deltas of additive noise to be 0s.");
 
     po.Read(argc, argv);
 
@@ -77,15 +81,14 @@ int main(int argc, char* argv[]) {
 
       int32 feat_dim = features.NumCols();
       if (feat_dim != 39) {
-        KALDI_ERR
-            << "Could not decode the features, only 39D MFCC_0_D_A is supported!";
+        KALDI_WARN << "Current feature dim is not 39!";
       }
 
       // noise model parameters, current estimate and last estimate
       Vector<double> mu_h(feat_dim), mu_z(feat_dim), var_z(feat_dim);
 
       EstimateInitialNoiseModel(features, feat_dim, num_static, noise_frames,
-                                &mu_h, &mu_z, &var_z);
+                                zero_mu_z_deltas, &mu_h, &mu_z, &var_z);
 
       // Writting the noise parameters out
       noiseparams_writer.Write(key + "_mu_h", mu_h);
