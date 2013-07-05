@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
     // construct the learn factors, only learn the first LIN layer
     std::string learn_factors = "1";
-    for (int32 i = 0; i < nnet.LayerCount(); ++i) {
+    for (int32 i = 1; i < nnet.LayerCount(); ++i) {
       if (nnet.Layer(i)->IsUpdatable())
         learn_factors += ",0";
     }

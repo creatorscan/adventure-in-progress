@@ -45,7 +45,6 @@ int main(int argc, char *argv[]) {
     }
 
     int32 in_dim = nnet.InputDim();
-
     {
       Output ko(model_out_filename, binary_write);
 
