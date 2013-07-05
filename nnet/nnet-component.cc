@@ -29,6 +29,7 @@
 #include "nnet/nnet-maskedbl.h"
 #include "nnet/nnet-rorbm.h"
 #include "nnet/nnet-grbm.h"
+#include "nnet/nnet-linbl.h"
 
 namespace kaldi {
 
@@ -41,7 +42,7 @@ const struct Component::key_value Component::kMarkerMap[] = { {
     {Component::kCMVNBL, "<cmvnbl>"}, {Component::kPosNegBL, "<posnegbl>"},
     {Component::kGaussBL, "<gaussbl>"}, {Component::kMaskedBL, "<maskedbl>"},
     {Component::kMaskedRbm, "<maskedrbm>"}, {Component::kRoRbm, "<rorbm>"},
-    {Component::kGRbm, "<grbm>"}};
+    {Component::kGRbm, "<grbm>"}, {Component::kLinBL, "<linbl>"}};
 
 const char* Component::TypeToMarker(ComponentType t) {
   int32 N = sizeof(kMarkerMap) / sizeof(kMarkerMap[0]);
@@ -120,6 +121,9 @@ Component* Component::Read(std::istream &is, bool binary, Nnet *nnet) {
       break;
     case Component::kMaskedBL:
       p_comp = new MaskedBL(dim_in, dim_out, nnet);
+      break;
+    case Component::kLinBL:
+      p_comp = new LinBL(dim_in, dim_out, nnet);
       break;
     case Component::kRelu:
       p_comp = new Relu(dim_in, dim_out, nnet);

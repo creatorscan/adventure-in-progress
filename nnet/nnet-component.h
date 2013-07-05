@@ -63,6 +63,7 @@ class Component {
     kPosNegBL,
     kGaussBL,
     kMaskedBL,
+    kLinBL,
 
     kActivationFunction = 0x0200, 
     kSoftmax, 
