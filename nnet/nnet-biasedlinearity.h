@@ -74,7 +74,8 @@ class BiasedLinearity : public UpdatableComponent {
     // compute gradient
     if (average_grad_) {
       linearity_corr_.AddMatMat(1.0 / input.NumRows(), err, kTrans, input,
-                                kNoTrans, momentum_);
+                                kNoTrans,
+                                momentum_);
       bias_corr_.AddRowSumMat(1.0 / input.NumRows(), err, momentum_);
     } else {
       linearity_corr_.AddMatMat(1.0, err, kTrans, input, kNoTrans, momentum_);
@@ -99,21 +100,32 @@ class BiasedLinearity : public UpdatableComponent {
    * This function is used to tying the weights between different layers
    */
   void SetLinearityWeight(const CuMatrix<BaseFloat> &weight, bool trans) {
-    if (trans){
+    if (trans) {
       Matrix<BaseFloat> mat;
       weight.CopyToMat(&mat);
       mat.Transpose();
       linearity_.CopyFromMat(mat);
-    }else{
+    } else {
       linearity_.CopyFromMat(weight);
     }
   }
 
-  const CuMatrix<BaseFloat>& GetLinearityWeight(){
+  void SetLinearityWeight(const Matrix<BaseFloat> &weight, bool trans) {
+    if (trans) {
+      Matrix<BaseFloat> mat;
+      mat.CopyFromMat(weight);
+      mat.Transpose();
+      linearity_.CopyFromMat(mat);
+    } else {
+      linearity_.CopyFromMat(weight);
+    }
+  }
+
+  const CuMatrix<BaseFloat>& GetLinearityWeight() {
     return linearity_;
   }
 
-  void SetToIdentity(){
+  void SetToIdentity() {
     Matrix<BaseFloat> mat(linearity_.NumRows(), linearity_.NumCols());
     mat.SetUnit();
     linearity_.CopyFromMat(mat);

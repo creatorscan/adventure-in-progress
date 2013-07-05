@@ -153,6 +153,10 @@ class LinBL : public BiasedLinearity {
     bias_.CopyFromVec(bias);
   }
 
+  void SetBiasWeight(const Vector<BaseFloat> &bias) {
+    bias_.CopyFromVec(bias);
+  }
+
   const CuVector<BaseFloat>& GetBiasWeight() {
     return bias_;
   }
