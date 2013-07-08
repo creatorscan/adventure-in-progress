@@ -15,7 +15,9 @@ class LinBL : public BiasedLinearity {
       : BiasedLinearity(dim_in, dim_out, nnet),
         lin_type_(0),
         num_blks_(0),
-        blk_dim_(0)
+        blk_dim_(0), mask_(dim_out, dim_in),
+        linearity_cpu_(dim_out, dim_in),
+        bias_cpu_(dim_out)
   {
   }
   ~LinBL()
