@@ -26,7 +26,7 @@ class LinBL : public BiasedLinearity {
     return kLinBL;
   }
 
-  void SetLinBLType(int32 tid) {
+  void SetLinBLType(int32 tid, int32 num_blks=0, int32 blk_dim=0) {
     KALDI_ASSERT(tid >= 0 && tid <= 3);
     lin_type_ = tid;
 
@@ -37,6 +37,7 @@ class LinBL : public BiasedLinearity {
       }
       mask_.CopyFromMat(mat);
     } else if (tid == 2 || tid == 3) {
+      KALDI_ASSERT(num_blks >0 && blk_dim > 0 && num_blks * blk_dim == input_dim_);
       Matrix<BaseFloat> mat(output_dim_, input_dim_, kSetZero);
       for (int32 i = 0; i < num_blks_; ++i) {
         int32 offset=i*blk_dim_;
