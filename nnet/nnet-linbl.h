@@ -40,6 +40,8 @@ class LinBL : public BiasedLinearity {
       mask_.CopyFromMat(mat);
     } else if (tid == 2 || tid == 3) {
       KALDI_ASSERT(num_blks >0 && blk_dim > 0 && num_blks * blk_dim == input_dim_);
+      num_blks_ = num_blks;
+      blk_dim_ = blk_dim;
       Matrix<BaseFloat> mat(output_dim_, input_dim_, kSetZero);
       for (int32 i = 0; i < num_blks_; ++i) {
         int32 offset=i*blk_dim_;
