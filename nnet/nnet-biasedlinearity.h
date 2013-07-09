@@ -112,8 +112,7 @@ class BiasedLinearity : public UpdatableComponent {
 
   void SetLinearityWeight(const Matrix<BaseFloat> &weight, bool trans) {
     if (trans) {
-      Matrix<BaseFloat> mat;
-      mat.CopyFromMat(weight);
+      Matrix<BaseFloat> mat(weight);
       mat.Transpose();
       linearity_.CopyFromMat(mat);
     } else {
