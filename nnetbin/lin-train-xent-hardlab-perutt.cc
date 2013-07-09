@@ -44,6 +44,11 @@ int main(int argc, char *argv[]) {
     po.Register("feature-transform", &feature_transform,
                 "Feature transform Neural Network");
 
+    std::string init_weight = "", init_bias = "";
+    po.Register("init-weight", &init_weight,
+                "Initial weight matrices for LIN xform");
+    po.Register("init-bias", &init_bias, "Initial biases for LIN xform");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 5 - (crossvalidate ? 2 : 0)) {
@@ -98,6 +103,9 @@ int main(int argc, char *argv[]) {
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     RandomAccessInt32VectorReader alignments_reader(alignments_rspecifier);
 
+    RandomAccessBaseFloatMatrixReader init_weight_reader(init_weight);
+    RandomAccessBaseFloatVectorReader init_bias_reader(init_bias);
+
     BaseFloatMatrixWriter weight_writer(target_weight_wspecifier);
     BaseFloatVectorWriter bias_writer(target_bias_wspecifier);
 
@@ -112,7 +120,8 @@ int main(int argc, char *argv[]) {
     double time_next = 0;
     KALDI_LOG<< (crossvalidate?"CROSSVALIDATE":"TRAINING") << " STARTED";
 
-    int32 num_done = 0, num_no_alignment = 0, num_other_error = 0;
+    int32 num_done = 0, num_no_alignment = 0, num_other_error = 0,
+        num_use_init = 0, num_use_iden = 0;
     for (; !feature_reader.Done(); /*feature_reader.Next()*/) {
       std::string key = feature_reader.Key();
 
@@ -135,8 +144,23 @@ int main(int argc, char *argv[]) {
           std::cout << num_done << ", " << std::flush;
         num_done++;
 
-        // reset the LIN layer to identity for each utterance
-        lin->SetToIdentity();
+        // configure LIN
+        if (!crossvalidate) {
+          if (init_weight != "" && init_bias != ""
+              && init_weight_reader.HasKey(key)
+              && init_bias_reader.HasKey(key)) {
+            const Matrix<BaseFloat> init_wt = init_weight_reader.Value(key);
+            const Vector<BaseFloat> init_bs = init_bias_reader.Value(key);
+
+            lin->SetLinearityWeight(init_wt, kNoTrans);
+            lin->SetBiasWeight(init_bs);
+            num_use_init++;
+
+          } else {
+            lin->SetToIdentity();
+            num_use_iden++;
+          }
+        }
 
         // push features to GPU
         feats.CopyFromMat(mat);
@@ -148,9 +172,7 @@ int main(int argc, char *argv[]) {
 
         if (!crossvalidate) {
           nnet.Backpropagate(glob_err, NULL);
-        }
 
-        if (!crossvalidate){
           (lin->GetLinearityWeight()).CopyToMat(&lin_weight);
           (lin->GetBiasWeight()).CopyToVec(&lin_bias);
 
@@ -175,6 +197,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG<< "Done " << num_done << " files, " << num_no_alignment
     << " with no alignments, " << num_other_error
     << " with other errors.";
+    KALDI_LOG<< num_use_init << " used initial LIN, " << num_use_iden << " used identity.";
 
     KALDI_LOG<< xent.Report();
 
