@@ -125,6 +125,7 @@ inline MatrixIndexT Nnet::InputDim() const {
   } else {
    KALDI_ERR << "No layers in MLP"; 
   }
+  return 0;
 }
 
 
@@ -134,6 +135,7 @@ inline MatrixIndexT Nnet::OutputDim() const {
   } else {
     KALDI_ERR << "No layers in MLP"; 
   }
+  return 0;
 }
 
 
