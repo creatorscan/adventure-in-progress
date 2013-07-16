@@ -20,6 +20,9 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+    std::string utt2xform;
+    po.Register("utt2xform", &utt2xform, "Utterance to LIN xform mapping");
+
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
                 "Feature transform Neural Network");
@@ -76,6 +79,8 @@ int main(int argc, char *argv[]) {
 
     kaldi::int64 tot_t = 0;
 
+    RandomAccessTokenReader utt2xform_reader(utt2xform);
+
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     BaseFloatMatrixWriter feature_writer(feature_wspecifier);
 
@@ -112,19 +117,36 @@ int main(int argc, char *argv[]) {
       KALDI_LOG<< "MLP FEEDFORWARD STARTED";
 
     int32 num_done = 0;
+    std::string cur_lin="", new_lin="";
+
     // iterate over all the feature files
     for (; !feature_reader.Done(); feature_reader.Next()) {
       // read
       std::string key = feature_reader.Key();
 
-      if(!weight_reader.HasKey(key) || !bias_reader.HasKey(key)){
+      if(utt2xform==""){
+        new_lin = key;
+      }else{
+        if(!utt2xform_reader.HasKey(key)){
+          KALDI_ERR << "No mapping found for utterance " << key;
+        }
+        new_lin=utt2xform_reader.Value(key);
+      }
+
+      if(!weight_reader.HasKey(new_lin) || !bias_reader.HasKey(new_lin)){
         KALDI_ERR << "No LIN weight or bias for the input feature " << key;
       }
-      const Matrix<BaseFloat> &weight = weight_reader.Value(key);
-      const Vector<BaseFloat> &bias = bias_reader.Value(key);
 
-      lin->SetLinearityWeight(weight, false);
-      lin->SetBiasWeight(bias);
+      // update the LIN xform when necessary
+      if(new_lin != cur_lin){
+        const Matrix<BaseFloat> &weight = weight_reader.Value(new_lin);
+        const Vector<BaseFloat> &bias = bias_reader.Value(new_lin);
+
+        lin->SetLinearityWeight(weight, false);
+        lin->SetBiasWeight(bias);
+
+        cur_lin = new_lin;
+      }
 
       const Matrix<BaseFloat> &mat = feature_reader.Value();
       //check for NaN/inf
