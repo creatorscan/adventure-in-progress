@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
         "Append a LIN to the existing nnet.\n"
             "Usage:  lin-init [options] <nnet-in> <nnet-out>\n"
             "e.g.:\n"
-            " append-lin --binary=false nnet.mdl nnet_lin.mdl\n";
+            " lin-init --binary=false nnet.mdl nnet_lin.mdl\n";
 
     ParseOptions po(usage);
 
