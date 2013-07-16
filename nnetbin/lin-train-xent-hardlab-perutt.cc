@@ -22,14 +22,6 @@ int main(int argc, char *argv[]) {
     po.Register("cross-validate", &crossvalidate,
                 "Perform cross-validation (don't backpropagate)");
 
-    int32 lin_type = 0, num_blks = 0, blk_dim = 0;
-    po.Register(
-        "lin-type",
-        &lin_type,
-        "LIN type: [0 - standard BL; 1 - diagonal BL; 2 - block diagonal BL; 3 - shared block diagonal BL]");
-    po.Register("num-blks", &num_blks, "Number of blocks for type 2 and 3");
-    po.Register("blk-dim", &blk_dim, "Block dimension for type 2 and 3");
-
     BaseFloat learn_rate = 0.008,
         momentum = 0.0,
         l2_penalty = 0.0,
@@ -93,10 +85,6 @@ int main(int argc, char *argv[]) {
       KALDI_ERR<< "The first layer is not <linbl> layer!";
     }
     LinBL *lin = static_cast<LinBL*>(nnet.Layer(0));
-
-    if (lin->GetLinBLType() != lin_type) {
-      lin->SetLinBLType(lin_type, num_blks, blk_dim);
-    }
 
     kaldi::int64 tot_t = 0;
 

@@ -27,6 +27,14 @@ int main(int argc, char *argv[]) {
     bool binary_write = false;
     po.Register("binary", &binary_write, "Write output in binary mode");
 
+    int32 lin_type = 0, num_blks = 0, blk_dim = 0;
+    po.Register(
+        "lin-type",
+        &lin_type,
+        "LIN type: [0 - standard BL; 1 - diagonal BL; 2 - block diagonal BL; 3 - shared block diagonal BL]");
+    po.Register("num-blks", &num_blks, "Number of blocks for type 2 and 3");
+    po.Register("blk-dim", &blk_dim, "Block dimension for type 2 and 3");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 2) {
@@ -50,6 +58,9 @@ int main(int argc, char *argv[]) {
 
       LinBL lin(in_dim, in_dim, NULL);
       lin.SetToIdentity();
+      if (lin.GetLinBLType() != lin_type) {
+        lin.SetLinBLType(lin_type, num_blks, blk_dim);
+      }
       lin.Write(ko.Stream(), binary_write);
 
       nnet.Write(ko.Stream(), binary_write);
