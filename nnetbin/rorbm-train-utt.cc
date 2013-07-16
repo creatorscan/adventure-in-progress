@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
 
-    int32 num_done = 0, num_cache = 0;
+    int32 num_done = 0; // num_cache = 0;
 
     while (!feature_reader.Done()) {
       // get feature matrix

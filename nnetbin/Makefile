@@ -13,7 +13,7 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   rbm-to-maskedrbm copy-feats-to-text copy-feats-from-text rorbm-train-frmshuff grbm-train-frmshuff \
 		   rbm-to-grbm rorbm-init rorbm-train-utt est-avg-mask-priors est-feat-masks interpolate-two-posts \
 		   compute-mask-ratio est-feat-masks-with-pdf compute-posts-kl analyze-rec-errs filter-posts-by-err \
-		   lin-train-xent-hardlab-perutt lin-nnet-forward lin-init
+		   lin-train-xent-hardlab-perutt lin-nnet-forward lin-init lin-merge
 
 OBJFILES =
 

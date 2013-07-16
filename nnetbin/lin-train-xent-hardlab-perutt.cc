@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
 
     int32 num_done = 0, num_no_alignment = 0, num_other_error = 0,
         num_use_init = 0, num_use_iden = 0;
-    for (; !feature_reader.Done(); /*feature_reader.Next()*/) {
+    for (; !feature_reader.Done(); ) {
       std::string key = feature_reader.Key();
 
       if (!alignments_reader.HasKey(key)) {
