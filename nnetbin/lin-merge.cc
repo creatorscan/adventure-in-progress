@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
         "Merge LIN xforms to a weight archive and a bias archive.\n"
             "Usage:  lin-merge [options] <xform-rspecifier> <weight-wspecifier> <bias-wspecifier>\n"
             "e.g.:\n"
-            " lin-merge scp:lin_xform.scp ark:lin_weight.ark ark:lin_bias.ark\n";
+            " lin-merge ark:lin_xform.utt2xform ark:lin_weight.ark ark:lin_bias.ark\n";
 
     ParseOptions po(usage);
 
