@@ -82,7 +82,8 @@ class Component {
     kLog,
     kMaskedRbm,
     kRoRbm,
-    kGRbm
+    kGRbm,
+    kLinRbm
   } ComponentType;
   /// Pair of type and marker
   struct key_value {

@@ -15,7 +15,8 @@ class LinBL : public BiasedLinearity {
       : BiasedLinearity(dim_in, dim_out, nnet),
         lin_type_(0),
         num_blks_(0),
-        blk_dim_(0), mask_(dim_out, dim_in),
+        blk_dim_(0),
+        mask_(dim_out, dim_in),
         linearity_cpu_(dim_out, dim_in),
         bias_cpu_(dim_out)
   {
@@ -28,26 +29,25 @@ class LinBL : public BiasedLinearity {
     return kLinBL;
   }
 
-  void SetLinBLType(int32 tid, int32 num_blks=0, int32 blk_dim=0) {
+  void SetLinBLType(int32 tid, int32 num_blks = 0, int32 blk_dim = 0) {
     KALDI_ASSERT(tid >= 0 && tid <= 3);
     lin_type_ = tid;
 
     if (tid == 1) { /* diagonal BL */
       Matrix<BaseFloat> mat(output_dim_, input_dim_, kSetZero);
-      for (int32 r = 0; r < output_dim_; ++r) {
-        mat(r, r) = 1.0;
-      }
+      mat.SetUnit();
       mask_.CopyFromMat(mat);
     } else if (tid == 2 || tid == 3) {
-      KALDI_ASSERT(num_blks >0 && blk_dim > 0 && num_blks * blk_dim == input_dim_);
+      KALDI_ASSERT(
+          num_blks >0 && blk_dim > 0 && num_blks * blk_dim == input_dim_);
       num_blks_ = num_blks;
       blk_dim_ = blk_dim;
       Matrix<BaseFloat> mat(output_dim_, input_dim_, kSetZero);
       for (int32 i = 0; i < num_blks_; ++i) {
-        int32 offset=i*blk_dim_;
+        int32 offset = i * blk_dim_;
         for (int32 r = 0; r < blk_dim_; ++r) {
           for (int32 c = 0; c < blk_dim_; ++c) {
-            mat(offset+r, offset+c)=1.0;
+            mat(offset + r, offset + c) = 1.0;
           }
         }
       }
@@ -76,7 +76,7 @@ class LinBL : public BiasedLinearity {
     // weight must be square matrix
     KALDI_ASSERT(linearity_.NumRows() == linearity_.NumCols());
 
-    SetLinBLType(lin_type_);
+    SetLinBLType(lin_type_, num_blks_, blk_dim_);
 
   }
 
@@ -134,17 +134,21 @@ class LinBL : public BiasedLinearity {
         SubMatrix<BaseFloat> blk0(linearity_cpu_, 0, blk_dim_, 0, blk_dim_);
         SubVector<BaseFloat> vec0(bias_cpu_, 0, blk_dim_);
         int32 offset;
-        for(int32 i=1; i<num_blks_; ++i){
+        for (int32 i = 1; i < num_blks_; ++i) {
           offset = i * blk_dim_;
-          blk0.AddMat(1.0, SubMatrix<BaseFloat>(linearity_cpu_, offset, blk_dim_, offset, blk_dim_));
+          blk0.AddMat(
+              1.0,
+              SubMatrix<BaseFloat>(linearity_cpu_, offset, blk_dim_, offset,
+                                   blk_dim_));
           vec0.AddVec(1.0, SubVector<BaseFloat>(bias_cpu_, offset, blk_dim_));
         }
-        blk0.Scale(1.0/num_blks_);
-        vec0.Scale(1.0/num_blks_);
+        blk0.Scale(1.0 / num_blks_);
+        vec0.Scale(1.0 / num_blks_);
         /* copy back */
-        for(int32 i=1; i<num_blks_; ++i) {
-          offset= i* blk_dim_;
-          (SubMatrix<BaseFloat>(linearity_cpu_, offset, blk_dim_, offset, blk_dim_)).CopyFromMat(blk0);
+        for (int32 i = 1; i < num_blks_; ++i) {
+          offset = i * blk_dim_;
+          (SubMatrix<BaseFloat>(linearity_cpu_, offset, blk_dim_, offset,
+                                blk_dim_)).CopyFromMat(blk0);
           (SubVector<BaseFloat>(bias_cpu_, offset, blk_dim_)).CopyFromVec(vec0);
         }
         break;
