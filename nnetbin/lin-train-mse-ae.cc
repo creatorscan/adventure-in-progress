@@ -84,19 +84,19 @@ int main(int argc, char *argv[]) {
 
     Nnet nnet;
     nnet.Read(model_filename);
-    
-    if(nnet.Layer(0)->GetType() != Component::kLinBL) {
+
+    if (nnet.Layer(0)->GetType() != Component::kLinBL) {
       KALDI_ERR<< "The first layer is not <linbl> layer!";
     }
     LinBL *lin_front = static_cast<LinBL*>(nnet.Layer(0));
-	if(nnet.Layer(nnet.LayerCount()-1)->GetType() != Component::kLinBL){
-	  KALDI_ERR<< "The first layer is not <linbl> layer!";
+    if (nnet.Layer(nnet.LayerCount() - 1)->GetType() != Component::kLinBL) {
+      KALDI_ERR<< "The first layer is not <linbl> layer!";
     }
-    LinBL *lin_back = static_cast<LinBL*>(nnet.Layer(nnet.LayerCount()-1));
+    LinBL *lin_back = static_cast<LinBL*>(nnet.Layer(nnet.LayerCount() - 1));
 
-    if(learn_factors == ""){
+    if (learn_factors == "") {
       nnet.SetLearnRate(learn_rate, NULL);
-    }else{
+    } else {
       nnet.SetLearnRate(learn_rate, learn_factors.c_str());
     }
     nnet.SetMomentum(momentum);
@@ -117,9 +117,6 @@ int main(int argc, char *argv[]) {
 
     CuMatrix<BaseFloat> feats, feats_transf, targets, nnet_in, nnet_out,
         nnet_tgt, glob_err;
-        
-	CuMatrix<BaseFloat> lin_weight;
-	CuVector<BaseFloat> lin_bias;
 
     Timer tim;
     double time_next = 0;
@@ -189,19 +186,10 @@ int main(int argc, char *argv[]) {
           nnet.Backpropagate(glob_err, NULL);
 
           // Do the weight tying
-          lin_weight.CopyFromMat(lin_front->GetLinearityWeight());
-          lin_bias.CopyFromVec(lin_front->GetBiasWeight());
- 
-          lin_weight.AddMat(0.5, lin_back->GetLinearityWeight(), 0.5);
-          lin_bias.AddVec(0.5, lin_back->GetBiasWeight(), 0.5);
-          
-          lin_front->SetLinearityWeight(lin_weight, kNoTrans);
-          lin_front->SetBiasWeight(lin_bias);
-          
-          lin_back->SetLinearityWeight(lin_weight, kNoTrans);
-          lin_back->SetBiasWeight(lin_bias);
+          lin_back->SetLinearityWeight(lin_front->GetLinearityWeight(), kNoTrans);
+          lin_back->SetBiasWeight(lin_front->GetBiasWeight());
         }
-          
+
         tot_t += nnet_in.NumRows();
       }
 
