@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     cache.Init(cachesize, bunchsize);
 
     CuRand<BaseFloat> cu_rand;
-    MseProgress mse;
+    MseProgress mse(0);
 
     CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, neg_vis, neg_hid;
     CuMatrix<BaseFloat> dummy_mse_mat;
@@ -150,8 +150,6 @@ int main(int argc, char *argv[]) {
           rbm.RbmUpdate(pos_vis, pos_hid, neg_vis, neg_hid);
         }
         // evaluate mean square error
-        KALDI_LOG << neg_vis.NumRows() <<"," << neg_vis.NumCols();
-        KALDI_LOG << pos_vis.NumRows() << "," << pos_vis.NumCols();
         mse.Eval(neg_vis, pos_vis, &dummy_mse_mat);
 
         tot_t += pos_vis.NumRows();
