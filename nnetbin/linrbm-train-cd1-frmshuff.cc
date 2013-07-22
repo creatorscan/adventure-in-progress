@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Perform iteration of LinRbm training by contrastive divergence alg.\n"
-            "Usage:  linrbm-train-cd1-frmshuff [options] <model-in> <feature-rspecifier> <model-out>\n"
+            "Usage:  linrbm-train-cd1-frmshuff [options] <model-in> <feature-rspecifier> [<model-out>]\n"
             "e.g.: \n"
             " linrbm-train-cd1-frmshuff rbm.init scp:train.scp rbm.iter1\n";
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 3) {
+    if (po.NumArgs() != 2 && po.NumArgs() != 3) {
       po.PrintUsage();
       exit(1);
     }
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         feature_rspecifier = po.GetArg(2);
 
     std::string target_model_filename;
-    target_model_filename = po.GetArg(3);
+    target_model_filename = po.GetOptArg(3);
 
     using namespace kaldi;
     typedef kaldi::int32 int32;
@@ -156,16 +156,18 @@ int main(int argc, char *argv[]) {
         break;
     }
 
-    nnet.Write(target_model_filename, binary);
+    if (!cross_validate) {
+      nnet.Write(target_model_filename, binary);
+    }
 
     std::cout << "\n" << std::flush;
 
-    if(cross_validate){
-      KALDI_LOG << "RBM CROSS VALIDATION ";
-    }else {
-    KALDI_LOG<< "RBM TRAINING FINISHED ";
+    if (cross_validate) {
+      KALDI_LOG<< "RBM CROSS VALIDATION ";
+    } else {
+      KALDI_LOG<< "RBM TRAINING FINISHED ";
     }
-    KALDI_LOG << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
+    KALDI_LOG<< tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
     << ", feature wait " << time_next << "s";
 
     KALDI_LOG<< "Done " << num_done << " files.";
