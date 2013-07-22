@@ -39,6 +39,9 @@ int main(int argc, char *argv[]) {
     po.Register("feature-transform", &feature_transform,
                 "Feature transform Neural Network");
 
+    std::string top_ae_nnet;
+    po.Register("top-ae-nnet", &top_ae_nnet, "Top level RBMs converted AE");
+
     int32 bunchsize = 512, cachesize = 32768;
     po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("cachesize", &cachesize,
@@ -65,6 +68,11 @@ int main(int argc, char *argv[]) {
       rbm_transf.Read(feature_transform);
     }
 
+    Nnet top_rbm_ae;
+    if(top_ae_nnet != ""){
+      top_rbm_ae.Read(top_ae_nnet);
+    }
+
     Nnet nnet;
     nnet.Read(model_filename);
     KALDI_ASSERT(nnet.LayerCount()==1);
@@ -86,7 +94,7 @@ int main(int argc, char *argv[]) {
     CuRand<BaseFloat> cu_rand;
     Mse mse;
 
-    CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, neg_vis, neg_hid;
+    CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, neg_vis, neg_hid, top_ae_out;
     CuMatrix<BaseFloat> dummy_mse_mat;
     std::vector<int32> dummy_cache_vec;
 
@@ -133,12 +141,14 @@ int main(int argc, char *argv[]) {
         // TRAIN with CD1
         // forward pass
         rbm.Propagate(pos_vis, &pos_hid);
+        // possible forward through the top RBMs
+        top_rbm_ae.Feedforward(pos_hid, &top_ae_out);
         // alter the hidden values, so we can generate negative example
         if (rbm.HidType() == Rbm::BERNOULLI) {
-          cu_rand.BinarizeProbs(pos_hid, &neg_hid);
+          cu_rand.BinarizeProbs(top_ae_out, &neg_hid);
         } else {
           // assume Rbm::GAUSSIAN
-          neg_hid.CopyFromMat(pos_hid);
+          neg_hid.CopyFromMat(top_ae_out);
           cu_rand.AddGaussNoise(&neg_hid);
         }
         // reconstruct pass
@@ -188,3 +198,4 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 }
+
