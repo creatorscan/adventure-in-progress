@@ -318,6 +318,8 @@ class LinRbm : public Rbm {
           (SubMatrix<BaseFloat>(lin_linearity_cpu_, offset, blk_dim_, offset, blk_dim_)).CopyFromMat(blk0);
           (SubVector<BaseFloat>(lin_bias_cpu_, offset, blk_dim_)).CopyFromVec(vec0);
         }
+		lin_linearity_.CopyFromMat(lin_linearity_cpu_);
+		lin_bias_.CopyFromVec(lin_bias_cpu_);
       }
       break;
     }
