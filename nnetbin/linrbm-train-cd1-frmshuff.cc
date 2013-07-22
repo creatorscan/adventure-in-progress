@@ -92,7 +92,11 @@ int main(int argc, char *argv[]) {
 
     Timer tim;
     double time_next = 0;
-    KALDI_LOG<< "RBM TRAINING STARTED";
+    if (!cross_validate) {
+      KALDI_LOG<< "RBM TRAINING STARTED";
+    } else {
+      KALDI_LOG << "RBM CROSS VALIDATION STARTED";
+    }
 
     int32 num_done = 0, num_cache = 0;
     while (1) {
@@ -146,6 +150,8 @@ int main(int argc, char *argv[]) {
           rbm.RbmUpdate(pos_vis, pos_hid, neg_vis, neg_hid);
         }
         // evaluate mean square error
+        KALDI_LOG << neg_vis.NumRows() <<"," << neg_vis.NumCols();
+        KALDI_LOG << pos_vis.NumRows() << "," << pos_vis.NumCols();
         mse.Eval(neg_vis, pos_vis, &dummy_mse_mat);
 
         tot_t += pos_vis.NumRows();
