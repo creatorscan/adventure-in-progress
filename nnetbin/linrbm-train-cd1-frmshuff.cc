@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     cache.Init(cachesize, bunchsize);
 
     CuRand<BaseFloat> cu_rand;
-    MseProgress mse(0);
+    Mse mse;
 
     CuMatrix<BaseFloat> feats, feats_transf, pos_vis, pos_hid, neg_vis, neg_hid;
     CuMatrix<BaseFloat> dummy_mse_mat;
