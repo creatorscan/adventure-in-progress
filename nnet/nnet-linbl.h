@@ -151,8 +151,8 @@ class LinBL : public BiasedLinearity {
                                 blk_dim_)).CopyFromMat(blk0);
           (SubVector<BaseFloat>(bias_cpu_, offset, blk_dim_)).CopyFromVec(vec0);
         }
-		linearity_.CopyFromMat(linearity_cpu_);
-		bias_.CopyFromVec(bias_cpu_);
+        linearity_.CopyFromMat(linearity_cpu_);
+        bias_.CopyFromVec(bias_cpu_);
         break;
     }
   }

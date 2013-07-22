@@ -69,6 +69,14 @@ class LinRbm : public Rbm {
     return lin_type_;
   }
 
+  int32 GetLinRbmNumBlks() {
+    return num_blks_;
+  }
+
+  int32 GetLinRbmBlkDim() {
+    return blk_dim_;
+  }
+
   // initialize LinRbm with a plain Rbm
   void ReadRbm(std::istream &is, bool binary) {
 
