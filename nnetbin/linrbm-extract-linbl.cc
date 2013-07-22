@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     {
       bool binary_read;
       Input ki(model_in_filename, &binary_read);
-      linrbm.ReadRbm(ki.Stream(), binary_read);
+      linrbm.Read(ki.Stream(), binary_read);
     }
 
     LinBL linbl(linrbm.InputDim(), linrbm.InputDim(), NULL);
