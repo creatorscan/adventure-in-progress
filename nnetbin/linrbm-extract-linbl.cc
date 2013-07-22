@@ -38,17 +38,19 @@ int main(int argc, char *argv[]) {
     std::string model_in_filename = po.GetArg(1),
         model_out_filename = po.GetArg(2);
 
-    LinRbm linrbm(0,0,NULL);
-    {
-      bool binary_read;
-      Input ki(model_in_filename, &binary_read);
-      linrbm.Read(ki.Stream(), binary_read);
-    }
+    Nnet nnet;
+    nnet.Read(model_in_filename);
 
-    LinBL linbl(linrbm.InputDim(), linrbm.InputDim(), NULL);
-    linbl.SetLinearityWeight(linrbm.GetLinLinearityWeight(), false);
-    linbl.SetBiasWeight(linrbm.GetLinBiasWeight());
-    linbl.SetLinBLType(linrbm.GetLinRbmType(), linrbm.GetLinRbmNumBlks(), linrbm.GetLinRbmBlkDim());
+    if (nnet.Layer(0)->GetType() != Component::kLinRbm) {
+      KALDI_ERR<< "The first layer is not <linrbm> layer!";
+    }
+    LinRbm *linrbm = static_cast<LinRbm*>(nnet.Layer(0));
+
+    LinBL linbl(linrbm->InputDim(), linrbm->InputDim(), NULL);
+    linbl.SetLinearityWeight(linrbm->GetLinLinearityWeight(), false);
+    linbl.SetBiasWeight(linrbm->GetLinBiasWeight());
+    linbl.SetLinBLType(linrbm->GetLinRbmType(), linrbm->GetLinRbmNumBlks(),
+                       linrbm->GetLinRbmBlkDim());
 
     {
       Output ko(model_out_filename, binary_write);
