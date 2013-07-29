@@ -104,6 +104,19 @@ std::string Xent::Report() {
   return oss.str(); 
 }
 
+void Xent::Reset() {
+  frames_=0;
+  correct_=0;
+  loss_=0.0;
+}
+
+BaseFloat Xent::GetFrameAccuracy(){
+  if (frames_ <= 0){
+    KALDI_ERR << "Incorrect number of frames have been seen: " << frames_;
+  }
+
+  return 100.0*correct_/frames_;
+}
 
 
 

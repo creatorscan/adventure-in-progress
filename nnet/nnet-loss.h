@@ -40,6 +40,11 @@ class Xent {
   /// Generate string with error report
   std::string Report();
 
+  /// Reset the counters to 0
+  void Reset();
+  /// Return the current frame accuracy
+  BaseFloat GetFrameAccuracy();
+
  private:
   int32 frames_;
   int32 correct_;
