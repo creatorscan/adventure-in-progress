@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
                 "Initial learning rate");
     po.Register("learn-rate-end-val", &learn_rate_end_val,
                 "Stopping criterion");
-    po.Register("start-havling-inc", &start_halving_inc,
+    po.Register("start-halving-inc", &start_halving_inc,
                 "Learning rate halving starting condition");
     po.Register("halving-factor", &halving_factor,
                 "Learning rate halving factor");
@@ -123,7 +123,6 @@ int main(int argc, char *argv[]) {
         KALDI_LOG << "Training started ...";
 
         /* initialize variables */
-        bool havling = false;
         BaseFloat acc, acc_new, acc_prev;
         BaseFloat learn_rate = learn_rate_init_val;
 
