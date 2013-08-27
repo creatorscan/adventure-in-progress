@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
       }
 
       if(!weight_reader.HasKey(new_lin) || !bias_reader.HasKey(new_lin)){
-        KALDI_ERR << "No LIN weight or bias for the input feature " << key;
+        KALDI_ERR << "No LIN weight or bias for the input feature " << new_lin;
       }
 
       // update the LIN xform when necessary
