@@ -203,6 +203,7 @@ int main(int argc, char *argv[]) {
         // get block of feature/target pairs
         cache.GetBunch(&nnet_in, &targets);
         // train 
+        KALDI_ERR<< "Incorrect! Duplicate forwarding of through the first layer.">
         nnet.Propagate(nnet_in, &nnet_out);
         xent.EvalVec(nnet_out, targets, &glob_err);
         if (!crossvalidate) {
