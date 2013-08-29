@@ -14,7 +14,7 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   rbm-to-grbm rorbm-init rorbm-train-utt est-avg-mask-priors est-feat-masks interpolate-two-posts \
 		   compute-mask-ratio est-feat-masks-with-pdf compute-posts-kl analyze-rec-errs filter-posts-by-err \
 		   lin-train-xent-hardlab-perutt lin-nnet-forward lin-init lin-merge lin-init-ae lin-train-mse-ae \
-		   linrbm-init linrbm-train-cd1-frmshuff linrbm-extract-linbl linnat-train-nnet
+		   linrbm-init linrbm-train-cd1-frmshuff linrbm-extract-linbl
 
 OBJFILES =
 
