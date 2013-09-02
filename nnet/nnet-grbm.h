@@ -17,7 +17,11 @@ namespace kaldi {
 
 /*
  * Gaussian visible units and binary hidden units.
- * Learn input variance.
+ * Learn input variance. Using the modified GBRBM energy function.
+ *
+ * E(v, h) = sum_i ((v_i - b_i)^2/(2*sigma_i^2))
+ *           - sum_i sum_j (w_ij * h_j * v_i / sigma_i^2)
+ *           - sum_j (c_j * h_j)
  *
  */
 class GRbm : public RbmBase {
@@ -49,17 +53,17 @@ class GRbm : public RbmBase {
     vis_hid_.Read(is, binary);
     vis_bias_.Read(is, binary);
     hid_bias_.Read(is, binary);
-    fstd_.Read(is, binary);
+    // readin visible variance
+    vis_var_.Read(is, binary);
 
-    // compute variance
-    fvar_.CopyFromVec(fstd_);
-    fvar_.Power(2.0);
+    vis_std_.CopyFromVec(vis_var_);
+    vis_std_.Power(0.5);
 
     KALDI_ASSERT(vis_hid_.NumRows() == output_dim_);
     KALDI_ASSERT(vis_hid_.NumCols() == input_dim_);
     KALDI_ASSERT(vis_bias_.Dim() == input_dim_);
     KALDI_ASSERT(hid_bias_.Dim() == output_dim_);
-    KALDI_ASSERT(fstd_.Dim() == input_dim_);
+    KALDI_ASSERT(vis_var_.Dim() == input_dim_);
   }
 
   void WriteData(std::ostream &os, bool binary) const {
@@ -70,7 +74,7 @@ class GRbm : public RbmBase {
     vis_hid_.Write(os, binary);
     vis_bias_.Write(os, binary);
     hid_bias_.Write(os, binary);
-    fstd_.Write(os, binary);
+    vis_var_.Write(os, binary);
   }
 
   /*
@@ -84,8 +88,8 @@ class GRbm : public RbmBase {
     out->AddVecToRows(1.0, hid_bias_, 0.0);
     // copy input to data
     data_.CopyFromMat(in);
-    // divide std
-    data_.DivColsVec(fstd_);
+    // divide variance
+    data_.DivColsVec(vis_var_);
     // multiply by weights^t
     out->AddMatMat(1.0, data_, kNoTrans, vis_hid_, kTrans, 1.0);
     // apply sigmoid
@@ -111,8 +115,6 @@ class GRbm : public RbmBase {
 
     // multiply by weights
     vis_probs->AddMatMat(1.0, hid_state, kNoTrans, vis_hid_, kNoTrans, 0.0);
-    // multiply std
-    vis_probs->MulColsVec(fstd_);
     // add bias
     vis_probs->AddVecToRows(1.0, vis_bias_, 1.0);
   }
@@ -128,7 +130,7 @@ class GRbm : public RbmBase {
     // generate standard Gaussian random samples
     rand.RandGaussian(&data_);
     // scale to the desired standard deviation
-    data_.MulColsVec(fstd_);
+    data_.MulColsVec(vis_std_);
     // shift to the desired mean
     vis_probs->AddMat(1.0, data_, 1.0);
   }
@@ -151,11 +153,11 @@ class GRbm : public RbmBase {
       vis_hid_corr_.Resize(output_dim_,input_dim_);
       vis_bias_corr_.Resize(input_dim_);
       hid_bias_corr_.Resize(output_dim_);
-      log_fstd_corr_.Resize(input_dim_);
+      log_vis_var_corr_.Resize(input_dim_);
 
       vis_hid_grad_.Resize(output_dim_, input_dim_);
       hid_bias_grad_.Resize(output_dim_);
-      log_fstd_grad_.Resize(input_dim_);
+      log_vis_var_grad_.Resize(input_dim_);
     }
 
     //  UPDATE vishid matrix
@@ -169,10 +171,10 @@ class GRbm : public RbmBase {
     //
     BaseFloat N = static_cast<BaseFloat>(pos_vis.NumRows());
     data_.CopyFromMat(neg_vis);// neg_vis
-    data_.MulColsVec(fstd_);// neg_vis ./ fstd
+    data_.DivColsVec(vis_var_);// neg_vis ./ vis_var
     vis_hid_corr_.AddMatMat(-learn_rate_/N, neg_hid, kTrans, data_, kNoTrans, momentum_);
     data_.CopyFromMat(pos_vis);// pos_vis
-    data_.MulColsVec(fstd_);// pos_vis ./ fstd
+    data_.DivColsVec(vis_var_);// pos_vis ./ vis_var
     vis_hid_corr_.AddMatMat(+learn_rate_/N, pos_hid, kTrans, data_, kNoTrans, 1.0);
     vis_hid_corr_.AddMat(-learn_rate_*l2_penalty_, vis_hid_, 1.0);
 
@@ -183,7 +185,7 @@ class GRbm : public RbmBase {
     tmp_vec_vis_.Resize(pos_vis.NumCols());
     tmp_vec_vis_.AddRowSumMat(-1.0, neg_vis, 0.0);// -neg_vis
     tmp_vec_vis_.AddRowSumMat(1.0, pos_vis, 1.0);// pos_vis - neg_vis
-    tmp_vec_vis_.DivElements(fvar_);// (pos_vis / (fstd.^2)) - (neg_vis / (fstd.^2))
+    tmp_vec_vis_.DivElements(vis_var_);// (pos_vis / vis_var) - (neg_vis / vis_var)
     vis_bias_corr_.AddVec(learn_rate_/N, tmp_vec_vis_, momentum_);
 
     //  UPDATE hidbias vector
@@ -200,25 +202,24 @@ class GRbm : public RbmBase {
     tmp_mat_n_vis_.CopyFromMat(pos_vis);// data
     tmp_mat_n_vis_.AddVecToRows(-1.0, vis_bias_, 1.0);// data - vb
     tmp_mat_n_vis_.Power(2.0);// (data - vb).^2
-    tmp_mat_n_vis_.DivColsVec(fvar_);// (data - vb).^2 ./ fvar
-    log_fstd_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 0.0);
+    tmp_mat_n_vis_.Scale(0.5); // 0.5 * (data - vb).^2
+    log_vis_var_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 0.0);
     tmp_mat_n_vis_.AddMatMat(1.0, pos_hid, kNoTrans, vis_hid_, kNoTrans, 0.0);// (vhw * pos_hidprobs')
     tmp_mat_n_vis_.MulElements(pos_vis);// data .* (vhw * pos_hidprobs')
-    tmp_mat_n_vis_.DivColsVec(fstd_);// data .* (vhw * pos_hidprobs') ./ fstd
-    log_fstd_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
+    log_vis_var_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
     tmp_mat_n_vis_.CopyFromMat(neg_vis);// negdata
     tmp_mat_n_vis_.AddVecToRows(-1.0, vis_bias_, 1.0);// negdata - vb
     tmp_mat_n_vis_.Power(2.0);// (negdata - vb).^2
-    tmp_mat_n_vis_.DivColsVec(fvar_);// (negdata -vb).^2 ./ fvar_
-    log_fstd_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
+    tmp_mat_n_vis_.Scale(0.5); // 0.5 * (negdata -vb).^2
+    log_vis_var_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
     tmp_mat_n_vis_.AddMatMat(1.0, neg_hid, kNoTrans, vis_hid_, kNoTrans, 0.0);// (vhw * neg_hidprobs')
     tmp_mat_n_vis_.MulElements(neg_vis);// negdata .* (vhw * neg_hidprobs')
-    tmp_mat_n_vis_.DivColsVec(fstd_);// negdata .* (vhw * neg_hidprobs') ./ fstd
-    log_fstd_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 1.0);
+    log_vis_var_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 1.0);
+    log_vis_var_grad_.DivElements(vis_var_);
     // correction
-    log_fstd_corr_.AddVec(-std_learn_rate_/N, log_fstd_grad_, momentum_);
+    log_vis_var_corr_.AddVec(std_learn_rate_/N, log_vis_var_grad_, momentum_);
     // constrain the updates
-    log_fstd_corr_.ApplyTruncate(-1.0, 1.0);
+    log_vis_var_corr_.ApplyTruncate(-1.0, 1.0);
 
     if ( apply_sparsity_) {
       if(first_bunch) {
@@ -262,14 +263,14 @@ class GRbm : public RbmBase {
     vis_bias_.AddVec(1.0, vis_bias_corr_, 1.0);
     hid_bias_.AddVec(1.0, hid_bias_corr_, 1.0);
 
-    fvar_.CopyFromVec(log_fstd_corr_);// log_fstd
-    fvar_.ApplyExp();// exp(log_fstd)
-    fstd_.MulElements(fvar_);
-    fstd_.ApplyFloor(0.1);
-
     // update variance
-    fvar_.CopyFromVec(fstd_);
-    fvar_.Power(2.0);
+    vis_std_.CopyFromVec(log_vis_var_corr_);
+    vis_std_.ApplyExp(); // exp(log_vis_var_corr_)
+    vis_var_.MulElements(vis_std_);
+    vis_var_.ApplyFloor(0.1);
+    vis_std_.CopyFromVec(vis_var_);
+    vis_std_.Power(0.5);
+
   }
 
   RbmNodeType VisType() const {
@@ -307,7 +308,7 @@ class GRbm : public RbmBase {
     /* apply the variance to the weight matrix */
     CuMatrix<BaseFloat> mat(output_dim_, input_dim_);
     mat.CopyFromMat(vis_hid_);
-    mat.DivColsVec(fstd_);
+    mat.DivColsVec(vis_var_);
 
     mat.Write(os,binary);
     hid_bias_.Write(os,binary);
@@ -338,13 +339,13 @@ protected:
   CuMatrix<BaseFloat> vis_hid_;        ///< Matrix with neuron weights
   CuVector<BaseFloat> vis_bias_;///< Vector with biases
   CuVector<BaseFloat> hid_bias_;///< Vector with biases
-  CuVector<BaseFloat> fstd_;///< visible unit standard deviation
-  CuVector<BaseFloat> fvar_;///< visible unit variance = fstd_.^2
+  CuVector<BaseFloat> vis_var_; ///< Vector for visible variance
+  CuVector<BaseFloat> vis_std_; ///< Vector for visible standard deviation
 
   CuMatrix<BaseFloat> vis_hid_corr_;///< Matrix for linearity updates
   CuVector<BaseFloat> vis_bias_corr_;///< Vector for bias updates
   CuVector<BaseFloat> hid_bias_corr_;///< Vector for bias updates
-  CuVector<BaseFloat> log_fstd_corr_;///< Vector for input std updates, use log to ensure std to be positive
+  CuVector<BaseFloat> log_vis_var_corr_;///< Vector for input std updates, use log to ensure std to be positive
 
   RbmNodeType vis_type_;
   RbmNodeType hid_type_;
@@ -358,7 +359,7 @@ protected:
 
   CuMatrix<BaseFloat> vis_hid_grad_;///< Weight matrix gradient for sparsity
   CuVector<BaseFloat> hid_bias_grad_;///< Hidden bias vector gradient for sparsity
-  CuVector<BaseFloat> log_fstd_grad_;///< Vector for input std gradient
+  CuVector<BaseFloat> log_vis_var_grad_;///< Vector for input std gradient
 
   BaseFloat std_learn_rate_;///< learning rate for standard deviation
 
