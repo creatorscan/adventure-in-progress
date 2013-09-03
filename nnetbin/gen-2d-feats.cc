@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
       for(int32 i=0, k=0; i<pdfs.size(); ++i){
         if(pdfs[i]==target_pdf){
           (mats.Row(k)).CopyFromVec(SubVector<BaseFloat>(feats.Row(i), 0, feat_dim));
+          ++k;
         }
       }
 
