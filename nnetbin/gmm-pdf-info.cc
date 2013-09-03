@@ -4,6 +4,7 @@
 #include "util/common-utils.h"
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
+#include "gmm/diag-gmm.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -12,7 +13,7 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Write to standard output number of Gaussians in a specific PDF\n"
-        "Usage:  gmm-pdf-info [options] <model-in>\n"
+        "Usage:  gmm-pdf-info [options] <model-in> [<gmm-out>]\n"
         "e.g.:\n"
         " gmm-pdf-info --pdf=0 1.mdl\n";
     
@@ -23,12 +24,14 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 1) {
+    if (po.NumArgs() != 1 && po.NumArgs() != 2) {
       po.PrintUsage();
       exit(1);
     }
 
-    std::string model_in_filename = po.GetArg(1);
+    std::string model_in_filename = po.GetArg(1),
+        out_filename = po.GetOptArg(2);
+
 
     AmDiagGmm am_gmm;
     TransitionModel trans_model;
@@ -40,6 +43,27 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "In PDF " << pdf << ", there are " << am_gmm.NumGaussInPdf(pdf) << " Gaussians.\n";
+
+    if (out_filename != ""){
+      Output ko(out_filename, false);
+
+      const DiagGmm &gmm = am_gmm.GetPdf(pdf);
+
+      int32 num_comp = gmm.NumGauss(),
+          feat_dim = gmm.Dim();
+
+      const Vector<BaseFloat> &weights = gmm.weights();
+      weights.Write(ko.Stream(), false);
+
+      Matrix<BaseFloat> mat(num_comp, feat_dim);
+      gmm.GetMeans(&mat);
+      mat.Write(ko.Stream(), false);
+
+      gmm.GetVars(&mat);
+      mat.Write(ko.Stream(), false);
+
+      std::cout << "Write GMM into " << out_filename << ".";
+    }
 
   } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';
