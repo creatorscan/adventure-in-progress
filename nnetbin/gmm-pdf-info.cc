@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
       gmm.GetVars(&mat);
       mat.Write(ko.Stream(), false);
 
-      std::cout << "Write GMM into " << out_filename << ".";
+      std::cout << "Write GMM into " << out_filename << ".\n";
     }
 
   } catch(const std::exception &e) {
