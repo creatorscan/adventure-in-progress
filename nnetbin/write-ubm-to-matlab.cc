@@ -12,14 +12,13 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 
-
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
 
     const char *usage =
         "Write the diagonal GMM UBM model to Matlab file.\n"
-        "Usage: write-ubm-to-matlab [options] <model-file> <out-file>\n";
+            "Usage: write-ubm-to-matlab [options] <model-file> <out-file>\n";
 
     ParseOptions po(usage);
     po.Read(argc, argv);
@@ -28,7 +27,7 @@ int main(int argc, char *argv[]) {
       po.PrintUsage();
       exit(1);
     }
-    
+
     std::string model_in_filename = po.GetArg(1),
         out_filename = po.GetArg(2);
 
@@ -43,26 +42,33 @@ int main(int argc, char *argv[]) {
 
       WriteToken(ko.Stream(), false, "gmm_wt=");
       (ubm.weights()).Write(ko.Stream(), false);
-      WriteToken(ko.Stream(), false, ";\n");
+      WriteToken(ko.Stream(), false, ";");
 
       Matrix<BaseFloat> mat(ubm.NumGauss(), ubm.Dim(), kSetZero);
-      WriteToken(ko.Stream(), false, "gmm_means=");
+      WriteToken(ko.Stream(), false, "gmm_means=reshape(");
       ubm.GetMeans(&mat);
       mat.Write(ko.Stream(), false);
-      WriteToken(ko.Stream(), false, ";\n");
+      WriteToken(ko.Stream(), false, ",");
+      WriteBasicType(ko.Stream(), false, ubm.Dim());
+      WriteToken(ko.Stream(), false, ",");
+      WriteBasicType(ko.Stream(), false, ubm.NumGauss());
+      WriteToken(ko.Stream(), false, ");");
 
-      WriteToken(ko.Stream(), false, "gmm_vars=");
+      WriteToken(ko.Stream(), false, "gmm_vars=reshape(");
       ubm.GetVars(&mat);
       mat.Write(ko.Stream(), false);
-      WriteToken(ko.Stream(), false, ";\n");
+      WriteToken(ko.Stream(), false, ",");
+      WriteBasicType(ko.Stream(), false, ubm.Dim());
+      WriteToken(ko.Stream(), false, ",");
+      WriteBasicType(ko.Stream(), false, ubm.NumGauss());
+      WriteToken(ko.Stream(), false, ");");
 
     }
 
-    KALDI_LOG << "Written UBM to " << out_filename;
+    KALDI_LOG<< "Written UBM to " << out_filename;
   } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';
     return -1;
   }
 }
-
 
