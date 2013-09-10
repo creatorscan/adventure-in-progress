@@ -14,7 +14,7 @@ BINFILES = vts-model-decode vts-compute-mono-post vts-init-noise dbnvts-init-mod
 		   dbnvts2-joint-forward dbnvts2-compute-llr dbnvts2-forward-interpolate remove-trans-model \
 		   vts-acc-gmm-stats-ali vts-gmm-sum-accs vts-gmm-est vts-compute-obj vts-sum-obj vts-apply-global-cmvn-fbank \
 		   vts-feats vts-feats-fbank noise-mfc2fbk feats-append-noise gmm-global-get-frame-comp-scores \
-		   vts-init-global-noise vts-est-global-noise
+		   vts-init-global-noise vts-est-global-noise vts-global-noise-decode
  
 OBJFILES =
 
