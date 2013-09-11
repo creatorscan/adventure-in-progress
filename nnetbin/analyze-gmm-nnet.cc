@@ -28,6 +28,9 @@ int main(int argc, char *argv[]) {
             " analyze-gmm-nnet gmm nnet act.txt ark:noise.ark\n";
     ParseOptions po(usage);
 
+    bool apply_sigmoid = true;
+    po.Register("apply-sigmoid", apply_sigmoid, "Apply sigmoid nonlinearity to the activations.");
+
     int32 num_cepstral = 13;
     po.Register("num-cepstral", &num_cepstral,
                 "Number of Cepstral components in MFCC.");
@@ -127,12 +130,16 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    CuMatrix<BaseFloat> feats, acts;
-    feats.CopyFromMat(gmm_means);
-    layer.Propagate(feats, &acts);
-
     Matrix<BaseFloat> acts_host;
-    acts.CopyToMat(&acts_host);
+    CuMatrix<BaseFloat> feats, linacts, acts;
+    feats.CopyFromMat(gmm_means);
+    layer.Propagate(feats, &linacts);
+    if (apply_sigmoid){
+      cu::Sigmoid(linacts, &acts);
+      acts.CopyToMat(&acts_host);
+    }else{
+      linacts.CopyToMat(&acts_host);
+    }
 
     // checking outputs for NaN/inf
     for(int32 i=0; i<acts_host.NumRows(); ++i){
