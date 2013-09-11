@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
     feats.CopyFromMat(gmm_means);
     layer.Propagate(feats, &linacts);
     if (apply_sigmoid){
+      acts.CopyFromMat(linacts);
       cu::Sigmoid(linacts, &acts);
       acts.CopyToMat(&acts_host);
     }else{
