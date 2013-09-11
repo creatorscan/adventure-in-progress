@@ -15,7 +15,8 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   compute-mask-ratio est-feat-masks-with-pdf compute-posts-kl analyze-rec-errs filter-posts-by-err \
 		   lin-train-xent-hardlab-perutt lin-nnet-forward lin-init lin-merge lin-init-ae lin-train-mse-ae \
 		   linrbm-init linrbm-train-cd1-frmshuff linrbm-extract-linbl gen-2d-feats gmm-pdf-info \
-		   nnet-train-mse-tgtmat-frmshuff-denoise write-ubm-to-matlab ubm-info
+		   nnet-train-mse-tgtmat-frmshuff-denoise write-ubm-to-matlab ubm-info grbm-vts-forward \
+		   analyze-gmm-nnet
 
 OBJFILES =
 
@@ -25,7 +26,7 @@ all:  $(BINFILES)
 TESTFILES =
 
 
-$(BINFILES): ../nnet/kaldi-nnet.a ../cudamatrix/cuda-matrix.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a 
+$(BINFILES): ../nnet/kaldi-nnet.a ../cudamatrix/cuda-matrix.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a ../vts/kaldi-vts.a 
 
 
 
