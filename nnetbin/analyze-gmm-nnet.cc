@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
 
     bool apply_sigmoid = true;
-    po.Register("apply-sigmoid", apply_sigmoid, "Apply sigmoid nonlinearity to the activations.");
+    po.Register("apply-sigmoid", &apply_sigmoid, "Apply sigmoid nonlinearity to the activations.");
 
     int32 num_cepstral = 13;
     po.Register("num-cepstral", &num_cepstral,
