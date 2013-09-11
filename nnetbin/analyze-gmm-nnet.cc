@@ -88,15 +88,15 @@ int main(int argc, char *argv[]) {
       for (; flag != 7 && !noise_reader.Done(); noise_reader.Next()) {
         std::string key = noise_reader.Key();
         if ((flag & 1) == 0 && key.find("_mu_h") != std::string::npos) {
-          mu_h.CopyFromVec(noise_reader.Value());
+          mu_h=noise_reader.Value();
           flag = flag | 1;
         }
         if ((flag & 2) == 0 && key.find("_mu_z") != std::string::npos) {
-          mu_z.CopyFromVec(noise_reader.Value());
+          mu_z=noise_reader.Value();
           flag = flag | 2;
         }
         if ((flag & 4) == 0 && key.find("_var_z") != std::string::npos) {
-          var_z.CopyFromVec(noise_reader.Value());
+          var_z=noise_reader.Value();
           flag = flag | 4;
         }
       }
