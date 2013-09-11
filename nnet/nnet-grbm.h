@@ -202,7 +202,7 @@ class GRbm : public RbmBase {
     tmp_mat_n_vis_.CopyFromMat(pos_vis);// data
     tmp_mat_n_vis_.AddVecToRows(-1.0, vis_bias_, 1.0);// data - vb
     tmp_mat_n_vis_.Power(2.0);// (data - vb).^2
-    tmp_mat_n_vis_.Scale(0.5); // 0.5 * (data - vb).^2
+    tmp_mat_n_vis_.Scale(0.5);// 0.5 * (data - vb).^2
     log_vis_var_grad_.AddRowSumMat(1.0, tmp_mat_n_vis_, 0.0);
     tmp_mat_n_vis_.AddMatMat(1.0, pos_hid, kNoTrans, vis_hid_, kNoTrans, 0.0);// (vhw * pos_hidprobs')
     tmp_mat_n_vis_.MulElements(pos_vis);// data .* (vhw * pos_hidprobs')
@@ -210,7 +210,7 @@ class GRbm : public RbmBase {
     tmp_mat_n_vis_.CopyFromMat(neg_vis);// negdata
     tmp_mat_n_vis_.AddVecToRows(-1.0, vis_bias_, 1.0);// negdata - vb
     tmp_mat_n_vis_.Power(2.0);// (negdata - vb).^2
-    tmp_mat_n_vis_.Scale(0.5); // 0.5 * (negdata -vb).^2
+    tmp_mat_n_vis_.Scale(0.5);// 0.5 * (negdata -vb).^2
     log_vis_var_grad_.AddRowSumMat(-1.0, tmp_mat_n_vis_, 1.0);
     tmp_mat_n_vis_.AddMatMat(1.0, neg_hid, kNoTrans, vis_hid_, kNoTrans, 0.0);// (vhw * neg_hidprobs')
     tmp_mat_n_vis_.MulElements(neg_vis);// negdata .* (vhw * neg_hidprobs')
@@ -265,7 +265,7 @@ class GRbm : public RbmBase {
 
     // update variance
     vis_std_.CopyFromVec(log_vis_var_corr_);
-    vis_std_.ApplyExp(); // exp(log_vis_var_corr_)
+    vis_std_.ApplyExp();// exp(log_vis_var_corr_)
     vis_var_.MulElements(vis_std_);
     vis_var_.ApplyFloor(0.1);
     vis_std_.CopyFromVec(vis_var_);
@@ -335,12 +335,163 @@ class GRbm : public RbmBase {
   void WriteAsAutoEncoder(std::ostream& os, bool isEncoder, bool binary) const {
     KALDI_ERR << "Not implemented for GRbm!";
   }
+
+  void VTSInit() {
+    // cache the existing model weight
+    prev_vis_hid_.CopyFromMat(vis_hid_);
+    prev_vis_bias_.CopyFromVec(vis_bias_);
+    prev_vis_var_.CopyFromVec(vis_var_);
+  }
+
+  void VTSCompensate(const Vector<double> &mu_h,
+                     const Vector<double> &mu_z,
+                     const Vector<double> &var_z,
+                     int32 num_cepstral,
+                     int32 num_fbank,
+                     const Matrix<double> &dct_mat,
+                     const Matrix<double> &inv_dct_mat) {
+    Vector<BaseFloat> clean_vis_bias, noisy_vis_bias;
+    Vector<BaseFloat> clean_vis_var, noisy_vis_var, noisy_weight;
+    Matrix<BaseFloat> noisy_vis_hid;
+    vis_bias_.CopyToVec(&clean_vis_bias);
+    vis_var_.CopyToVec(&clean_vis_var);
+    vis_hid_.CopyToMat(&noisy_vis_hid);
+
+    Vector<double> mean, var;
+    Matrix<double> Jx, Jz;
+    // first compensate the visible bias
+    mean.CopyFromVec(clean_vis_bias); // currently still clean bias
+    var.CopyFromVec(clean_vis_var); // currently still clean variance
+    CompensateDiagGaussian(mu_h, mu_z, var_z, num_cepstral, num_fbank, dct_mat, inv_dct_mat, mean, var, Jx, Jz);
+    noisy_vis_bias.CopyFromVec(mean);
+    noisy_vis_var.CopyFromVec(var);
+
+    // compensate each weight
+    for (int32 i=0; i<noisy_vis_hid.NumRows(); ++i){
+      mean.CopyFromVec(clean_vis_bias); // b
+      mean.AddVec(1.0, noisy_vis_hid.Row(i));
+      var.CopyFromVec(clean_vis_var);
+      CompensateDiagGaussian(mu_h, mu_z, var_z, num_cepstral, num_fbank, dct_mat, inv_dct_mat, mean, var, Jx, Jz);
+      noisy_weight.CopyFromVec(mean);
+      noisy_weight.AddVec(-1.0, noisy_vis_bias);
+      noisy_vis_hid.CopyRowFromVec(noisy_weight, i);
+    }
+
+    // finally reset the model weight
+    vis_bias_.CopyFromVec(noisy_vis_bias);
+    vis_var_.CopyFromVec(noisy_vis_var);
+    vis_hid_.CopyFromMat(noisy_vis_hid);
+  }
+
+  void VTSClear() {
+    vis_bias_.CopyFromVec(prev_vis_bias_);
+    vis_var_.CopyFromVec(prev_vis_var_);
+    vis_hid_.CopyFromMat(vis_hid_);
+  }
+
+private:
+  /*
+   * Compensate a  Diagonal Gaussian using estimated noise parameters.
+   *
+   * mean is the clean mean to be compensated;
+   * cov is the diagonal elements for the Diagonal Gaussian covariance with clean
+   * values to be compensated.
+   *
+   * Matrix Jx and Jz are used to keep gradients.
+   *
+   */
+  void CompensateDiagGaussian(const Vector<double> &mu_h,
+      const Vector<double> &mu_z,
+      const Vector<double> &var_z, int32 num_cepstral,
+      int32 num_fbank,
+      const Matrix<double> &dct_mat,
+      const Matrix<double> &inv_dct_mat,
+      Vector<double> &mean, Vector<double> &cov,
+      Matrix<double> &Jx,
+      Matrix<double> &Jz) {
+// compute the necessary transforms
+    Vector<double> mu_y_s(num_cepstral);
+    Vector<double> tmp_fbank(num_fbank);
+
+    Jx.Resize(num_cepstral, num_cepstral, kSetZero);
+    Jz.Resize(num_cepstral, num_cepstral, kSetZero);
+
+    for (int32 ii = 0; ii < num_cepstral; ++ii) {
+      mu_y_s(ii) = mu_z(ii) - mean(ii) - mu_h(ii);
+    }  // mu_n - mu_x - mu_h
+    tmp_fbank.AddMatVec(1.0, inv_dct_mat, kNoTrans, mu_y_s, 0.0);// C_inv * (mu_n - mu_x - mu_h)
+    tmp_fbank.ApplyExp();// exp( C_inv * (mu_n - mu_x - mu_h) )
+    tmp_fbank.Add(1.0);// 1 + exp( C_inv * (mu_n - mu_x - mu_h) )
+    Vector<double> tmp_inv(tmp_fbank);// keep a version
+    tmp_fbank.ApplyLog();// log ( 1 + exp( C_inv * (mu_n - mu_x - mu_h) ) )
+    tmp_inv.InvertElements();// 1.0 / ( 1 + exp( C_inv * (mu_n - mu_x - mu_h) ) )
+
+// new static mean
+    for (int32 ii = 0; ii < num_cepstral; ++ii) {
+      mu_y_s(ii) = mean(ii) + mu_h(ii);
+    }  // mu_x + mu_h
+    mu_y_s.AddMatVec(1.0, dct_mat, kNoTrans, tmp_fbank, 1.0);// mu_x + mu_h + C * log ( 1 + exp( C_inv * (mu_n - mu_x - mu_h) ) )
+
+// compute J
+    Matrix<double> tmp_dct(dct_mat);
+    tmp_dct.MulColsVec(tmp_inv);
+    Jx.AddMatMat(1.0, tmp_dct, kNoTrans, inv_dct_mat, kNoTrans, 0.0);
+
+// compute I_J
+    Jz.CopyFromMat(Jx);
+    for (int32 ii = 0; ii < num_cepstral; ++ii)
+    Jz(ii, ii) = 1.0 - Jz(ii, ii);
+
+// compute and update mean
+    if (g_kaldi_verbose_level >= 9) {
+      KALDI_LOG<< "Mean Before: " << mean;
+    }
+    Vector<double> tmp_mu(num_cepstral);
+    SubVector<double> mu_s(mean, 0, num_cepstral);
+    mu_s.CopyFromVec(mu_y_s);
+    SubVector<double> mu_dt(mean, num_cepstral, num_cepstral);
+    tmp_mu.CopyFromVec(mu_dt);
+    mu_dt.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
+    SubVector<double> mu_acc(mean, 2 * num_cepstral, num_cepstral);
+    tmp_mu.CopyFromVec(mu_acc);
+    mu_acc.AddMatVec(1.0, Jx, kNoTrans, tmp_mu, 0.0);
+    if (g_kaldi_verbose_level >= 9) {
+      KALDI_LOG<< "Mean After: " << mean;
+    }
+
+    // compute and update covariance
+    if (g_kaldi_verbose_level >= 9) {
+      KALDI_LOG<< "Covarianc Before: " << cov;
+    }
+    for (int32 ii = 0; ii < 3; ++ii) {
+      Matrix<double> tmp_var1(Jx), tmp_var2(Jz), new_var(num_cepstral,
+          num_cepstral);
+      SubVector<double> x_var(cov, ii * num_cepstral, num_cepstral);
+      SubVector<double> n_var(var_z, ii * num_cepstral, num_cepstral);
+
+      tmp_var1.MulColsVec(x_var);
+      new_var.AddMatMat(1.0, tmp_var1, kNoTrans, Jx, kTrans, 0.0);
+
+      tmp_var2.MulColsVec(n_var);
+      new_var.AddMatMat(1.0, tmp_var2, kNoTrans, Jz, kTrans, 1.0);
+
+      x_var.CopyDiagFromMat(new_var);
+    }
+    if (g_kaldi_verbose_level >= 9) {
+      KALDI_LOG<< "Covariance After: " << cov;
+    }
+  }
+
 protected:
   CuMatrix<BaseFloat> vis_hid_;        ///< Matrix with neuron weights
   CuVector<BaseFloat> vis_bias_;///< Vector with biases
   CuVector<BaseFloat> hid_bias_;///< Vector with biases
-  CuVector<BaseFloat> vis_var_; ///< Vector for visible variance
-  CuVector<BaseFloat> vis_std_; ///< Vector for visible standard deviation
+  CuVector<BaseFloat> vis_var_;///< Vector for visible variance
+  CuVector<BaseFloat> vis_std_;///< Vector for visible standard deviation
+
+  CuMatrix<BaseFloat> prev_vis_hid_;
+  CuVector<BaseFloat> prev_vis_bias_;
+  CuVector<BaseFloat> prev_vis_var_;
 
   CuMatrix<BaseFloat> vis_hid_corr_;///< Matrix for linearity updates
   CuVector<BaseFloat> vis_bias_corr_;///< Vector for bias updates
