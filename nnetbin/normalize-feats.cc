@@ -47,13 +47,13 @@ int main(int argc, char *argv[]) {
       mean.Resize(feats.NumRows(), kSetZero);
       var.Resize(feats.NumRows(), kSetZero);
 
-      mean.AddRowSumMat(1.0 / feats.NumCols(), feats, 0.0);  // mean
+      mean.AddColSumMat(1.0 / feats.NumCols(), feats, 0.0);  // mean
 
       feats.AddVecToCols(-1.0, mean);  // subtract mean
 
       if (norm_vars) {
         feats.ApplyPow(2.0);
-        var.AddRowSumMat(1.0 / feats.NumCols(), feats, 0.0);  // variance
+        var.AddColSumMat(1.0 / feats.NumCols(), feats, 0.0);  // variance
         var.ApplyPow(0.5);  // std var
         feats.ApplyPow(0.5);  // revert back
         feats.MulRowsVec(var);
