@@ -9,15 +9,15 @@
 #include "util/common-utils.h"
 
 int main(int argc, char *argv[]) {
-  try{
+  try {
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
     const char *usage =
         "Gaussianalize features per frame.\n"
-        "Usage: normalize-feats [options] <feats-rspecifier> <outs-wspecifier>\n"
-        "e.g.\n"
-        "normalize-feats --norm-vars=true ark:feats.ark ark:outs.ark\n";
+            "Usage: normalize-feats [options] <feats-rspecifier> <outs-wspecifier>\n"
+            "e.g.\n"
+            "normalize-feats --norm-vars=true ark:feats.ark ark:outs.ark\n";
 
     ParseOptions po(usage);
 
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs()!=2){
+    if (po.NumArgs() != 2) {
       po.PrintUsage();
       exit(1);
     }
@@ -40,37 +40,38 @@ int main(int argc, char *argv[]) {
     Vector<BaseFloat> mean, var;
     int32 num_done = 0;
 
-    for(; !feats_reader.Done(); feats_reader.Next()) {
+    for (; !feats_reader.Done(); feats_reader.Next()) {
       std::string key = feats_reader.Key();
       Matrix<BaseFloat> feats = feats_reader.Value();
 
       mean.Resize(feats.NumRows(), kSetZero);
       var.Resize(feats.NumRows(), kSetZero);
 
-      mean.AddRowSumMat(1.0/feats.NumCols(), feats, 0.0); // mean
+      mean.AddRowSumMat(1.0 / feats.NumCols(), feats, 0.0);  // mean
 
-      feats.AddVecToCols(-1.0, mean); // subtract mean
+      feats.AddVecToCols(-1.0, mean);  // subtract mean
 
-      feats.ApplyPow(2.0);
-      var.AddRowSumMat(1.0/feats.NumCols(), feats, 0.0); // variance
-      var.ApplyPow(0.5); // std var
-      feats.ApplyPow(0.5); // revert back
-      feats.MulRowsVec(var);
+      if (norm_vars) {
+        feats.ApplyPow(2.0);
+        var.AddRowSumMat(1.0 / feats.NumCols(), feats, 0.0);  // variance
+        var.ApplyPow(0.5);  // std var
+        feats.ApplyPow(0.5);  // revert back
+        feats.MulRowsVec(var);
+      }
 
       outs_writer.Write(key, feats);
       ++num_done;
 
-      if(num_done % 1000 == 0){
-        KALDI_LOG << "Processed " << num_done << " utterances.\n";
+      if (num_done % 1000 == 0) {
+        KALDI_LOG<< "Processed " << num_done << " utterances.\n";
       }
     }
 
-    KALDI_LOG << "Totally processed " << num_done << " utterances.\n";
+    KALDI_LOG<< "Totally processed " << num_done << " utterances.\n";
 
-  }catch (const std::exception &e) {
+  } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
     return -1;
   }
 }
-
 
