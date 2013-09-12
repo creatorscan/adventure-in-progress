@@ -357,8 +357,8 @@ class GRbm : public RbmBase {
     vis_var_.CopyToVec(&clean_vis_var);
     vis_hid_.CopyToMat(&noisy_vis_hid);
 
-    Vector<double> mean, var;
-    Matrix<double> Jx, Jz;
+    Vector<double> mean(input_dim_), var(input_dim_);
+    Matrix<double> Jx(input_dim_, input_dim_), Jz(input_dim_, input_dim_);
     // first compensate the visible bias
     mean.CopyFromVec(clean_vis_bias); // currently still clean bias
     var.CopyFromVec(clean_vis_var); // currently still clean variance
