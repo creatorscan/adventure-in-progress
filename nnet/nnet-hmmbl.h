@@ -122,6 +122,7 @@ protected:
         gmean_.ApplyPow(2.0);
         gmean_.MulElements(gvar_);// m^2 ./ var
         bias_cpu_(hid) = gmean_.Sum();
+        ++hid;
       }
     }
 
