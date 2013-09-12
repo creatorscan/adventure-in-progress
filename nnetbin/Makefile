@@ -16,7 +16,7 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   lin-train-xent-hardlab-perutt lin-nnet-forward lin-init lin-merge lin-init-ae lin-train-mse-ae \
 		   linrbm-init linrbm-train-cd1-frmshuff linrbm-extract-linbl gen-2d-feats gmm-pdf-info \
 		   nnet-train-mse-tgtmat-frmshuff-denoise write-ubm-to-matlab ubm-info grbm-vts-forward \
-		   analyze-gmm-nnet hmmbl-create hmmbl-vts-forward
+		   analyze-gmm-nnet hmmbl-create hmmbl-vts-forward normalize-feats
 
 OBJFILES =
 
