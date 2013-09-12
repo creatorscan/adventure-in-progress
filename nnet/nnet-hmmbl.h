@@ -126,6 +126,9 @@ protected:
       }
     }
 
+    linearity_cpu_.Scale(-0.5);
+    bias_cpu_.Scale(-0.5);
+
     linearity_.CopyFromMat(linearity_cpu_);
     bias_.CopyFromVec(bias_cpu_);
   }
