@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
         var.AddColSumMat(1.0 / feats.NumCols(), feats, 0.0);  // variance
         var.ApplyPow(0.5);  // std var
         feats.ApplyPow(0.5);  // revert back
+        var.InvertElements();
         feats.MulRowsVec(var);
       }
 
