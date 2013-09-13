@@ -18,8 +18,11 @@
 #include "vts/vts-first-order.h"
 
 int main(int argc, char *argv[]) {
-  using namespace kaldi;
+
   try {
+    using namespace kaldi;
+    typedef kaldi::int32 int32;
+
     const char *usage =
         "Perform forward pass through GBRBM with VTS compensation.\n"
             "Usage:  grbm-vts-forward [options] <model-in> <feature-rspecifier> <noiseparam-rspecifier>"
@@ -58,9 +61,6 @@ int main(int argc, char *argv[]) {
         feature_rspecifier = po.GetArg(2),
         noiseparam_rspecifier = po.GetArg(3),
         feature_wspecifier = po.GetArg(4);
-
-    using namespace kaldi;
-    typedef kaldi::int32 int32;
 
     Nnet nnet_transf;
     if (feature_transform != "") {
@@ -124,9 +124,10 @@ int main(int argc, char *argv[]) {
       }
 
       grbm.VTSInit();
-      grbm.VTSCompensate(mu_h, mu_z, var_z, num_cepstral, num_fbank, dct_mat, inv_dct_mat);
+      grbm.VTSCompensate(mu_h, mu_z, var_z, num_cepstral, num_fbank, dct_mat,
+                         inv_dct_mat);
 
-        // push it to gpu
+      // push it to gpu
       feats.CopyFromMat(mat);
       // fwd-pass
       nnet_transf.Feedforward(feats, &feats_transf);
