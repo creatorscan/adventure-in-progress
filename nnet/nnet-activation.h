@@ -130,56 +130,6 @@ class Softmax : public Component {
   }
 };
 
-class SoftmaxLin : public Component {
- public:
-  SoftmaxLin(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet)
-      : Component(dim_in, dim_out, nnet) {
-  }
-  ~SoftmaxLin() {
-  }
-
-  ComponentType GetType() const {
-    return kSoftmaxLin;
-  }
-
-  void ReadData(std::istream &is, bool binary) {
-    int32 sid, len;
-    ReadBasicType(is, binary, &sid);
-    ReadBasicType(is, binary, &len);
-
-    if(sid >=0 && sid < output_dim_ && len > 0 && sid+len < output_dim_){
-      softmax_sid_ = sid;
-      softmax_len_ = len;
-    }else{
-      KALDI_ERR << "Parameter error for <softmaxlin> layer!\n";
-    }
-  }
-
-  void WriteData(std::ostream &os, bool binary){
-    WriteBasicType(os, binary, softmax_sid_);
-    WriteBasicType(os, binary, softmax_len_);
-  }
-
-  void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
-    // y = e^x_j/sum_j(e^x_j)
-    cu::Softmax(in, out);
-  }
-
-  void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err,
-                        CuMatrix<BaseFloat> *out_err) {
-    // simply copy the error
-    // (ie. assume crossentropy error function,
-    // while in_err contains (net_output-target) :
-    // this is already derivative of the error with
-    // respect to activations of last layer neurons)
-    out_err->CopyFromMat(in_err);
-  }
-
- protected:
-  int32 softmax_sid_; // softmax starting index (0,...)
-  int32 softmax_len_; // number of consecutive nodes to be softmax
-};
-
 }  // namespace
 
 #endif
