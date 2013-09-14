@@ -45,7 +45,8 @@ const struct Component::key_value Component::kMarkerMap[] = { {
     {Component::kGaussBL, "<gaussbl>"}, {Component::kMaskedBL, "<maskedbl>"},
     {Component::kMaskedRbm, "<maskedrbm>"}, {Component::kRoRbm, "<rorbm>"},
     {Component::kGRbm, "<grbm>"}, {Component::kLinBL, "<linbl>"},
-    {Component::kLinRbm, "<linrbm>"}, {Component::kHMMBL, "<hmmbl>"}};
+    {Component::kLinRbm, "<linrbm>"}, {Component::kHMMBL, "<hmmbl>"},
+    {Component::kSoftmaxLin, "<softmaxlin>"}};
 
 const char* Component::TypeToMarker(ComponentType t) {
   int32 N = sizeof(kMarkerMap) / sizeof(kMarkerMap[0]);
@@ -139,6 +140,9 @@ Component* Component::Read(std::istream &is, bool binary, Nnet *nnet) {
       break;
     case Component::kSoftRelu:
       p_comp = new SoftRelu(dim_in, dim_out, nnet);
+      break;
+    case Component::kSoftmaxLin:
+      p_comp = new SoftmaxLin(dim_in, dim_out, nnet);
       break;
     case Component::kUnknown:
     default:

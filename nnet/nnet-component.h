@@ -71,6 +71,7 @@ class Component {
     kSigmoid,
     kRelu,
     kSoftRelu,
+    kSoftmaxLin,
 
     kTranform =  0x0400,
     kRbm,
