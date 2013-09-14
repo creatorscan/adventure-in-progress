@@ -172,7 +172,7 @@ class CuMatrix {
     return mat_;
   }
 
- private:
+ protected:
   MatrixIndexT num_rows_;
   MatrixIndexT num_cols_;
   MatrixIndexT stride_;
@@ -186,9 +186,30 @@ class CuMatrix {
 
 
 
+
 /// I/O
 template<typename Real>
 std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat);
+
+
+template<typename Real>
+class SubCuMatrix: public CuMatrix<Real>{
+ public:
+   // This initializer is against the proper semantics of "const", since
+   // SubMatrix can change its contents.
+   SubCuMatrix(const CuMatrixBase<Real>& T,
+             const MatrixIndexT ro,  // row offset, 0 < ro < NumRows()
+             const MatrixIndexT r,   // number of rows, r > 0
+             const MatrixIndexT co,  // column offset, 0 < co < NumCols()
+             const MatrixIndexT c);  // number of columns, c > 0
+
+   ~SubCuMatrix<Real>() {}
+
+ private:
+   /// Disallow assignment.
+   SubCuMatrix<Real> &operator = (const SubCuMatrix<Real> &other);
+
+};
 
 
   
