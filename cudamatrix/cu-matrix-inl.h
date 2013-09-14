@@ -165,7 +165,7 @@ CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src) {
 }
 
 template<typename Real>
-CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src, MatrixIndexT ro, MatrixIndex r, MatrixIndex co, MatrixIndexT c) {
+CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src, MatrixIndexT ro, MatrixIndexT r, MatrixIndexT co, MatrixIndexT c) {
   Resize(r, c);
 
 #if HAVE_CUDA==1
