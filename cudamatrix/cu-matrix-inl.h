@@ -181,7 +181,7 @@ CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src, MatrixInd
   }else
 #endif
   {
-    mat_.CopyFromMat(SubMatrix<Real>(src, ro, r, co, c));
+    mat_.CopyFromMat(SubMatrix<Real>(src.Mat(), ro, r, co, c));
   }
 
   return *this;
