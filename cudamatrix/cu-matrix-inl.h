@@ -164,6 +164,29 @@ CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src) {
   return *this;
 }
 
+template<typename Real>
+CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src, MatrixIndexT ro, MatrixIndex r, MatrixIndex co, MatrixIndexT c) {
+  Resize(r, c);
+
+#if HAVE_CUDA==1
+  if(CuDevice::Instantiate().Enabled()){
+    Timer tim;
+
+    MatrixIndexT dst_pitch = stride_*sizeof(Real);
+    MatrixIndexT src_pitch = src.Stride()*sizeof(Real);
+    MatrixIndexT width = c*sizeof(Real);
+    cuSafeCall(cudaMemcpy2D(data_, dst_pitch, src.Data()+r*src.Stride()+c, src_pitch, width, r, cudaMemcpyDeviceToDevice));
+
+    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyFromMatD2D", tim.Elapsed());
+  }else
+#endif
+  {
+    mat_.CopyFromMat(SubMatrix<Real>(src, ro, r, co, c));
+  }
+
+  return *this;
+}
+
 
 template<typename Real>
 CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const Matrix<Real> &src) {

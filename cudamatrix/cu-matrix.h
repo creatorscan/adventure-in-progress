@@ -112,6 +112,12 @@ class CuMatrix {
   ThisType&        CopyFromMat(const Matrix<Real> &src);
   void             CopyToMat(Matrix<Real> *dst) const;
 
+  ThisType&        CopyFromMat(const CuMatrix<Real> &src,
+                               MatrixIndexT ro, // row offset
+                               MatrixIndexT r, // number of rows
+                               MatrixIndexT co, // column offset
+                               MatrixIndexT c); // number of columns
+
   /// Copy row interval from matrix
   /// @param r      [in] number of rows to copy.
   /// @param src    [in] source matrix.
