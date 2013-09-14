@@ -7,6 +7,9 @@
  *     Training Nnet with both xent and mse output objectives.
  *     Multi-task Nnet.
  *
+ *     The Nnet doesn't have <softmax> layer in the model file, the final two-objective output is handled
+ *     in this program specifically.
+ *
  */
 
 #include "nnet/nnet-nnet.h"
@@ -19,13 +22,17 @@
 #include "cudamatrix/cu-device.h"
 
 int main(int argc, char *argv[]) {
-  using namespace kaldi;
+
   try {
+    using namespace kaldi;
+    typedef kaldi::int32 int32;
+
     const char *usage =
-        "Perform iteration of Neural Network training by stochastic gradient descent.\n"
-            "Usage:  nnet-train-xent-mse-tgtmat-frmshuff [options] <model-in> <feature-rspecifier> <targets-rspecifier> [<model-out>]\n"
+        "Perform iteration of two-objective Neural Network training by stochastic gradient descent.\n"
+            "Usage:  nnet-train-xent-mse-tgtmat-frmshuff [options] <model-in> <feature-rspecifier> "
+            "<xent-alignment-rspecifier> <mse-targets-rspecifier> [<model-out>]\n"
             "e.g.: \n"
-            " nnet-train-mse-tgtmat-frmshuff nnet.init scp:train.scp ark:targets.scp nnet.iter1\n";
+            " nnet-train-xent-mse-frmshuff nnet.init scp:train.scp ark:train.pdf ark:targets.scp nnet.iter1\n";
 
     ParseOptions po(usage);
     bool binary = false,
@@ -65,22 +72,20 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 4 - (crossvalidate ? 1 : 0)) {
+    if (po.NumArgs() != 5 - (crossvalidate ? 1 : 0)) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string model_filename = po.GetArg(1),
         feature_rspecifier = po.GetArg(2),
-        targets_rspecifier = po.GetArg(3);
+        alignment_rspecifier = po.GetArg(3),
+        targets_rspecifier = po.GetArg(4);
 
     std::string target_model_filename;
     if (!crossvalidate) {
-      target_model_filename = po.GetArg(4);
+      target_model_filename = po.GetArg(5);
     }
-
-    using namespace kaldi;
-    typedef kaldi::int32 int32;
 
     Nnet nnet_transf;
     if (feature_transform != "") {
@@ -104,7 +109,9 @@ int main(int argc, char *argv[]) {
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     SequentialBaseFloatMatrixReader targets_reader(targets_rspecifier);
+    RandomAccessInt32VectorReader alignments_reader(alignment_rspecifier);
 
+    //TODO:: Implement new cache class!!!!
     CacheTgtMat cache;
     cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
     cache.Init(cachesize, bunchsize);
