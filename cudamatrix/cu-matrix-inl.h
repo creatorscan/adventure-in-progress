@@ -183,6 +183,8 @@ CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src, const Mat
   {
     mat_.CopyFromMat(SubMatrix<Real>(src.mat_, ro, r, co, c));
   }
+
+  return *this;
 }
 
 
