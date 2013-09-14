@@ -783,10 +783,10 @@ SubCuMatrix<Real>::SubCuMatrix(const CuMatrix<Real> &M,
                static_cast<UnsignedMatrixIndexT>(c) <=
                static_cast<UnsignedMatrixIndexT>(M.num_cols_ - co));
   // point to the begining of window
-  num_rows_ = r;
-  num_cols_ = c;
-  stride_ = M.Stride();
-  data_ = M.Data() + co + ro * M.Stride();
+  CuMatrix<Real>::num_rows_ = r;
+  CuMatrix<Real>::num_cols_ = c;
+  CuMatrix<Real>::stride_ = M.Stride();
+  CuMatrix<Real>::data_ = M.Data() + co + ro * M.Stride();
 }
 
 
