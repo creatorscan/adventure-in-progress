@@ -175,7 +175,7 @@ CuMatrix<Real>& CuMatrix<Real>::CopyFromMat(const CuMatrix<Real> &src, MatrixInd
     MatrixIndexT dst_pitch = stride_*sizeof(Real);
     MatrixIndexT src_pitch = src.Stride()*sizeof(Real);
     MatrixIndexT width = c*sizeof(Real);
-    cuSafeCall(cudaMemcpy2D(data_, dst_pitch, src.Data()+r*src.Stride()+c, src_pitch, width, r, cudaMemcpyDeviceToDevice));
+    cuSafeCall(cudaMemcpy2D(data_, dst_pitch, src.Data()+ro*src.Stride()+co, src_pitch, width, r, cudaMemcpyDeviceToDevice));
 
     CuDevice::Instantiate().AccuProfile("CuMatrix::CopyFromMatD2D", tim.Elapsed());
   }else
