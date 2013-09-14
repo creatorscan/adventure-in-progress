@@ -251,7 +251,6 @@ void Softmax(const CuMatrix<Real>& X, CuMatrix<Real>* Y) {
 }
 
 
-
 template<typename Real>
 void RegularizeL1(CuMatrix<Real> *wei, CuMatrix<Real> *grad, Real l1, Real lr) {
   #if HAVE_CUDA==1 
