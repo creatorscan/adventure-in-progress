@@ -765,33 +765,6 @@ void CuMatrix<Real>::AddMatMat(
 }
 
 
-/*
- * SubCuMatrix
- */
-template<typename Real>
-SubCuMatrix<Real>::SubCuMatrix(const CuMatrix<Real> &M,
-                           const MatrixIndexT    ro,
-                           const MatrixIndexT    r,
-                           const MatrixIndexT    co,
-                           const MatrixIndexT    c) {
-  KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(ro) <
-               static_cast<UnsignedMatrixIndexT>(M.num_rows_) &&
-               static_cast<UnsignedMatrixIndexT>(co) <
-               static_cast<UnsignedMatrixIndexT>(M.num_cols_) &&
-               static_cast<UnsignedMatrixIndexT>(r) <=
-               static_cast<UnsignedMatrixIndexT>(M.num_rows_ - ro) &&
-               static_cast<UnsignedMatrixIndexT>(c) <=
-               static_cast<UnsignedMatrixIndexT>(M.num_cols_ - co));
-  // point to the begining of window
-  CuMatrix<Real>::num_rows_ = r;
-  CuMatrix<Real>::num_cols_ = c;
-  CuMatrix<Real>::stride_ = M.Stride();
-  CuMatrix<Real>::data_ = M.Data() + co + ro * M.Stride();
-}
-
-
-
-
 } // namespace kaldi
 
 #endif
