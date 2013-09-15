@@ -8,7 +8,7 @@ LDFLAGS += $(CUDA_LDFLAGS)
 
 TESTFILES = #nnet-test
 
-OBJFILES = nnet-nnet.o nnet-component.o nnet-loss.o nnet-cache.o nnet-cache-tgtmat.o nnet-posnegbl.o nnet-gaussbl.o nnet-rorbm.o
+OBJFILES = nnet-nnet.o nnet-component.o nnet-loss.o nnet-cache.o nnet-cache-tgtmat.o nnet-cache-xent-tgtmat.o nnet-posnegbl.o nnet-gaussbl.o nnet-rorbm.o
 
 LIBFILE = kaldi-nnet.a 
 

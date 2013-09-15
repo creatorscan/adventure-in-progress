@@ -49,7 +49,7 @@ void CacheXentTgtMat::AddData(const CuMatrix<BaseFloat> &features, const std::ve
   // lazy buffers allocation
   if (features_.NumRows() != cachesize_) {
     features_.Resize(cachesize_, features.NumCols());
-    aligns_.resize(chachesize_);
+    aligns_.resize(cachesize_);
     targets_.Resize(cachesize_, targets.NumCols());
   }
 
@@ -100,7 +100,7 @@ void CacheXentTgtMat::AddData(const CuMatrix<BaseFloat> &features, const std::ve
 
   // copy the data to cache
   features_.CopyRowsFromMat(fill_rows, features, 0, filling_pos_);
-  std::copy(aligns.begin(), aligns.begin+fill_rows, aligns_.begin()+filling_pos_)
+  std::copy(aligns.begin(), aligns.begin()+fill_rows, aligns_.begin()+filling_pos_);
   targets_.CopyRowsFromMat(fill_rows, targets, 0, filling_pos_);
 
   // copy leftovers
@@ -182,7 +182,7 @@ void CacheXentTgtMat::GetBunch(CuMatrix<BaseFloat> *features, std::vector<int32>
   // copy the output
   if (randomized_) {
     features->CopyRowsFromMat(bunchsize_, features_random_, emptying_pos_, 0);
-    std::copy(aligns_random_.begin()+emptying_pos_, aligns_random_.begin()+emptying_pos_+bunchsize_, aligns->begin())
+    std::copy(aligns_random_.begin()+emptying_pos_, aligns_random_.begin()+emptying_pos_+bunchsize_, aligns->begin());
     targets->CopyRowsFromMat(bunchsize_, targets_random_, emptying_pos_, 0);
   } else {
     features->CopyRowsFromMat(bunchsize_, features_, emptying_pos_, 0);
