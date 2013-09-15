@@ -14,8 +14,7 @@
 
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-loss.h"
-#include "nnet/nnet-cache.h"
-#include "nnet/nnet-cache-tgtmat.h"
+#include "nnet/nnet-cache-xent-tgtmat.h"
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "util/timer.h"
@@ -70,6 +69,11 @@ int main(int argc, char *argv[]) {
     po.Register("average-grad", &average_grad,
                 "Whether to average the gradient in the bunch");
 
+    int32 xent_dim = -1;
+    po.Register(
+        "xent-dim", &xent_dim,
+        "The dimnsion of the Xent outupts, smaller than Nnet output dim.");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 5 - (crossvalidate ? 1 : 0)) {
@@ -105,27 +109,34 @@ int main(int argc, char *argv[]) {
     nnet.SetL1Penalty(l1_penalty);
     nnet.SetAverageGrad(average_grad);
 
+    if (xent_dim < 0 || xent_dim > nnet.OutputDim()) {
+      KALDI_ERR<< "Invalide Xent dimension: " << xent_dim << ", should be in range [0, " << nnet.OutputDim() <<"].\n";
+    }
+
     kaldi::int64 tot_t = 0;
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     SequentialBaseFloatMatrixReader targets_reader(targets_rspecifier);
     RandomAccessInt32VectorReader alignments_reader(alignment_rspecifier);
 
-    //TODO:: Implement new cache class!!!!
-    CacheTgtMat cache;
+    CacheXentTgtMat cache;
     cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
     cache.Init(cachesize, bunchsize);
 
+    Xent xent;
     Mse mse;
 
     CuMatrix<BaseFloat> feats, feats_transf, targets, nnet_in, nnet_out,
-        nnet_tgt, glob_err;
+        nnet_xent_out, nnet_mse_out,
+        nnet_tgt, glob_err, xent_err, mse_err;
+    std::vector<int32> nnet_labs;
 
     Timer tim;
     double time_next = 0;
     KALDI_LOG<< (crossvalidate?"CROSSVALIDATE":"TRAINING") << " STARTED";
 
-    int32 num_done = 0, num_no_tgt_mat = 0, num_other_error = 0, num_cache = 0;
+    int32 num_done = 0, num_no_align = 0, num_no_tgt_mat = 0, num_other_error =
+        0, num_cache = 0;
     while (1) {
       // fill the cache, 
       // both reader are sequential, not to be too memory hungry,
@@ -151,17 +162,31 @@ int main(int argc, char *argv[]) {
           const Matrix<BaseFloat> &tgt_mat = targets_reader.Value();
           // chech for dimension
           if (tgt_mat.NumRows() != fea_mat.NumRows()) {
-            KALDI_WARN<< "Alignment has wrong size "<< (tgt_mat.NumRows()) << " vs. "<< (fea_mat.NumRows());
+            KALDI_WARN<< "Target mat has wrong size "<< (tgt_mat.NumRows()) << " vs. "<< (fea_mat.NumRows());
             num_other_error++;
             continue;
           }
-            // push features/targets to GPU
+
+          if (!alignments_reader.HasKey(fea_key)) {
+            ++num_no_align;
+            KALDI_WARN<< "No alignments for: " << fea_key;
+            continue;
+          }
+
+          const std::vector<int32> &labs = alignments_reader.Value(fea_key);
+          if (labs.size() != fea_mat.NumRows()) {
+            ++num_other_error;
+            KALDI_WARN<< "Aligment has wrong size " << (labs.size()) << " vs. " << (fea_mat.NumRows());
+            continue;
+          }
+
+          // push features/targets to GPU
           feats.CopyFromMat(fea_mat);
           targets.CopyFromMat(tgt_mat);
           // possibly apply feature transform
           nnet_transf.Feedforward(feats, &feats_transf);
           // add to cache
-          cache.AddData(feats_transf, targets);
+          cache.AddData(feats_transf, labs, targets);
           num_done++;
         }
         Timer t_features;
@@ -181,11 +206,24 @@ int main(int argc, char *argv[]) {
       // train with the cache
       while (!cache.Empty()) {
         // get block of feature/target pairs
-        cache.GetBunch(&nnet_in, &nnet_tgt);
+        cache.GetBunch(&nnet_in, &nnet_labs, &nnet_tgt);
         // train 
         nnet.Propagate(nnet_in, &nnet_out);
-        mse.Eval(nnet_out, nnet_tgt, &glob_err);
+
+        // split the output
+        nnet_xent_out.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), 0, xent_dim);
+        nnet_mse_out.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), xent_dim,
+                                 nnet_out.NumCols() - xent_dim);
+
+        xent.EvalVec(nnet_xent_out, nnet_labs, &xent_err);
+        mse.Eval(nnet_mse_out, nnet_tgt, &mse_err);
+
         if (!crossvalidate) {
+          // merge the error
+          glob_err.Resize(nnet_out.NumRows(), nnet_out.NumCols());
+          xent_err.CopyToMat(&glob_err, 0, 0);
+          mse_err.CopyToMat(&glob_err, 0, xent_dim);
+
           nnet.Backpropagate(glob_err, NULL);
         }
         tot_t += nnet_in.NumRows();
@@ -206,10 +244,12 @@ int main(int argc, char *argv[]) {
     << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
     << ", feature wait " << time_next << "s";
 
-    KALDI_LOG<< "Done " << num_done << " files, " << num_no_tgt_mat
+    KALDI_LOG<< "Done " << num_done << " files, " << num_no_align
+    << " with no alignments, " << num_no_tgt_mat
     << " with no tgt_mats, " << num_other_error
     << " with other errors.";
 
+    KALDI_LOG<< xent.Report();
     KALDI_LOG<< mse.Report();
 
 #if HAVE_CUDA==1
