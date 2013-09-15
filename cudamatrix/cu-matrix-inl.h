@@ -238,6 +238,31 @@ void CuMatrix<Real>::CopyToMat(Matrix<Real> *dst) const {
 }
 
 
+template<typename Real>
+void CuMatrix<Real>::CopyToMat(CuMatrix<Real> *dst, MatrixIndexT ro, MatrixIndexT co) {
+
+  if((dst->NumRows() < ro+NumRows()) || (dst->NumCols() < co+NumCols())) {
+    dst->Resize(ro+NumRows(), co+NumCols()); /* enlarge targets to ensure copying */
+  }
+
+#if HAVE_CUDA==1
+  if(CuDevice::Instantiate().Enabled()){
+    Timer tim;
+
+    MatrixIndexT src_pitch = stride_*sizeof(Real);
+    MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
+    MatrixIndexT width = NumCols()*sizeof(Real);
+    cuSafeCall(cudaMemcpy2D(dst->Data()+ro*dst->Stride()+co, dst_pitch, Data(), src_pitch, width, NumRows(), cudaMemcpyDeviceToDevice));
+
+    CuDevice::Instantiate().AccuProfile("CuMatrix:CopyToMatD2H", tim.Elapsed());
+  } else
+#endif
+  {
+    (SubMatrix<BaseFloat>(dst->Mat(), ro, NumRows(), co, NumCols())).CopyFromMat(mat_);
+  }
+
+}
+
 
 template<typename Real>
 void CuMatrix<Real>::CopyRowsFromMat(int32 r, const CuMatrix<Real> &src, int32 src_ro, int32 dst_ro) {
