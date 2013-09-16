@@ -27,8 +27,8 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
-    bool apply_sigmoid = true;
-    po.Register("apply-sigmoid", &apply_sigmoid, "Apply sigmoid to the acts.");
+    bool apply_exp = true;
+    po.Register("apply-exp", &apply_exp, "Apply Exponential to the acts, such that the acts are exactly the likelihood.");
 
     int32 num_cepstral = 13;
     po.Register("num-cepstral", &num_cepstral, "Number of cepstral features in MFCC.");
@@ -56,6 +56,8 @@ int main(int argc, char *argv[]) {
     KALDI_ASSERT(nnet.LayerCount()==1);
     KALDI_ASSERT(nnet.Layer(0)->GetType() == Component::kHMMBL);
     HMMBL &hmmbl = dynamic_cast<HMMBL&>(*nnet.Layer(0));
+
+    hmmbl.EnableExp(apply_exp);
 
     Matrix<double> dct_mat, inv_dct_mat;
     GenerateDCTmatrix(num_cepstral, num_fbank, ceplifter, &dct_mat, &inv_dct_mat);
@@ -110,10 +112,6 @@ int main(int argc, char *argv[]) {
 
       in.CopyFromMat(feat);
       hmmbl.Propagate(in, &out);
-
-      if(apply_sigmoid){
-        cu::Sigmoid(out, &out);
-      }
 
       out.CopyToMat(&out_host);
 
