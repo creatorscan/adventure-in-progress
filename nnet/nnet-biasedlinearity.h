@@ -124,6 +124,18 @@ class BiasedLinearity : public UpdatableComponent {
     return linearity_;
   }
 
+  void SetBiasWeight(const CuVector<BaseFloat> &bias){
+    bias_.CopyFromVec(bias);
+  }
+
+  void SetBiasWeight(const Vector<BaseFloat> &bias){
+    bias_.CopyFromVec(bias);
+  }
+
+  const CuVector<BaseFloat>& GetBiasWeight() {
+    return bias_;
+  }
+
   void SetToIdentity() {
     Matrix<BaseFloat> mat(linearity_.NumRows(), linearity_.NumCols());
     mat.SetUnit();
