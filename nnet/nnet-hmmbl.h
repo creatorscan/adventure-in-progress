@@ -26,7 +26,8 @@ class HMMBL : public UpdatableComponent {
         linearity_corr_(dim_out, dim_in),
         bias_corr_(dim_out),
         linearity_cpu_(dim_out, dim_in),
-        bias_cpu_(dim_out)
+        bias_cpu_(dim_out),
+        apply_exp_(true)
   {
   }
   ~HMMBL()
@@ -62,6 +63,10 @@ class HMMBL : public UpdatableComponent {
     out->AddVecToRows(1.0, bias_, 0.0);
     // multiply by weights^t
     out->AddMatMat(1.0, in, kNoTrans, linearity_, kTrans, 1.0);
+
+    if(apply_exp_){
+      out->ApplyExp();
+    }
   }
 
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err,
@@ -92,8 +97,18 @@ class HMMBL : public UpdatableComponent {
     ConvertWeight(am_gmm_noisy_);
   }
 
+  void EnableExp(bool apply_exp){
+    apply_exp_ = apply_exp;
+  }
+
 protected:
 
+  /*
+   * log N(x; mu, var) can be represented as w^T * [x^2 x 1]
+   *
+   * -0.5 * ( x^2/var - 2*mu/var + (mu^2/var + log(2*pi) + log(var))) )
+   *
+   */
   void ConvertWeight(const AmDiagGmm &am_gmm) {
     gmean_.Resize(am_gmm.Dim());
     gvar_.Resize(am_gmm.Dim());
@@ -121,7 +136,7 @@ protected:
 
         gmean_.ApplyPow(2.0);
         gmean_.MulElements(gvar_);// m^2 ./ var
-        bias_cpu_(hid) = gmean_.Sum();
+        bias_cpu_(hid) = gmean_.Sum() + dim * M_LOG_2PI - gvar_.SumLog();
         ++hid;
       }
     }
@@ -146,6 +161,8 @@ protected:
   Matrix<BaseFloat> linearity_cpu_;
   Vector<BaseFloat> bias_cpu_;
   Vector<BaseFloat> gmean_, gvar_;
+
+  bool apply_exp_; // only with exp, will the conversion equals to the likelihood
 
 };
 
