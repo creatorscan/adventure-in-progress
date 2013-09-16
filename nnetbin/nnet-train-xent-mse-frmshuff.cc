@@ -215,6 +215,10 @@ int main(int argc, char *argv[]) {
         nnet_mse_out.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), xent_dim,
                                  nnet_out.NumCols() - xent_dim);
 
+        // applying non-liearity
+        cu::Softmax(nnet_xent_out, &nnet_xent_out);
+        cu::Sigmoid(nnet_mse_out, &nnet_mse_out);
+
         xent.EvalVec(nnet_xent_out, nnet_labs, &xent_err);
         mse.Eval(nnet_mse_out, nnet_tgt, &mse_err);
 
