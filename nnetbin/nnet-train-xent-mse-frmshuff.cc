@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
         // applying non-liearity
         nnet_xent_out.Resize(nnet_xent_out_raw.NumRows(), nnet_xent_out_raw.NumCols());
         cu::Softmax(nnet_xent_out_raw, &nnet_xent_out);
-        nnet_mse_out.Resize(nnet_mse_out_raw.NumRows(), nnet_xent_out_raw.NumCols());
+        nnet_mse_out.Resize(nnet_mse_out_raw.NumRows(), nnet_mse_out_raw.NumCols());
         cu::Sigmoid(nnet_mse_out_raw, &nnet_mse_out);
 
         xent.EvalVec(nnet_xent_out, nnet_labs, &xent_err);
