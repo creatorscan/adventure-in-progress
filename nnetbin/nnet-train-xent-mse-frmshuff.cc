@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     Mse mse;
 
     CuMatrix<BaseFloat> feats, feats_transf, targets, nnet_in, nnet_out,
-        nnet_xent_out, nnet_mse_out,
+        nnet_xent_out, nnet_mse_out, nnet_xent_out_raw, nnet_mse_out_raw,
         nnet_tgt, glob_err, xent_err, mse_err;
     std::vector<int32> nnet_labs;
 
@@ -211,13 +211,13 @@ int main(int argc, char *argv[]) {
         nnet.Propagate(nnet_in, &nnet_out);
 
         // split the output
-        nnet_xent_out.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), 0, xent_dim);
-        nnet_mse_out.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), xent_dim,
+        nnet_xent_out_raw.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), 0, xent_dim);
+        nnet_mse_out_raw.CopyFromMat(nnet_out, 0, nnet_out.NumRows(), xent_dim,
                                  nnet_out.NumCols() - xent_dim);
 
         // applying non-liearity
-        cu::Softmax(nnet_xent_out, &nnet_xent_out);
-        cu::Sigmoid(nnet_mse_out, &nnet_mse_out);
+        cu::Softmax(nnet_xent_out_raw, &nnet_xent_out);
+        cu::Sigmoid(nnet_mse_out_raw, &nnet_mse_out);
 
         xent.EvalVec(nnet_xent_out, nnet_labs, &xent_err);
         mse.Eval(nnet_mse_out, nnet_tgt, &mse_err);
