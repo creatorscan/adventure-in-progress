@@ -150,8 +150,8 @@ int main(int argc, char *argv[]) {
           if(val != val) KALDI_ERR << "NaN in NNet output of : " << feature_reader.Key();
           if(val == std::numeric_limits<BaseFloat>::infinity())
             KALDI_ERR << "inf in NNet coutput of : " << feature_reader.Key();
-          if(val == kBaseLogZero)
-            nnet_out_host(r,c) = -1e10;
+          /*if(val == kBaseLogZero)
+            nnet_out_host(r,c) = -1e10;*/
         }
       }
       // write
