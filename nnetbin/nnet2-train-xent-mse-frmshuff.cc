@@ -278,9 +278,9 @@ int main(int argc, char *argv[]) {
     << " with no tgt_mats, " << num_other_error
     << " with other errors.";
 
-    KALDI_LOG << "Save Xent Nnet to " << xent_nnet_out << ".\n";
+    if(!crossvalidate) KALDI_LOG << "Save Xent Nnet to " << xent_nnet_out << ".\n";
     KALDI_LOG<< xent.Report();
-    KALDI_LOG << "Save Mse Nnet to " << mse_nnet_out << ".\n";
+    if(!crossvalidate) KALDI_LOG << "Save Mse Nnet to " << mse_nnet_out << ".\n";
     KALDI_LOG<< mse.Report();
 
 #if HAVE_CUDA==1
