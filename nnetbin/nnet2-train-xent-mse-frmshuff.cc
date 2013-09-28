@@ -76,6 +76,10 @@ int main(int argc, char *argv[]) {
     po.Register("average-grad", &average_grad,
                 "Whether to average the gradient in the bunch");
 
+    BaseFloat error_weight_xent = 0.5, error_weight_mse = 0.5;
+    po.Register("error-weight-xent", &error_weight_xent, "Weight for Xent errors backpropagated to shared NNet");
+    po.Register("error-weight-mse", &error_weight_mse, "Weight for MSE errors backpropagated to shared NNet");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 9 - (crossvalidate ? 3 : 0)) {
@@ -248,7 +252,7 @@ int main(int argc, char *argv[]) {
           nnet_mse.Backpropagate(mse_err, &shared_err);
 
           // average the two errors
-          shared_err.AddMat(0.5, shared_err_from_xent, 0.5);
+          shared_err.AddMat(error_weight_xent, shared_err_from_xent, error_weight_mse);
 
           // Backpropagate errors through the shared nnet
           nnet_shared.Backpropagate(shared_err, NULL);
