@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     int32 tot_utt = 0, tot_frames = 0;
     BaseFloat tot_likes = 0.0;
 
-    for(; feats_reader.Done(); feats_reader.Next()) {
+    for(;!feats_reader.Done(); feats_reader.Next()) {
       const Matrix<BaseFloat> &feats=feats_reader.Value();
       for(int32 r = 0 ; r < feats.NumRows(); ++r){
         tot_likes += gmm.LogLikelihood(feats.Row(r));
