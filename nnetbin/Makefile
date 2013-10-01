@@ -17,7 +17,7 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   linrbm-init linrbm-train-cd1-frmshuff linrbm-extract-linbl gen-2d-feats gmm-pdf-info \
 		   nnet-train-mse-tgtmat-frmshuff-denoise write-ubm-to-matlab ubm-info grbm-vts-forward \
 		   analyze-gmm-nnet hmmbl-create hmmbl-vts-forward normalize-feats nnet-train-xent-mse-frmshuff \
-		   nnet-xent-mse-split nnet2-train-xent-mse-frmshuff ubm-avg-likes
+		   nnet-xent-mse-split nnet2-train-xent-mse-frmshuff ubm-avg-likes nnet-hidmask-train-frmshuff
 
 OBJFILES =
 
