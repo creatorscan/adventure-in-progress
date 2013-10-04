@@ -161,6 +161,13 @@ class CuMatrix {
   void AddVecToCols(Real alpha, const CuVector<Real> &col, Real beta=1.0);
   /// [each row of *this] = alpha * row + beta * [the row of *this]
   void AddVecToRows(Real alpha, const CuVector<Real> &row, Real beta=1.0);
+
+  /// Add a shorter vector to part of each row of the matrix
+  /// [each row of *this] = alpha * row + beta * [the row of *this]
+  /// only the part [offset, offset+row.Dim()) is of the above value, others are simply
+  /// scaled by alpha
+  void AddVecToPartialRows(Real alpha, MatrixIndexT offset, const CuVector<Real> &row, Real beta=1.0);
+
   /// C = alpha * A(^T)*B(^T) + beta * C
   void AddMatMat(Real alpha, const CuMatrix<Real>& A, MatrixTransposeType transA,
                  const CuMatrix<Real>& B, MatrixTransposeType transB, Real beta);

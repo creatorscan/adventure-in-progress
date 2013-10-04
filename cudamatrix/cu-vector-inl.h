@@ -262,6 +262,28 @@ void CuVector<Real>::Add(Real value) {
 }
 
 template<typename Real>
+void CuVector<Real>::Scale(Real value) {
+#if HAVE_CUDA==1
+  if(CuDevice::Instantiate().Enabled()){
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = {1, Dim(), Dim() };
+
+    cuda_scale(dimGrid, dimBlock, data_, value, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }else
+#endif
+  {
+    vec_.Scale(value);
+  }
+}
+
+
+template<typename Real>
 void CuVector<Real>::Power(Real power) {
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {

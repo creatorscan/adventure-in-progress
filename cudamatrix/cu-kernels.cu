@@ -348,6 +348,17 @@ static void _add_vec_to_rows(Real alpha, const Real* row, Real beta, Real* dst, 
     dst[index] = alpha*row[i] + beta*dst[index];
 }
 
+template<typename Real>
+__global__
+static void _add_vec_to_partial_rows(Real alpha, int32_cuda offset, const Real* row, int32_cuda dim, Real beta, Real* dst, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  int32_cuda vec_index = i - offset;
+  if ( vec_index >= 0 && vec_index < dim && i < d.cols && j < d.rows )
+  	dst[index] = alpha*row[vec_index] + beta*dst[index];
+}
+
 
 template<typename Real>
 __global__
@@ -758,6 +769,11 @@ void cudaF_add_vec_to_rows(dim3 Gr, dim3 Bl, float alpha, const float* row, floa
   _add_vec_to_rows<<<Gr,Bl>>>(alpha,row,beta,dst,d); 
 }
 
+void cudaF_add_vec_to_partial_rows(dim3 Gr, dim3 Bl, float alpha, int32_cuda offset, const float* row, int32_cuda dim, float beta, float* dst, MatrixDim d) {
+  _add_vec_to_partial_rows<<<Gr,Bl>>>(alpha,offset,row,dim,beta,dst,d);
+}
+
+
 // CURRENTLY UNUSED...
 void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim dmat, MatrixDim dmask) {
   _apply_mask<<<Gr,Bl>>>(mat,mask,dmat,dmask); 
@@ -919,6 +935,11 @@ void cudaD_add_vec_to_cols(dim3 Gr, dim3 Bl, double alpha, const double* col, do
 void cudaD_add_vec_to_rows(dim3 Gr, dim3 Bl, double alpha, const double* row, double beta, double* dst, MatrixDim d) {
   _add_vec_to_rows<<<Gr,Bl>>>(alpha,row,beta,dst,d); 
 }
+
+void cudaD_add_vec_to_partial_rows(dim3 Gr, dim3 Bl, double alpha, int32_cuda offset, const double* row, int32_cuda dim, double beta, double* dst, MatrixDim d){
+  _add_vec_to_partial_rows<<<Gr,Bl>>>(alpha,offset,row,dim,beta,dst,d);
+}
+
 
 // CURRENTLY UNUSED...
 void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim dmat, MatrixDim dmask) {

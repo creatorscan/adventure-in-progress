@@ -718,6 +718,31 @@ void CuMatrix<Real>::AddVecToRows(Real alpha, const CuVector<Real> &row, Real be
   }
 }
 
+template<typename Real>
+void CuMatrix<Real>::AddVecToPartialRows(Real alpha, MatrixIndexT offset, const CuVector<Real> &row, Real beta) {
+  if(row.Dim() + offset >= NumCols()){
+    KALDI_ERR << "Incorrect dimensions: Cols:" << NumCols() << " VectorDim:" << row.Dim() << " offset:" << offset;
+  }
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()){
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_add_vec_to_partial_rows(dimGrid, dimBlock, alpha, offset, row.Data(), row.Dim(), beta, data_, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }else
+#endif
+  {
+    mat_.Scale(beta);
+    KALDI_LOG << "offset=" << offset << " numrows=" << NumRows() << " vecdim=" << row.Dim() << " numcols=" << NumCols();
+    (SubMatrix<BaseFloat>(mat_, 0, NumRows(), offset, row.Dim())).AddVecToRows(alpha, row.Vec());
+  }
+}
+
 
 template<typename Real>
 void CuMatrix<Real>::LogAddExpMat(const CuMatrix<Real>& A) {

@@ -79,6 +79,7 @@ class CuVector {
   void SetZero();
   void Set(Real value);
   void Add(Real value);
+  void Scale(Real value);
   void Power(Real pow);
   void ApplyLog();
   void ApplyExp();
