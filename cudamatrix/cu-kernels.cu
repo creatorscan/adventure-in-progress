@@ -302,6 +302,19 @@ static void _add_mat(Real alpha, const Real* A, Real beta, Real* dst, MatrixDim 
     dst[index] = alpha*A[index] + beta*dst[index];
 }
 
+template<typename Real>
+__global__
+static void _part_add_mat(Real alpha, const Real* A, MatrixDim da, int32_cuda ro, int32_cuda co, Real beta, Real* dst, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  int32_cuda ai = i - co;
+  int32_cuda aj = j - ro;
+  int32_cuda A_index = ai + aj * da.stride;
+  if ( i < d.cols  &&  j < d.rows && ai >=0 && ai <da.cols && aj >=0 && aj < da.rows)
+    dst[index] = alpha*A[A_index] + beta*dst[index];
+}
+
 
 template<typename Real>
 __global__
@@ -760,6 +773,10 @@ void cudaF_add_mat(dim3 Gr, dim3 Bl, float alpha, const float* A, float beta, fl
   _add_mat<<<Gr,Bl>>>(alpha,A,beta,dst,d); 
 }
 
+void cudaF_part_add_mat(dim3 Gr, dim3 Bl, float alpha, const float* A, MatrixDim da, int32_cuda ro, int32_cuda co, float beta, float* dst, MatrixDim d) {
+  _part_add_mat<<<Gr,Bl>>>(alpha,A,da,ro,co,beta,dst,d);
+}
+
 void cudaF_add_vec_to_cols(dim3 Gr, dim3 Bl, float alpha, const float* col, float beta, float* dst, MatrixDim d) {
   _add_vec_to_cols<<<Gr,Bl>>>(alpha,col,beta,dst,d); 
 }
@@ -926,6 +943,10 @@ void cudaD_div_rows_vec(dim3 Gr, dim3 Bl, double* mat, const double* vec_div, Ma
 
 void cudaD_add_mat(dim3 Gr, dim3 Bl, double alpha, const double* A, double beta, double* dst, MatrixDim d) {
   _add_mat<<<Gr,Bl>>>(alpha,A,beta,dst,d); 
+}
+
+void cudaD_prat_add_mat(dim3 Gr, dim3 Bl, double alpha, const double* A, MatrixDim da, int32_cuda ro, int32_cuda co, double beta, double* dst, MatrixDim d){
+  _part_add_mat<<<Gr,Bl>>>(alpha,A,da,ro,co,beta,dst,d);
 }
 
 void cudaD_add_vec_to_cols(dim3 Gr, dim3 Bl, double alpha, const double* col, double beta, double* dst, MatrixDim d) {

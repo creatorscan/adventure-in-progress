@@ -663,6 +663,30 @@ void CuMatrix<Real>::AddMat(Real alpha, const CuMatrix<Real>& A, Real beta) {
 }
 
 
+template<typename Real>
+void CuMatrix<Real>::PartAddMat(Real alpha, const CuMatrix<Real>& A, MatrixIndexT ro, MatrixIndexT co, Real beta) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    assert(ro >= 0 && ro + A.NumRows() <= NumRows());
+    assert(co >= 0 && co + A.NumCols() <= NumCols());
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_part_add_mat(dimGrid, dimBlock, alpha, A.Data(), A.Dim(), ro, co, beta, data_, Dim());
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    (SubMatrix<BaseFloat>(mat_, ro, A.NumRows(), co, A.NumCols())).Scale(beta);
+    (SubMatrix<BaseFloat>(mat_, ro, A.NumRows(), co, A.NumCols())).AddMat(alpha, A.mat_);
+  }
+}
+
 
 template<typename Real>
 void CuMatrix<Real>::AddVecToCols(Real alpha, const CuVector<Real> &col, Real beta) { 
@@ -737,8 +761,7 @@ void CuMatrix<Real>::AddVecToPartialRows(Real alpha, MatrixIndexT offset, const 
   }else
 #endif
   {
-    mat_.Scale(beta);
-    KALDI_LOG << "offset=" << offset << " numrows=" << NumRows() << " vecdim=" << row.Dim() << " numcols=" << NumCols();
+    (SubMatrix<BaseFloat>(mat_, 0, NumRows(), offset, row.Dim())).Scale(beta);
     (SubMatrix<BaseFloat>(mat_, 0, NumRows(), offset, row.Dim())).AddVecToRows(alpha, row.Vec());
   }
 }

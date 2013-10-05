@@ -56,6 +56,7 @@ void cudaF_mul_rows_vec(dim3 Gr, dim3 Bl, float *mat, const float *scale, Matrix
 void cudaF_div_cols_vec(dim3 Gr, dim3 Bl, float *mat, const float *vec_div, MatrixDim d);
 void cudaF_div_rows_vec(dim3 Gr, dim3 Bl, float *mat, const float *vec_div, MatrixDim d);
 void cudaF_add_mat(dim3 Gr, dim3 Bl, float alpha, const float *A, float beta, float *dst, MatrixDim d);
+void cudaF_part_add_mat(dim3 Gr, dim3 Bl, float alpha, const float *A, MatrixDim da, int32_cuda ro, int32_cuda co, float beta, float *dst, MatrixDim d);
 void cudaF_add_vec_to_cols(dim3 Gr, dim3 Bl, float alpha, const float *col, float beta, float *dst, MatrixDim d);
 void cudaF_add_vec_to_rows(dim3 Gr, dim3 Bl, float alpha, const float *row, float beta, float *dst, MatrixDim d);
 void cudaF_add_vec_to_partial_rows(dim3 Gr, dim3 Bl, float alpha, int32_cuda offset, const float *row, int32_cuda dim, float beta, float *dst, MatrixDim d);
@@ -112,6 +113,7 @@ void cudaD_mul_rows_vec(dim3 Gr, dim3 Bl, double *mat, const double *scale, Matr
 void cudaD_div_cols_vec(dim3 Gr, dim3 Bl, double *mat, const double *vec_div, MatrixDim d);
 void cudaD_div_rows_vec(dim3 Gr, dim3 Bl, double *mat, const double *vec_div, MatrixDim d);
 void cudaD_add_mat(dim3 Gr, dim3 Bl, double alpha, const double *A, double beta, double *dst, MatrixDim d);
+void cudaD_part_add_mat(dim3 Gr, dim3 Bl, double alpha, const double *A, MatrixDim da, int32_cuda ro, int32_cuda co, double beta, double *dst, MatrixDim d);
 void cudaD_add_vec_to_cols(dim3 Gr, dim3 Bl, double alpha, const double *col, double beta, double *dst, MatrixDim d);
 void cudaD_add_vec_to_rows(dim3 Gr, dim3 Bl, double alpha, const double *row, double beta, double *dst, MatrixDim d);
 void cudaD_add_vec_to_partial_rows(dim3 Gr, dim3 Bl, double alpha, int32_cuda offset, const double *row, int32_cuda dim, double beta, double *dst, MatrixDim d);
