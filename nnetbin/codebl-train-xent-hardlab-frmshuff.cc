@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
     Vector<BaseFloat> host_codevec;
 
     CuVector<BaseFloat> codevec_cur(codevec_dim), codevec_corr(codevec_dim);
-    CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, glob_err, backend_out, nnet_err;
+    CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, glob_err, backend_out, backend_err, nnet_err;
     std::vector<int32> targets;
 
     Timer tim;
@@ -224,8 +224,8 @@ int main(int argc, char *argv[]) {
 
           xent.EvalVec(backend_out, targets, &glob_err);
           if (!crossvalidate) {
-            nnet_backend.Backpropagate(glob_err, &nnet_err);
-            nnet.Backpropagate(nnet_err, NULL);
+            nnet_backend.Backpropagate(glob_err, &backend_err);
+            nnet.Backpropagate(backend_err, &nnet_err); // to compute the code error, we need to propagete through 1st layer
 
             // accumulate code vector correction
             codevec_corr.SetZero();
