@@ -82,19 +82,33 @@ void Nnet::Backpropagate(const CuMatrix<BaseFloat> &in_err,
         }
       }
     }
-  }
 
-  // now backpropagate through first layer, 
-  // but only if asked to (by out_err pointer)
-  if (NULL != out_err) {
-    nnet_[0]->Backpropagate(backpropagate_buf_[0], out_err);
-  }
+    // now backpropagate through first layer,
+    // but only if asked to (by out_err pointer)
+    if (NULL != out_err) {
+      nnet_[0]->Backpropagate(backpropagate_buf_[0], out_err);
+    }
 
-  // update the first layer 
-  if (nnet_[0]->IsUpdatable()) {
-    UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(nnet_[0]);
-    if (uc->GetLearnRate() > 0.0) {
-      uc->Update(propagate_buf_[0], backpropagate_buf_[0]);
+    // update the first layer
+    if (nnet_[0]->IsUpdatable()) {
+      UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(nnet_[0]);
+      if (uc->GetLearnRate() > 0.0) {
+        uc->Update(propagate_buf_[0], backpropagate_buf_[0]);
+      }
+    }
+  } else {
+    // now backpropagate through first layer,
+    // but only if asked to (by out_err pointer)
+    if (NULL != out_err) {
+      nnet_[0]->Backpropagate(in_err, out_err);
+    }
+
+    // update the first layer
+    if (nnet_[0]->IsUpdatable()) {
+      UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(nnet_[0]);
+      if (uc->GetLearnRate() > 0.0) {
+        uc->Update(propagate_buf_[0], in_err);
+      }
     }
   }
 
