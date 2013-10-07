@@ -10,9 +10,14 @@
 #include "nnet/nnet-component.h"
 #include "nnet/nnet-codebl.h"
 
+#include <algorithm>
+#include <ctime>
+
 int main(int argc, char *argv[]) {
 
   try {
+
+    std::srand( unsigned(std::time(0)));
 
     using namespace kaldi;
     typedef kaldi::int32 int32;
@@ -28,12 +33,15 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
     bool binary = false,
         crossvalidate = false,
-        randomize = true;
+        randomize = true,
+        shuffle = true;
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("cross-validate", &crossvalidate,
                 "Perform cross-validation (don't backpropagate)");
     po.Register("randomize", &randomize,
                 "Perform the frame-level shuffling within the Cache::");
+    po.Register("shuffle", &shuffle,
+                "Perform the utterance-level shuffling during training");
 
     BaseFloat learn_rate = 0.008,
         momentum = 0.0,
@@ -163,7 +171,11 @@ int main(int argc, char *argv[]) {
       }
 
       // all the utts belong to this set
-      const std::vector<std::string> &uttlst = set2utt_reader.Value();
+      std::vector<std::string> uttlst(set2utt_reader.Value());
+      if(shuffle){
+        std::random_shuffle(uttlst.begin(), uttlst.end());
+      }
+
       for (int32 uid = 0; uid < uttlst.size();) {
 
         // fill the cache
