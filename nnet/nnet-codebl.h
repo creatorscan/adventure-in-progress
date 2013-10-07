@@ -24,8 +24,9 @@ class CodeBL : public BiasedLinearity {
  public:
   CodeBL(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet)
       : BiasedLinearity(dim_in, dim_out, nnet),
-        code_dim_(0),
-        update_weight_(true)
+        update_weight_(true),
+        code_dim_(0)
+
   {
 
   }
