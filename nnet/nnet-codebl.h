@@ -77,7 +77,7 @@ class CodeBL : public BiasedLinearity {
     // precopy bias
     out->AddVecToRows(1.0, bias_, 0.0);
     // multiply by weights^t
-    out->AddMatMat(1.0, in, kNoTrans, linearity_, kTrans, 1.0);
+    out->AddMatMat(1.0, augmented_in_, kNoTrans, linearity_, kTrans, 1.0);
   }
 
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err, CuMatrix<BaseFloat> *out_err) {
