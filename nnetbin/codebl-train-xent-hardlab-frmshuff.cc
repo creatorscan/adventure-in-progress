@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
             "Usage:  codebl-train-xent-hardlab-frmshuff [options] <adapt-model-in> <backend-mode-in> <feature-rspecifier> "
             "<alignments-rspecifier> <set2utt-map> <codevec-rspecifier> [<model-out> <codevec-wspecifier>]\n"
             "e.g.: \n"
-            " codebl-train-xent-hardlab-perutt nnet.init scp:train.scp ark:train.ali ark:set2utt.map"
+            " codebl-train-xent-hardlab-perutt nnet.init backend.nnet scp:train.scp ark:train.ali ark:set2utt.map"
             " ark:codes.ark nnet.iter1 ark:new_code.ark\n";
 
     ParseOptions po(usage);
