@@ -51,6 +51,9 @@ class CodeBL : public BiasedLinearity {
     KALDI_ASSERT(linearity_.NumRows() == output_dim_);
     KALDI_ASSERT(linearity_.NumCols() == input_dim_ + code_dim_);
     KALDI_ASSERT(bias_.Dim() == output_dim_);
+
+    linearity_corr_.Resize(linearity_.NumRows(), linearity_.NumCols());
+    bias_corr_.Resize(bias_.Dim());
   }
 
   void WriteData(std::ostream &os, bool binary) const {
