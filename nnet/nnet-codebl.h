@@ -82,6 +82,9 @@ class CodeBL : public BiasedLinearity {
 
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err, CuMatrix<BaseFloat> *out_err) {
     // multiply error by weights
+    if(augmented_err_.NumRows()!=in_err.NumRows() || augmented_err_.NumCols() != linearity_.NumCols()){
+      augmented_err_.Resize(in_err.NumRows(), linearity_.NumCols());
+    }
     augmented_err_.AddMatMat(1.0, in_err, kNoTrans, linearity_, kNoTrans, 0.0);
 
     if(code_dim_>0){
