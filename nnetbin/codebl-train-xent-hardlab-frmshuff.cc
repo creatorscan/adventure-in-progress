@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Perform iteration of CodeBL Neural Network training by stochastic gradient descent.\n"
-            "Usage:  codebl-train-xent-hardlab-frmshuff [options] <model-in> <feature-rspecifier> "
+            "Usage:  codebl-train-xent-hardlab-frmshuff [options] <adapt-model-in> <backend-mode-in> <feature-rspecifier> "
             "<alignments-rspecifier> <set2utt-map> <codevec-rspecifier> [<model-out> <codevec-wspecifier>]\n"
             "e.g.: \n"
             " codebl-train-xent-hardlab-perutt nnet.init scp:train.scp ark:train.ali ark:set2utt.map"
@@ -66,28 +66,30 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 7 - (crossvalidate ? 2 : 0)) {
+    if (po.NumArgs() != 8 - (crossvalidate ? 2 : 0)) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string model_filename = po.GetArg(1),
-        feature_rspecifier = po.GetArg(2),
-        alignments_rspecifier = po.GetArg(3),
-        set2utt_rspecifier = po.GetArg(4),
-        codevec_rspecifier = po.GetArg(5);
+        backend_model_filename = po.GetArg(2),
+        feature_rspecifier = po.GetArg(3),
+        alignments_rspecifier = po.GetArg(4),
+        set2utt_rspecifier = po.GetArg(5),
+        codevec_rspecifier = po.GetArg(6);
 
     std::string target_model_filename;
     std::string codevec_wspecifier;
     if (!crossvalidate) {
-      target_model_filename = po.GetArg(6);
-      codevec_wspecifier = po.GetArg(7);
+      target_model_filename = po.GetArg(7);
+      codevec_wspecifier = po.GetArg(8);
     }
 
-    Nnet nnet_transf;
+    Nnet nnet_transf, nnet_backend;
     if (feature_transform != "") {
       nnet_transf.Read(feature_transform);
     }
+    nnet_backend.Read(backend_model_filename);
 
     Nnet nnet;
     nnet.Read(model_filename);
@@ -140,7 +142,7 @@ int main(int argc, char *argv[]) {
     Vector<BaseFloat> host_codevec;
 
     CuVector<BaseFloat> codevec_cur(codevec_dim), codevec_corr(codevec_dim);
-    CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, glob_err;
+    CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, glob_err, backend_out, nnet_err;
     std::vector<int32> targets;
 
     Timer tim;
@@ -206,9 +208,12 @@ int main(int argc, char *argv[]) {
           cache.GetBunch(&nnet_in, &targets);
           // train
           nnet.Propagate(nnet_in, &nnet_out);
-          xent.EvalVec(nnet_out, targets, &glob_err);
+          nnet_backend.Propagate(nnet_out, &backend_out);
+
+          xent.EvalVec(backend_out, targets, &glob_err);
           if (!crossvalidate) {
-            nnet.Backpropagate(glob_err, NULL);
+            nnet_backend.Backpropagate(glob_err, &nnet_err);
+            nnet.Backpropagate(nnet_err, NULL);
 
             // accumulate code vector correction
             codevec_corr.SetZero();
