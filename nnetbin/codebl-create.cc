@@ -68,6 +68,8 @@ int main(int argc, char *argv[]) {
               bl_linearity;
           Vector<BaseFloat> bias(bl_out_dim);
 
+          linearity.SetRandn();
+
           (bl->GetLinearityWeight()).CopyToMat(&bl_linearity);
           (bl->GetBiasWeight()).CopyToVec(&bias);
 
