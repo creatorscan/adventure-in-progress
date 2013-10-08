@@ -30,6 +30,10 @@ int main(int argc, char *argv[]) {
     bool binary = false;
     po.Register("binary", &binary, "Write output in binary mode");
 
+    bool gauss_random = true;
+    po.Register("gauss-random", &gauss_random,
+                "Use random number from N(0,1) for the code weight (scaled by 0.1)");
+
     int32 code_dim = 0;
     po.Register("code-dim", &code_dim, "Dimension of the code vector");
 
@@ -68,8 +72,10 @@ int main(int argc, char *argv[]) {
               bl_linearity;
           Vector<BaseFloat> bias(bl_out_dim);
 
-          linearity.SetRandn();
-          linearity.Scale(0.1);
+          if (gauss_random) {
+            linearity.SetRandn();
+            linearity.Scale(0.1);
+          }
 
           (bl->GetLinearityWeight()).CopyToMat(&bl_linearity);
           (bl->GetBiasWeight()).CopyToVec(&bias);
