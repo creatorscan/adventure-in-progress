@@ -22,16 +22,19 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Perform forward pass through Neural Network with ideal hidden masking.\n"
-        "Usage:  ideal-hidmask-forward [options] <l1-model-in> <backend-model-in> "
+        "Usage:  ideal-hidmask-forward [options] <l1-model-in> "
         "<feature-rspecifier> <ref-feat-rspecifier> <feature-wspecifier>\n"
         "e.g.: \n"
-        " ideal-hidmask-forward l1.nnet backend.nnet ark:features.ark "
+        " ideal-hidmask-forward --backend-nnet=backend.nnet l1.nnet ark:features.ark "
         "ark:ref_feats.ark ark:mlpoutput.ark\n";
 
     ParseOptions po(usage);
 
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
+
+    std::string backend_nnet = "";
+    po.Register("backend-nnet", &backend_nnet, "Backend Nnet");
 
     std::string class_frame_counts;
     po.Register("class-frame-counts", &class_frame_counts, "Counts of frames for posterior division by class-priors");
@@ -49,16 +52,15 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 5) {
+    if (po.NumArgs() != 4) {
       po.PrintUsage();
       exit(1);
     }
 
     std::string l1_model_filename = po.GetArg(1),
-        backend_model_filename = po.GetArg(2),
-        feature_rspecifier = po.GetArg(3),
-        ref_feats_rspecifier = po.GetArg(4),
-        feature_wspecifier = po.GetArg(5);
+        feature_rspecifier = po.GetArg(2),
+        ref_feats_rspecifier = po.GetArg(3),
+        feature_wspecifier = po.GetArg(4);
         
     using namespace kaldi;
     typedef kaldi::int32 int32;
@@ -67,7 +69,9 @@ int main(int argc, char *argv[]) {
     if(feature_transform != "") {
       nnet_transf.Read(feature_transform);
     }
-    nnet_backend.Read(backend_model_filename);
+    if(backend_nnet != ""){
+      nnet_backend.Read(backend_nnet);
+    }
 
     Nnet nnet;
     nnet.Read(l1_model_filename);
@@ -158,7 +162,11 @@ int main(int argc, char *argv[]) {
       l1_out.MulElements(hidmask);
 
       // forward through the backend dnn
-      nnet_backend.Feedforward(l1_out, &nnet_out);
+      if(backend_nnet != ""){
+        nnet_backend.Feedforward(l1_out, &nnet_out);
+      }else{
+        nnet_out.CopyFromMat(l1_out);
+      }
       
       // convert posteriors to log-posteriors
       if (apply_log) {
