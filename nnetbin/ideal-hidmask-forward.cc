@@ -30,6 +30,9 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+    BaseFloat alpha = 1.0;
+    po.Register("alpha", &alpha, "Alpha value for the hidden mask compuation");
+
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
 
@@ -156,7 +159,7 @@ int main(int argc, char *argv[]) {
       hidmask.CopyFromMat(l1_out);
       hidmask.AddMat(-1.0, ref_l1_out, 1.0);
       hidmask.Power(2.0);
-      hidmask.Scale(-1.0);
+      hidmask.Scale(-1.0*alpha);
       hidmask.ApplyExp();
 
       l1_out.MulElements(hidmask);

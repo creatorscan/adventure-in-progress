@@ -13,8 +13,6 @@
 #include "util/timer.h"
 #include "cudamatrix/cu-device.h"
 
-#define MAX_HIDMASK_NNETS 10
-
 int main(int argc, char *argv[]) {
   using namespace kaldi;
   typedef kaldi::int32 int32;
@@ -22,11 +20,12 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Perform iteration of Neural Network training by stochastic gradient descent.\n"
-            "Usage: nnet-hidmask-train-frmshuff [options] <model-in-l1> <model-in-backend> <noisy-feature-rspecifier> "
-            "<clean-feature-rspecifier> <alignments-rspecifier> [<model-out-l1> <model-out-backend>]\n"
+            "Usage: nnet-hidmask-train-frmshuff [options] <frontend-model-in> <backend-model-in>"
+            " <noisy-feature-rspecifier> <clean-feature-rspecifier> <alignments-rspecifier> "
+            "[<frontend-model-in> <backend-model-out>]\n"
             "e.g.: \n "
-            " nnet-hidmask-train-frmshuff l1.nnet backend.nnet scp:train_noisy.scp scp:train_clean.scp "
-            "ark:train.ali l1.iter1 backend.iter1\n";
+            " nnet-hidmask-train-frmshuff front.nnet back.nnet scp:train_noisy.scp scp:train_clean.scp "
+            "ark:train.ali front.iter1 back.iter1\n";
 
     ParseOptions po(usage);
     bool binary = false,
@@ -51,9 +50,11 @@ int main(int argc, char *argv[]) {
     po.Register("average-grad", &average_grad,
                 "Whether to average the gradient in the bunch");
 
-    std::string learn_factors = "";
-    po.Register("learn-factors", &learn_factors,
-                "Learning factors for backend Nnet");
+    std::string learn_factors_front = "", learn_factors_back = "";
+    po.Register("learn-factors-front", &learn_factors_front,
+                "Learning factors for front-end Nnet");
+    po.Register("learn-factors-back", &learn_factors_back,
+                "Learning factors for back-end Nnet");
 
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
@@ -71,15 +72,15 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    std::string model_hidmask_l1_filename = po.GetArg(1),
+    std::string model_frontend_filename = po.GetArg(1),
         model_backend_filename = po.GetArg(2),
         noisyfeats_rspecifier = po.GetArg(3),
         cleanfeats_rspecifier = po.GetArg(4),
         alignments_rspecifier = po.GetArg(5);
 
-    std::string target_hidmask_l1_filename, target_backend_filename;
+    std::string target_frontend_filename, target_backend_filename;
     if (!cross_validate) {
-      target_hidmask_l1_filename = po.GetArg(6);
+      target_frontend_filename = po.GetArg(6);
       target_backend_filename = po.GetArg(7);
     }
 
@@ -92,9 +93,9 @@ int main(int argc, char *argv[]) {
       nnet_transf.Read(feature_transform);
     }
 
-    // each hidmask nnet contains only one <biasedlinearity> layer and other activation layers.
-    Nnet nnet_hidmask[MAX_HIDMASK_NNETS];
-    nnet_hidmask[0].Read(model_hidmask_l1_filename);
+    // The hidden masking happends between the front-end and back-end DNN
+    Nnet nnet_frontend;
+    nnet_frontend.Read(frontend_filename);
     nnet_hidmask[0].SetLearnRate(learn_rate, NULL);
     nnet_hidmask[0].SetMomentum(momentum);
     nnet_hidmask[0].SetL2Penalty(l2_penalty);
