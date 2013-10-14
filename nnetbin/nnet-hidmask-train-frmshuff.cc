@@ -210,12 +210,14 @@ int main(int argc, char *argv[]) {
         // get block of features pairs
         cache.GetBunch(&front_noisy_in, &nnet_labs, &front_clean_in);
 
+        if (!cross_validate){ // do clean first so that the buffers are overwrittend by noisy features
+          nnet_frontend.Propagate(front_clean_in, &front_clean_out);
+        }
+
         // forward through nnet_hidmask
-        nnet_frontend.Feedforward(front_noisy_in, &front_noisy_out);
+        nnet_frontend.Propagate(front_noisy_in, &front_noisy_out);
 
         if (!cross_validate) {
-          nnet_frontend.Feedforward(front_clean_in, &front_clean_out);
-
           // compute hid masks
           hid_masks.CopyFromMat(front_noisy_out);
           hid_masks.AddMat(-1.0, front_clean_out, 1.0);
@@ -228,15 +230,12 @@ int main(int argc, char *argv[]) {
         }
 
         // forward through backend nnet
-        nnet_backend.Feedforward(front_noisy_out, &nnet_out);
+        nnet_backend.Propagate(front_noisy_out, &nnet_out);
 
         // evaluate
         xent.EvalVec(nnet_out, nnet_labs, &glob_err);
 
         if (!cross_validate) {
-          if(front_err.NumRows()!=glob_err.NumRows() || front_err.NumCols() != nnet_backend.InputDim()) {
-            front_err.Resize(glob_err.NumRows(), nnet_backend.InputDim());
-          }
           nnet_backend.Backpropagate(glob_err, &front_err);
 
           front_err.MulElements(hid_masks);
