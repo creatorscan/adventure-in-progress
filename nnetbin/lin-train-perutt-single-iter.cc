@@ -17,11 +17,11 @@ int main(int argc, char *argv[]) {
   using namespace kaldi;
   try {
     const char *usage =
-        "Train LIN for each utterance.\n"
+        "Train LIN for each utterance. It is better to enable average-grad for utterance-based training.\n"
             "Usage: lin-train-perutt-single-iter [options] <model-in> <feature-rspecifier> <alignments-rspecifier>"
             "<weights-wspecifier> <bias-wspecifier>\n"
             "e.g.: \n"
-            " lin-train-perutt-single-iter lin.init scp:train.scp ark:train.ali "
+            " lin-train-perutt-single-iter --average-grad=true lin.init scp:train.scp ark:train.ali "
             "ark:weights.ark ark:bias.ark\n";
 
     ParseOptions po(usage);

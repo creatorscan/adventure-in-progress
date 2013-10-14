@@ -16,11 +16,12 @@ int main(int argc, char *argv[]) {
   using namespace kaldi;
   try {
     const char *usage =
-        "Train LIN for each utterance.\n"
+        "Train LIN for each utterance. It is better to enable average-grad for utterance-based training.\n"
             "Usage: lin-train-xent-hardlab-perutt [options] <model-in> <feature-rspecifier> <alignments-rspecifier>"
             "<weights-wspecifier> <bias-wspecifier>\n"
             "e.g.: \n"
-            " lin-train-xent-hardlab-perutt lin.init scp:train.scp ark:train.ali ark:weights.ark ark:bias.ark\n";
+            " lin-train-xent-hardlab-perutt --average-grad=true lin.init scp:train.scp "
+            "ark:train.ali ark:weights.ark ark:bias.ark\n";
 
     ParseOptions po(usage);
 
@@ -51,6 +52,9 @@ int main(int argc, char *argv[]) {
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
                 "Feature transform Neural Network");
+
+    bool average_grad = false;
+    po.Register("average-grad", &average_grad, "Average the gradient");
 
     po.Read(argc, argv);
 
