@@ -234,6 +234,9 @@ int main(int argc, char *argv[]) {
         xent.EvalVec(nnet_out, nnet_labs, &glob_err);
 
         if (!cross_validate) {
+          if(front_err.NumRows()!=glob_err.NumRows() || front_err.NumCols() != nnet_backend.InputDim()) {
+            front_err.Resize(glob_err.NumRows(), nnet_backend.InputDim());
+          }
           nnet_backend.Backpropagate(glob_err, &front_err);
 
           front_err.MulElements(hid_masks);
