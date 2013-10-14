@@ -46,6 +46,9 @@ int main(int argc, char *argv[]) {
     po.Register("weight-init", &weight_init, "Initial weight archive");
     po.Register("bias-init", &bias_init, "Initial bias archive");
 
+    bool average_grad = false;
+    po.Register("average-grad", &average_grad, "Average the gradent or not");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 5) {
@@ -78,6 +81,7 @@ int main(int argc, char *argv[]) {
         learn_factors += ",0";
     }
 
+    nnet.SetAverageGrad(average_grad);
     nnet.SetMomentum(momentum);
     nnet.SetL2Penalty(l2_penalty);
     nnet.SetL1Penalty(l1_penalty);
