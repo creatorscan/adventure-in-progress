@@ -37,6 +37,9 @@ int main(int argc, char *argv[]) {
     po.Register("randomize", &randomize,
                 "Perform the frame-level shuffling within the Cache::");
 
+    BaseFloat alpha = 3.0;
+    po.Register("alpha", &alpha, "Alpha value for hidden masking");
+
     BaseFloat learn_rate = 0.008,
         momentum = 0.0,
         l2_penalty = 0.0,
@@ -44,7 +47,7 @@ int main(int argc, char *argv[]) {
     po.Register("learn-rate", &learn_rate, "Learning rate");
     po.Register("momentum", &momentum, "Momentum");
     po.Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
-    po.Register("l1-penalty", &l1_penalty, "L1 penalty (promte sparsity)");
+    po.Register("l1-penalty", &l1_penalty, "L1 penalty (promote sparsity)");
 
     bool average_grad = false;
     po.Register("average-grad", &average_grad,
@@ -95,19 +98,23 @@ int main(int argc, char *argv[]) {
 
     // The hidden masking happends between the front-end and back-end DNN
     Nnet nnet_frontend;
-    nnet_frontend.Read(frontend_filename);
-    nnet_hidmask[0].SetLearnRate(learn_rate, NULL);
-    nnet_hidmask[0].SetMomentum(momentum);
-    nnet_hidmask[0].SetL2Penalty(l2_penalty);
-    nnet_hidmask[0].SetL1Penalty(l1_penalty);
-    nnet_hidmask[0].SetAverageGrad(average_grad);
+    nnet_frontend.Read(model_frontend_filename);
+    if (learn_factors_front == "") {
+      nnet_frontend.SetLearnRate(learn_rate, NULL);
+    }else{
+      nnet_frontend.SetLearnRate(learn_rate, learn_factors_front.c_str());
+    }
+    nnet_frontend.SetMomentum(momentum);
+    nnet_frontend.SetL2Penalty(l2_penalty);
+    nnet_frontend.SetL1Penalty(l1_penalty);
+    nnet_frontend.SetAverageGrad(average_grad);
 
     Nnet nnet_backend;
     nnet_backend.Read(model_backend_filename);
-    if (learn_factors == "") {
+    if (learn_factors_back == "") {
       nnet_backend.SetLearnRate(learn_rate, NULL);
     } else {
-      nnet_backend.SetLearnRate(learn_rate, learn_factors.c_str());
+      nnet_backend.SetLearnRate(learn_rate, learn_factors_back.c_str());
     }
     nnet_backend.SetMomentum(momentum);
     nnet_backend.SetL2Penalty(l2_penalty);
@@ -127,11 +134,11 @@ int main(int argc, char *argv[]) {
     Xent xent;
 
     CuMatrix<BaseFloat> noisy_feats, clean_feats, noisy_feats_transf,
-        clean_feats_transf,
-        backend_in, backend_out, glob_err;
-    CuMatrix<BaseFloat> nnet_noisy_in[MAX_HIDMASK_NNETS],
-        nnet_clean_in[MAX_HIDMASK_NNETS], hid_masks[MAX_HIDMASK_NNETS],
-        layer_err[MAX_HIDMASK_NNETS];
+        clean_feats_transf;
+
+    CuMatrix<BaseFloat> front_noisy_in, front_noisy_out,
+        front_clean_in, front_clean_out, nnet_out, hid_masks,
+        glob_err, front_err;
     std::vector<int32> nnet_labs;
 
     Timer tim;
@@ -201,36 +208,36 @@ int main(int argc, char *argv[]) {
       // train with the cache
       while (!cache.Empty()) {
         // get block of features pairs
-        cache.GetBunch(&(nnet_noisy_in[0]), &nnet_labs, &(nnet_clean_in[0]));
+        cache.GetBunch(&front_noisy_in, &nnet_labs, &front_clean_in);
 
         // forward through nnet_hidmask
-        nnet_hidmask[0].Feedforward(nnet_noisy_in[0], &(nnet_noisy_in[1]));
-        backend_in.CopyFromMat(nnet_noisy_in[1]);
+        nnet_frontend.Feedforward(front_noisy_in, &front_noisy_out);
 
         if (!cross_validate) {
-          nnet_hidmask[0].Feedforward(nnet_clean_in[0], &(nnet_clean_in[1]));
+          nnet_frontend.Feedforward(front_clean_in, &front_clean_out);
 
           // compute hid masks
-          hid_masks[1].CopyFromMat(nnet_noisy_in[1]);
-          hid_masks[1].AddMat(-1.0, nnet_clean_in[1], 1.0);
-          hid_masks[1].Power(2.0);
-          hid_masks[1].ApplyExp();
+          hid_masks.CopyFromMat(front_noisy_out);
+          hid_masks.AddMat(-1.0, front_clean_out, 1.0);
+          hid_masks.Power(2.0);
+          hid_masks.Scale(-1.0 * alpha);
+          hid_masks.ApplyExp();
 
           // apply masks to hidden acts
-          backend_in.MulElements(hid_masks[1]);
+          front_noisy_out.MulElements(hid_masks);
         }
 
         // forward through backend nnet
-        nnet_backend.Feedforward(backend_in, &backend_out);
+        nnet_backend.Feedforward(front_noisy_out, &nnet_out);
 
         // evaluate
-        xent.EvalVec(backend_out, nnet_labs, &glob_err);
+        xent.EvalVec(nnet_out, nnet_labs, &glob_err);
 
         if (!cross_validate) {
-          nnet_backend.Backpropagate(glob_err, &(layer_err[1]));
+          nnet_backend.Backpropagate(glob_err, &front_err);
 
-          layer_err[1].MulElements(hid_masks[1]);
-          nnet_hidmask[0].Backpropagate(layer_err[1], NULL);
+          front_err.MulElements(hid_masks);
+          nnet_frontend.Backpropagate(front_err, NULL);
 
         }
         tot_t += nnet_labs.size();
@@ -243,7 +250,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!cross_validate) {
-      nnet_hidmask[0].Write(target_hidmask_l1_filename, binary);
+      nnet_frontend.Write(target_frontend_filename, binary);
       nnet_backend.Write(target_backend_filename, binary);
     }
 
