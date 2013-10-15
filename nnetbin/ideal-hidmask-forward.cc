@@ -30,6 +30,12 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+	bool binarize_mask = false;
+	po.Register("binarize-mask", &binarize_mask, "Binarize the hidden mask");
+
+	BaseFloat binarize_threshold = 0.5;
+	po.Register("binarize-threshold", &binarize_threshold, "Threshold to binarize the hidden mask");
+
     BaseFloat alpha = 1.0;
     po.Register("alpha", &alpha, "Alpha value for the hidden mask compuation");
 
@@ -161,6 +167,7 @@ int main(int argc, char *argv[]) {
       hidmask.Power(2.0);
       hidmask.Scale(-1.0*alpha);
       hidmask.ApplyExp();
+      if(binarize_mask) hidmask.Binarize(binarize_threshold);
 
       l1_out.MulElements(hidmask);
 
