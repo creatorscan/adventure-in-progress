@@ -30,12 +30,17 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
     bool binary = false,
         cross_validate = false,
-        randomize = true;
+        randomize = true,
+		binarize_mask = false;
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("cross-validate", &cross_validate,
                 "Perform cross-validation (don't backpropagate)");
     po.Register("randomize", &randomize,
                 "Perform the frame-level shuffling within the Cache::");
+	po.Register("binarize-mask", &binarize_mask, "Binarize the hidden mask or not");
+
+	BaseFloat binarize_threshold = 0.5;
+	po.Register("binarize-threshold", &binarize_threshold, "Threshold value to binarize mask");
 
     BaseFloat alpha = 3.0;
     po.Register("alpha", &alpha, "Alpha value for hidden masking");
@@ -224,6 +229,9 @@ int main(int argc, char *argv[]) {
           hid_masks.Power(2.0);
           hid_masks.Scale(-1.0 * alpha);
           hid_masks.ApplyExp();
+
+		  if (binarize_mask)
+			hid_masks.Binarize(0.5);
 
           // apply masks to hidden acts
           front_noisy_out.MulElements(hid_masks);
