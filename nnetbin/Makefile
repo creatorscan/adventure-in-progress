@@ -19,7 +19,8 @@ BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-
 		   analyze-gmm-nnet hmmbl-create hmmbl-vts-forward normalize-feats nnet-train-xent-mse-frmshuff \
 		   nnet-xent-mse-split nnet2-train-xent-mse-frmshuff ubm-avg-likes nnet-hidmask-train-frmshuff \
 		   nnet-cleanh-train-frmshuff codebl-create codebl-train-xent-hardlab-frmshuff codevec-init \
-		   codevec-train-xent-hardlab-frmshuff codebl-forward ideal-hidmask-forward lin-train-perutt-single-iter
+		   codevec-train-xent-hardlab-frmshuff codebl-forward ideal-hidmask-forward lin-train-perutt-single-iter \
+		   scale-nnet
 
 OBJFILES =
 
