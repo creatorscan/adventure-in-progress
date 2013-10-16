@@ -31,16 +31,18 @@ int main(int argc, char *argv[]) {
     bool binary = false,
         cross_validate = false,
         randomize = true,
-		binarize_mask = false;
+        binarize_mask = false;
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("cross-validate", &cross_validate,
                 "Perform cross-validation (don't backpropagate)");
     po.Register("randomize", &randomize,
                 "Perform the frame-level shuffling within the Cache::");
-	po.Register("binarize-mask", &binarize_mask, "Binarize the hidden mask or not");
+    po.Register("binarize-mask", &binarize_mask,
+                "Binarize the hidden mask or not");
 
-	BaseFloat binarize_threshold = 0.5;
-	po.Register("binarize-threshold", &binarize_threshold, "Threshold value to binarize mask");
+    BaseFloat binarize_threshold = 0.5;
+    po.Register("binarize-threshold", &binarize_threshold,
+                "Threshold value to binarize mask");
 
     BaseFloat alpha = 3.0;
     po.Register("alpha", &alpha, "Alpha value for hidden masking");
@@ -106,7 +108,7 @@ int main(int argc, char *argv[]) {
     nnet_frontend.Read(model_frontend_filename);
     if (learn_factors_front == "") {
       nnet_frontend.SetLearnRate(learn_rate, NULL);
-    }else{
+    } else {
       nnet_frontend.SetLearnRate(learn_rate, learn_factors_front.c_str());
     }
     nnet_frontend.SetMomentum(momentum);
@@ -215,7 +217,7 @@ int main(int argc, char *argv[]) {
         // get block of features pairs
         cache.GetBunch(&front_noisy_in, &nnet_labs, &front_clean_in);
 
-        if (!cross_validate){ // do clean first so that the buffers are overwrittend by noisy features
+        if (!cross_validate) {  // do clean first so that the buffers are overwrittend by noisy features
           nnet_frontend.Propagate(front_clean_in, &front_clean_out);
         }
 
@@ -230,8 +232,8 @@ int main(int argc, char *argv[]) {
           hid_masks.Scale(-1.0 * alpha);
           hid_masks.ApplyExp();
 
-		  if (binarize_mask)
-			hid_masks.Binarize(0.5);
+          if (binarize_mask)
+            hid_masks.Binarize(0.5);
 
           // apply masks to hidden acts
           front_noisy_out.MulElements(hid_masks);
@@ -266,25 +268,24 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n" << std::flush;
 
-  KALDI_LOG << (cross_validate? "CROSSVALIDATE":"TRAINING") << " FINISHED "
-      << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
-      << ", feature wait " << time_next << "s";
+    KALDI_LOG<< (cross_validate? "CROSSVALIDATE":"TRAINING") << " FINISHED "
+    << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
+    << ", feature wait " << time_next << "s";
 
-  KALDI_LOG << "Done " << num_done << " files, " << num_no_align
-      << " with no alignments, " << num_other_error
-      << " with other errors.";
+    KALDI_LOG<< "Done " << num_done << " files, " << num_no_align
+    << " with no alignments, " << num_other_error
+    << " with other errors.";
 
-  KALDI_LOG << xent.Report();
+    KALDI_LOG<< xent.Report();
 
 #if HAVE_CUDA == 1
-  CuDevice::Instantiate().PrintProfile();
+        CuDevice::Instantiate().PrintProfile();
 #endif
 
+      } catch (const std::exception &e) {
+        std::cerr << e.what();
+        return -1;
+      }
 
-} catch (const std::exception &e) {
-  std::cerr << e.what();
-  return -1;
-}
-
-}
+    }
 
