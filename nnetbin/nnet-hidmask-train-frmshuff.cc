@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
           hid_masks.ApplyExp();
 
           if (binarize_mask)
-            hid_masks.Binarize(0.5);
+            hid_masks.Binarize(binarize_threshold);
 
           // apply masks to hidden acts
           front_noisy_out.MulElements(hid_masks);

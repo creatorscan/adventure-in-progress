@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
           hid_masks.Scale(-1.0 * alpha);
           hid_masks.ApplyExp();
           if (binarize_mask)
-            hid_masks.Binarize(0.5);
+            hid_masks.Binarize(binarize_threshold);
           // add to cache
           cache.AddData(noisy_transf, hid_masks);
           num_done++;
