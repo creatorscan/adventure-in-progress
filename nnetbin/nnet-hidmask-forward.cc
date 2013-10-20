@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
     Nnet nnet_front, nnet_back, nnet_mask;
     nnet_front.Read(frontend_model_filename);
-	if(backend_model_filename!="-")
+	if(backend_model_filename!="dummy")
 	    nnet_back.Read(backend_model_filename);
     nnet_mask.Read(mask_model_filename);
 
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
       front_out.MulElements(hidmask);
       
       // forward throught backend nnet
-      if(backend_model_filename!="-")
+      if(backend_model_filename!="dummy")
 		nnet_back.Feedforward(front_out, &nnet_out);
 	  else
 		nnet_out.CopyFromMat(front_out);
