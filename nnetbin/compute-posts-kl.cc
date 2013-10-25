@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
       for (int32 r = 0; r < p_post.NumRows(); ++r){
         stats(r)=0.0;
         for(int32 c =0 ; c< p_post.NumCols(); ++c){
-          if (p_post(r, c) >= zero_value){
+          if (p_post(r, c) >= zero_value && q_post(r, c) >= zero_value){
             stats(r) += p_post(r,c) * log(p_post(r,c)/q_post(r,c));
           }
         }
