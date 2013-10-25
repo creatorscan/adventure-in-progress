@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
     KALDI_LOG<< "Per-Frame KL Divergence Mean is: " << sum/tot_frames
         << ", Standard deviation is: " << sqrt((sum2 - sum/tot_frames)/tot_frames);
-    KALDI_LOG << "Per-Utterance Average KL Divergence is:" << sum_utt_avg / num_done;
+    KALDI_LOG << "Per-Utterance Average KL Divergence is: " << sum_utt_avg / num_done;
 
     return 0;
   } catch (const std::exception &e) {
