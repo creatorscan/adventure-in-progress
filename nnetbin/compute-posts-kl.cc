@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
     BaseFloatVectorWriter kl_writer(kl_wspecifier);
 
-    double sum = 0.0, sum2 = 0.0;
+    double sum = 0.0, sum2 = 0.0, sum_utt_avg = 0.0;
 
     Timer tim;
 
@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
       }
 
       Vector<BaseFloat> stats(p_post.NumRows(), kSetZero);
+      double utt_sum = 0.0, utt_sum2 = 0.0;
       for (int32 r = 0; r < p_post.NumRows(); ++r){
         stats(r)=0.0;
         for(int32 c =0 ; c< p_post.NumCols(); ++c){
@@ -78,10 +79,14 @@ int main(int argc, char *argv[]) {
           }
         }
 
-        sum += stats(r);
-        sum2 += stats(r) * stats(r);
+        utt_sum += stats(r);
+        utt_sum2 += stats(r) * stats(r);
         ++tot_frames;
       }
+
+      sum += utt_sum;
+      sum2 += utt_sum2;
+      sum_utt_avg += (utt_sum/p_post.NumRows());
 
       kl_writer.Write(key, stats);
 
@@ -98,8 +103,9 @@ int main(int argc, char *argv[]) {
     << " with no Q posteriors, " << num_other_error
     << " with other errors.";
 
-    KALDI_LOG<< "Mean KL Divergence for all these utterances is: " << sum/tot_frames
+    KALDI_LOG<< "Per-Frame KL Divergence Mean is: " << sum/tot_frames
         << ", Standard deviation is: " << sqrt((sum2 - sum/tot_frames)/tot_frames);
+    KALDI_LOG << "Per-Utterance Average KL Divergence is:" << sum_utt_avg / num_done;
 
     return 0;
   } catch (const std::exception &e) {
