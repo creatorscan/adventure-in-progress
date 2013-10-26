@@ -60,12 +60,9 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
-    Nnet nnet_transf, nnet_backend;
+    Nnet nnet_transf;
     if (feature_transform != "") {
       nnet_transf.Read(feature_transform);
-    }
-    if (backend_nnet != "") {
-      nnet_backend.Read(backend_nnet);
     }
 
     Nnet nnet;
@@ -80,31 +77,8 @@ int main(int argc, char *argv[]) {
     CuMatrix<BaseFloat> ref_feats, ref_feats_transf, ref_l1_out;
     Matrix<BaseFloat> l1_out_host, hidmask_host;
 
-    // Read the class-counts, compute priors
-    Vector<BaseFloat> tmp_priors;
-    CuVector<BaseFloat> priors;
-    if (class_frame_counts != "") {
-      Input in;
-      in.OpenTextMode(class_frame_counts);
-      tmp_priors.Read(in.Stream(), false);
-      in.Close();
-
-      BaseFloat sum = tmp_priors.Sum();
-      tmp_priors.Scale(1.0 / sum);
-      if (apply_log || no_softmax) {
-        tmp_priors.ApplyLog();
-        tmp_priors.Scale(-prior_scale);
-      } else {
-        tmp_priors.ApplyPow(-prior_scale);
-      }
-
-      // push priors to GPU
-      priors.CopyFromVec(tmp_priors);
-    }
-
     Timer tim;
-    if (!silent)
-      KALDI_LOG<< "MLP FEEDFORWARD STARTED";
+    KALDI_LOG<< "MLP FEEDFORWARD STARTED";
 
     int32 num_done = 0;
     // iterate over all the feature files
@@ -179,7 +153,6 @@ int main(int argc, char *argv[]) {
 
       // progress log
       if (num_done % 1000 == 0) {
-        if (!silent)
           KALDI_LOG<< num_done << ", " << std::flush;
         }
       num_done++;
