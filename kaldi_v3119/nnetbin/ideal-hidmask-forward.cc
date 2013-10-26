@@ -148,8 +148,8 @@ int main(int argc, char *argv[]) {
         }
       }
       // push it to gpu
-      feats.CopyFromMat(mat);
-      ref_feats.CopyFromMat(ref_mat);
+      feats=mat;
+      ref_feats=ref_mat;
       // fwd-pass
       nnet_transf.Feedforward(feats, &feats_transf);
       nnet_transf.Feedforward(ref_feats, &ref_feats_transf);
@@ -195,6 +195,7 @@ int main(int argc, char *argv[]) {
       }
      
       //download from GPU 
+      nnet_out.Resize(nnet_out.NumRows(), nnet_out.NumCols());
       nnet_out.CopyToMat(&nnet_out_host);
       //check for NaN/inf
       for(int32 r=0; r<nnet_out_host.NumRows(); r++) {
