@@ -30,7 +30,8 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
 
     BaseFloat active_threshold = 1e-6;
-    po.Register("active-threshold", &active_threshold, "Activations above this threshold is deemed as active");
+    po.Register("active-threshold", &active_threshold,
+                "Activations above this threshold is deemed as active");
 
     bool binarize_mask = false;
     po.Register("binarize-mask", &binarize_mask, "Binarize the hidden mask");
@@ -45,30 +46,6 @@ int main(int argc, char *argv[]) {
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
                 "Feature transform Neural Network");
-
-    std::string backend_nnet = "";
-    po.Register("backend-nnet", &backend_nnet, "Backend Nnet");
-
-    std::string class_frame_counts;
-    po.Register("class-frame-counts", &class_frame_counts,
-                "Counts of frames for posterior division by class-priors");
-
-    BaseFloat prior_scale = 1.0;
-    po.Register(
-        "prior-scale",
-        &prior_scale,
-        "scaling factor of prior log-probabilites given by --class-frame-counts");
-
-    bool apply_log = false, silent = false;
-    po.Register("apply-log", &apply_log, "Transform MLP output to logscale");
-
-    bool no_softmax = false;
-    po.Register(
-        "no-softmax",
-        &no_softmax,
-        "No softmax on MLP output. The MLP outputs directly log-likelihoods, log-priors will be subtracted");
-
-    po.Register("silent", &silent, "Don't print any messages");
 
     po.Read(argc, argv);
 
@@ -191,14 +168,14 @@ int main(int argc, char *argv[]) {
       //accumulate statistics
       for (int32 r = 0; r < l1_out_host.NumRows(); r++) {
         for (int32 c = 0; c < l1_out_host.NumCols(); c++) {
-            if(l1_out_host(r,c)>active_threshold){
-              ++tot_act;
-              if(hidmask_host(r,c)<=binarize_threshold){
-                ++tot_act_discarded;
-              }
+          if (l1_out_host(r, c) > active_threshold) {
+            ++tot_act;
+            if (hidmask_host(r, c) <= binarize_threshold) {
+              ++tot_act_discarded;
             }
           }
         }
+      }
 
       // progress log
       if (num_done % 1000 == 0) {
@@ -210,15 +187,13 @@ int main(int argc, char *argv[]) {
     }
 
     // final message
-    if (!silent) {
-      KALDI_LOG<< "ACCUMULATE STATISTICS FINISHED "
-      << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed();
-      KALDI_LOG<< "Done " << num_done << " files";
-      KALDI_LOG << tot_act_discarded*100/tot_act << "% [ " << tot_act_discarded << " / " << tot_act << " ] are discarded.";
-    }
+
+    KALDI_LOG<< "ACCUMULATE STATISTICS FINISHED "<< tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed();
+    KALDI_LOG<< "Done " << num_done << " files";
+    KALDI_LOG<< tot_act_discarded*100/tot_act << "% [ " << tot_act_discarded << " / " << tot_act << " ] are discarded.";
 
 #if HAVE_CUDA==1
-      if (!silent) CuDevice::Instantiate().PrintProfile();
+    CuDevice::Instantiate().PrintProfile();
 #endif
 
     return ((num_done > 0) ? 0 : 1);
