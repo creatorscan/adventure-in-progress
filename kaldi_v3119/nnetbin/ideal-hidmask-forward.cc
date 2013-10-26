@@ -161,10 +161,8 @@ int main(int argc, char *argv[]) {
        * Do masking
        *
        */
-      if(hidmask.NumRows()!=l1_out.NumRows() || hidmask.NumCols() != l1_out.NumCols()){
-        hidmask.Resize(l1_out.NumRows(), l1_out.NumCols());
-      }
-      hidmask.CopyFromMat(l1_out);
+
+      hidmask=l1_out;
       hidmask.AddMat(-1.0, ref_l1_out, 1.0);
       hidmask.ApplyPow(2.0);
       hidmask.Scale(-1.0*alpha);
@@ -177,7 +175,7 @@ int main(int argc, char *argv[]) {
       if(backend_nnet != ""){
         nnet_backend.Feedforward(l1_out, &nnet_out);
       }else{
-        nnet_out.CopyFromMat(l1_out);
+        nnet_out=l1_out;
       }
       
       // convert posteriors to log-posteriors
@@ -195,7 +193,7 @@ int main(int argc, char *argv[]) {
       }
      
       //download from GPU 
-      nnet_out.Resize(nnet_out.NumRows(), nnet_out.NumCols());
+      nnet_out_host.Resize(nnet_out.NumRows(), nnet_out.NumCols());
       nnet_out.CopyToMat(&nnet_out_host);
       //check for NaN/inf
       for(int32 r=0; r<nnet_out_host.NumRows(); r++) {
