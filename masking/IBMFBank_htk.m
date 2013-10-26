@@ -7,8 +7,6 @@ function [noisyFBank, noisySpectrum, mask]=IBMFBank_htk(noisywav, cleanwav, loca
 %
 % The extracted features are exactly the same as using HTK. 
 % The configuration parameters are based on Aurora2. 
-% 
-% No delta and acceleration information are computed in the current version.
 %
 % Inputs:
 %   noisywav - noisy speech signal, WAV format
