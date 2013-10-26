@@ -364,7 +364,7 @@ void CuMatrixBase<Real>::Scale(Real value) {
 }
 
 template<typename Real>
-void CuMatrixBase<Real>::Power(Real pow) {
+void CuMatrixBase<Real>::ApplyPower(Real pow) {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -379,7 +379,7 @@ void CuMatrixBase<Real>::Power(Real pow) {
   } else
 #endif
   {
-    Mat().Power(pow);
+    Mat().ApplyPower(pow);
   }
 }
 
