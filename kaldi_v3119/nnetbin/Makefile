@@ -13,7 +13,8 @@ BINFILES = nnet-train-xent-hardlab-perutt \
 	rbm-train-cd1-frmshuff rbm-convert-to-nnet \
 	nnet-forward nnet-copy nnet-info nnet-concat \
 	transf-to-nnet cmvn-to-nnet copy-feats-from-text \
-	copy-feats-to-text ideal-hidmask-forward
+	copy-feats-to-text ideal-hidmask-forward \
+	nnet-hidmask-mse-tgtmat-frmshuff
 
 OBJFILES =
 
