@@ -98,7 +98,6 @@ int main(int argc, char *argv[]) {
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     SequentialBaseFloatMatrixReader ref_feats_reader(ref_feats_rspecifier);
-    BaseFloatMatrixWriter feature_writer(feature_wspecifier);
 
     CuMatrix<BaseFloat> feats, feats_transf, l1_out, nnet_out, hidmask;
     CuMatrix<BaseFloat> ref_feats, ref_feats_transf, ref_l1_out;
@@ -192,7 +191,7 @@ int main(int argc, char *argv[]) {
       //accumulate statistics
       for (int32 r = 0; r < l1_out_host.NumRows(); r++) {
         for (int32 c = 0; c < l1_out_host.NumCols(); c++) {
-            if(l1_out(r,c)>active_threshold){
+            if(l1_out_host(r,c)>active_threshold){
               ++tot_act;
               if(hidmask_host(r,c)<=binarize_threshold){
                 ++tot_act_discarded;
