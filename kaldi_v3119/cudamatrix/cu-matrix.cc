@@ -379,7 +379,7 @@ void CuMatrixBase<Real>::ApplyPower(Real pow) {
   } else
 #endif
   {
-    Mat().ApplyPower(pow);
+    Mat().ApplyPow(pow);
   }
 }
 
