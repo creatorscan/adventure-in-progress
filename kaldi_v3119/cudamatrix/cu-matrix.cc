@@ -293,7 +293,7 @@ void CuMatrixBase<Real>::Set(Real value) {
 }
 
 template<typename Real>
-void CuMatrix<Real>::Binarize(Real thres) {
+void CuMatrixBase<Real>::Binarize(Real thres) {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -310,10 +310,10 @@ void CuMatrix<Real>::Binarize(Real thres) {
   {
     for (MatrixIndexT i = 0; i < num_rows_; i++) {
       for (MatrixIndexT j = 0; j < num_cols_; j++) {
-        if (mat_(i, j) > thres)
-          mat_(i, j) = 1.0;
+        if (Mat()(i, j) > thres)
+          Mat()(i, j) = 1.0;
         else
-          mat_(i, j) = 0.0;
+          Mat()(i, j) = 0.0;
       }
     }
   }
@@ -364,7 +364,7 @@ void CuMatrixBase<Real>::Scale(Real value) {
 }
 
 template<typename Real>
-void CuMatrix<Real>::Power(Real pow) {
+void CuMatrixBase<Real>::Power(Real pow) {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -379,12 +379,12 @@ void CuMatrix<Real>::Power(Real pow) {
   } else
 #endif
   {
-    mat_.Power(pow);
+    Mat().Power(pow);
   }
 }
 
 template<typename Real>
-void CuMatrix<Real>::ApplyExp() {
+void CuMatrixBase<Real>::ApplyExp() {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -399,7 +399,7 @@ void CuMatrix<Real>::ApplyExp() {
   } else
 #endif
   {
-    mat_.ApplyExp();
+    Mat().ApplyExp();
   }
 }
 
