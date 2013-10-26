@@ -215,6 +215,7 @@ int main(int argc, char *argv[]) {
       << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed();
       KALDI_LOG<< "Done " << num_done << " files";
       KALDI_LOG << tot_act_discarded*100/tot_act << "% [ " << tot_act_discarded << " / " << tot_act << " ] are discarded.";
+    }
 
 #if HAVE_CUDA==1
       if (!silent) CuDevice::Instantiate().PrintProfile();
