@@ -364,7 +364,7 @@ void CuMatrixBase<Real>::Scale(Real value) {
 }
 
 template<typename Real>
-void CuMatrixBase<Real>::ApplyPower(Real pow) {
+void CuMatrixBase<Real>::ApplyPow(Real pow) {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -372,7 +372,7 @@ void CuMatrixBase<Real>::ApplyPower(Real pow) {
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
 
-    cuda_apply_power(dimGrid, dimBlock, data_, pow, Dim());
+    cuda_apply_pow(dimGrid, dimBlock, data_, pow, Dim());
     cuSafeCall(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());

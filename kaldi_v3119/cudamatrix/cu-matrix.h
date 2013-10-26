@@ -141,7 +141,7 @@ class CuMatrixBase {
   void Binarize(Real thres);
   void Add(Real value);
   void Scale(Real value);
-  void ApplyPower(Real pow);
+  void ApplyPow(Real pow);
   void ApplyExp();
   void ApplyLog();
   /// Multiply two matrices elementhwise: C = A .* C

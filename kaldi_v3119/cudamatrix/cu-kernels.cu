@@ -164,7 +164,7 @@ static void _scale(Real* mat, Real value, MatrixDim d) {
 
 template<typename Real>
 __global__
-static void _apply_power(Real* mat, Real pw, MatrixDim d) {
+static void _apply_pow(Real* mat, Real pw, MatrixDim d) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
   int32_cuda index = i + j*d.stride;
@@ -619,8 +619,8 @@ void cudaF_scale(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _scale<<<Gr,Bl>>>(mat,value,d); 
 }
 
-void cudaF_apply_power(dim3 Gr, dim3 Bl, float* mat, float pow, MatrixDim d) {
-  _apply_power<<<Gr,Bl>>>(mat,pow,d);
+void cudaF_apply_pow(dim3 Gr, dim3 Bl, float* mat, float pow, MatrixDim d) {
+  _apply_pow<<<Gr,Bl>>>(mat,pow,d);
 }
 
 void cudaF_apply_exp(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) {
@@ -759,8 +759,8 @@ void cudaD_scale(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _scale<<<Gr,Bl>>>(mat,value,d); 
 }
 
-void cudaD_apply_power(dim3 Gr, dim3 Bl, double* mat, double pow, MatrixDim d) {
-  _apply_power<<<Gr,Bl>>>(mat,pow,d);
+void cudaD_apply_pow(dim3 Gr, dim3 Bl, double* mat, double pow, MatrixDim d) {
+  _apply_pow<<<Gr,Bl>>>(mat,pow,d);
 }
 
 void cudaD_apply_exp(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) {
