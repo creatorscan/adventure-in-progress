@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
       }
 
       // push priors to GPU
-      priors.CopyFromVec(tmp_priors);
+      priors=tmp_priors;
     }
 
     Timer tim;
