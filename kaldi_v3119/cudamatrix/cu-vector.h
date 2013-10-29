@@ -104,12 +104,14 @@ class CuVector: public CuVectorBase<Real> {
   ~CuVector() { Destroy(); }
 
   CuVector<Real> &operator = (const CuVectorBase<Real> &other) {
-    Resize(other.Dim());
-    CopyFromVec(other);
+    this->Resize(other.Dim());
+    this->CopyFromVec(other);
+    return *this;
   }
   CuVector<Real> &operator = (const VectorBase<Real> &other) {
-    Resize(other.Dim());
-    CopyFromVec(other);
+    this->Resize(other.Dim());
+    this->CopyFromVec(other);
+    return *this;
   }
       
 
