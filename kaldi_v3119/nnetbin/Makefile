@@ -14,7 +14,9 @@ BINFILES = nnet-train-xent-hardlab-perutt \
 	nnet-forward nnet-copy nnet-info nnet-concat \
 	transf-to-nnet cmvn-to-nnet copy-feats-from-text \
 	copy-feats-to-text ideal-hidmask-forward \
-	nnet-hidmask-mse-tgtmat-frmshuff
+	nnet-hidmask-mse-tgtmat-frmshuff \
+	codeat-convert codeat-forward codeat-init-code \
+	codeat-train-code
 
 OBJFILES =
 
