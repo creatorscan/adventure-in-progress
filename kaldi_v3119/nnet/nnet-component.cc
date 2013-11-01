@@ -24,6 +24,7 @@
 #include "nnet/nnet-affine-transform.h"
 #include "nnet/nnet-rbm.h"
 #include "nnet/nnet-various.h"
+#include "nnet/nnet-codeat.h"
 
 namespace kaldi {
 namespace nnet1 {
@@ -40,6 +41,7 @@ const struct Component::key_value Component::kMarkerMap[] = {
   { Component::kCopy,"<copy>" },
   { Component::kAddShift,"<addshift>" },
   { Component::kRescale,"<rescale>" },
+  { Component::kCodeAT,"<codeat>" },
 };
 
 
@@ -118,6 +120,9 @@ Component* Component::Read(std::istream &is, bool binary) {
       break;
     case Component::kRescale :
       p_comp = new Rescale(dim_in, dim_out);
+      break;
+    case Component::kCodeAT:
+      p_comp = new CodeAT(dim_in, dim_out);
       break;
     case Component::kUnknown :
     default :

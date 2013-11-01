@@ -50,6 +50,7 @@ class Component {
      
     kUpdatableComponent = 0x0100, 
     kAffineTransform,
+    kCodeAT,
 
     kActivationFunction = 0x0200, 
     kSoftmax, 

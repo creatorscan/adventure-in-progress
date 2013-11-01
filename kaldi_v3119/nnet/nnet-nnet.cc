@@ -22,6 +22,7 @@
 #include "nnet/nnet-activation.h"
 #include "nnet/nnet-affine-transform.h"
 #include "nnet/nnet-various.h"
+#include "nnet/nnet-codeat.h"
 
 
 namespace kaldi {

@@ -128,7 +128,7 @@ class AffineTransform : public UpdatableComponent {
   }
 
 
- private:
+ protected:
   CuMatrix<BaseFloat> linearity_;
   CuVector<BaseFloat> bias_;
 
