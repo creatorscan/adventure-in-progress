@@ -65,27 +65,10 @@ int main(int argc, char *argv[]) {
 
       for (int32 i = 0; i < nnet.NumComponents(); ++i) {
         if (nnet.GetComponent(i).GetType() == Component::kAffineTransform) {
-          AffineTransform& at =
-              dynamic_cast<AffineTransform&>(nnet.GetComponent(i));
+          AffineTransform& at = dynamic_cast<AffineTransform&>(nnet.GetComponent(i));
 
           int32 at_in_dim = at.InputDim();
           int32 at_out_dim = at.OutputDim();
-
-          Matrix<BaseFloat> linearity(at_out_dim, at_in_dim + code_dim,
-                                      kSetZero);
-          Matrix<BaseFloat> at_linearity(at_out_dim, at_in_dim, kSetZero);
-          Vector<BaseFloat> bias(at_out_dim);
-
-          if (gauss_random) {
-            linearity.SetRandn();
-            linearity.Scale(random_scale);
-          }
-
-          (at.GetLinearity()).CopyToMat(&at_linearity);
-          (at.GetBias()).CopyToVec(&bias);
-
-          (SubMatrix<BaseFloat>(linearity, 0, at_out_dim, 0, at_in_dim))
-              .CopyFromMat(at_linearity, kNoTrans);
 
           // Write out the component
           WriteToken(ko.Stream(), binary,
@@ -97,8 +80,18 @@ int main(int argc, char *argv[]) {
           WriteBasicType(ko.Stream(), binary, code_dim);
           if (!binary)
             ko.Stream() << "\n";
-          linearity.Write(ko.Stream(), binary);
-          bias.Write(ko.Stream(), binary);
+
+          (at.GetLinearity()).Write(ko.Stream(), binary);
+          (at.GetBias()).Write(ko.Stream(), binary);
+
+          // generate the random code_xform
+          Matrix<BaseFloat> code_xform(at_out_dim, code_dim, kSetZero);
+          if(gauss_random) {
+            code_xform.SetRandn();
+            code_xform.Scale(random_scale);
+          }
+
+          code_xform.Write(ko.Stream(), binary);
 
         } else {
           nnet.GetComponent(i).Write(ko.Stream(), binary);

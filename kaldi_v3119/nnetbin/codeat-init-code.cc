@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
       ++num_set;
     }
 
-    KALDI_LOG << "Created " << num_set << (add_gauss_noise? "random ":"") << " codes.";
+    KALDI_LOG << "Created " << num_set << (add_gauss_noise? " random ":"") << " codes.";
 
     return 0;
 
