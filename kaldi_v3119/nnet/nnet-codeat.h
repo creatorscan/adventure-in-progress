@@ -28,11 +28,7 @@ class CodeAT : public AffineTransform {
         update_weight_(false), 
         update_code_xform_(false),
         update_code_vec_(false),
-        code_dim_(0), 
-        code_vec_(0), 
-        code_vec_corr_(0),
-        code_xform_(0,0),
-        code_xform_corr_(0,0)
+        code_dim_(0)
   {
   }
 
@@ -164,11 +160,16 @@ class CodeAT : public AffineTransform {
   }
 
   void ZeroCode() {
-    code_vec_.SetZero();
+    if(code_vec_.Dim()>0) {
+      code_vec_.SetZero();
+    }
+    
   }
 
   void ZeroCodeCorr() {
-    code_vec_corr_.SetZero();
+    if(code_vec_corr_.Dim()>0) {
+      code_vec_corr_.SetZero();
+    }
   }
 
   int32 GetCodeDim() {
