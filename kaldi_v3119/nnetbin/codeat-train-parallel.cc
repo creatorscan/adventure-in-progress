@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
     cachesize = (cachesize / bunchsize) * bunchsize;  // ensure divisibility
     cache.Init(cachesize, bunchsize);
 
-    Xent xent;
+    Mse mse;
 
     CuMatrix<BaseFloat> code_diff;
     CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out,
@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
           // train
           nnet.Propagate(nnet_in, &nnet_out);
 
-          xent.Eval(nnet_out, targets, &obj_diff);
+          mse.Eval(nnet_out, targets, &obj_diff);
           if (!crossvalidate) {
             // we need the nnet work to propagate throught the first layer
             nnet.Backpropagate(obj_diff, &in_diff);
@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
     << " with no alignments, " << num_other_error
     << " with other errors.";
 
-    KALDI_LOG<< xent.Report();
+    KALDI_LOG<< mse.Report();
 
 #if HAVE_CUDA==1
     CuDevice::Instantiate().PrintProfile();
