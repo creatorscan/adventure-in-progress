@@ -164,6 +164,8 @@ int main(int argc, char *argv[]) {
 
     Mse mse;
 
+    Vector<BaseFloat> code(code_dim, kSetZero);
+
     CuMatrix<BaseFloat> code_diff;
     CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out,
         obj_diff, in_diff;
@@ -182,11 +184,9 @@ int main(int argc, char *argv[]) {
         KALDI_ERR<< "No code for set " << setkey;
       }
       KALDI_LOG<< "Set # " << ++num_set << " - " << setkey << ":";
-      // copy the code to GPU
-      Vector<BaseFloat> code(code_vec_reader.Value(setkey));
       // update the nnet's codeat layers with new code
       for (int32 c = 0; c < num_codeat; ++c) {
-        layers_codeat[c]->SetCode(code);
+        layers_codeat[c]->SetCode(code_vec_reader.Value(setkey));
         // also clean the code_corr so that the gradient doesn't accumulate
         // through different sets
         layers_codeat[c]->ZeroCodeCorr();
@@ -232,8 +232,14 @@ int main(int argc, char *argv[]) {
 
             // All the checks OK,
             // push features to GPU
-          feats=mat;
-          ref_feats=ref_mat;
+          if(feats.NumRows()!=mat.NumRows() || feats.NumCols()!=mat.NumCols()) {
+            feats.Resize(mat.NumRows(), mat.NumCols());
+          }
+          feats.CopyFromMat(mat);
+          if(ref_feats.NumRows()!=ref_mat.NumRows() || ref_feats.NumCols()!=ref_mat.NumCols()) {
+            ref_feats.Resize(ref_mat.NumRows(), ref_mat.NumCols());
+          }
+          ref_feats.CopyFromMat(ref_mat);
           // possibly apply transform
           nnet_transf.Feedforward(feats, &feats_transf);
           nnet_transf.Feedforward(ref_feats, &ref_feats_transf);
