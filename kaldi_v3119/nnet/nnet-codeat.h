@@ -150,6 +150,8 @@ class CodeAT : public AffineTransform {
       KALDI_ERR << "Invalid code vector! Dim = " << code.Dim() << ", expecting " << code_dim_;
     }
     code_vec_.CopyFromVec(code);
+    code_xform_corr_.SetZero();
+    code_vec_corr_.SetZero();
   }
 
   void SetCode(const Vector<BaseFloat> &code) {
@@ -157,6 +159,8 @@ class CodeAT : public AffineTransform {
       KALDI_ERR << "Invalid code vector! Dim = " << code.Dim() << ", expecting " << code_dim_;
     }
     code_vec_.CopyFromVec(code);
+    code_xform_corr_.SetZero();
+    code_vec_corr_.SetZero();
   }
 
   const CuVector<BaseFloat>& GetCode() {
