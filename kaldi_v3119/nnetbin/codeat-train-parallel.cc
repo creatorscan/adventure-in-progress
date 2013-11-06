@@ -26,12 +26,12 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Perform one iteration of <codeat> learning to reduce parallel data hidden activation mismatches by stochastic gradient descent.\n"
-            "Usage:  codeat-train [options] <adapt-model-in> <feature-rspecifier>"
-            " <targets-rspecifier> <set2utt-rspecifier> <code-rspecifier>\n"
+            "Usage:  codeat-train [options] <ref-adapt-model> <ref-feature-rspecifier> <adapt-model-in> <feature-rspecifier>"
+            "  <set2utt-rspecifier> <code-rspecifier>\n"
             "e.g.: \n"
             " codeat-train --update-weight=false --update-code-xform=true --update-code-vec=true "
             " --out-adapt-filename=adapt_iter1.nnet --code-vec-wspecifier=ark:code_iter1.ark "
-            " adapt.nnet scp:train.scp ark:h1_clean_acts.ark ark:set2utt.ark ark:code_init.ark\n";
+            " adapt_ref.nnet ark:train_ref.scp adapt.nnet scp:train.scp ark:set2utt.ark ark:code_init.ark\n";
 
     ParseOptions po(usage);
 
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 5) {
+    if (po.NumArgs() != 6) {
       po.PrintUsage();
       exit(1);
     }
@@ -103,11 +103,12 @@ int main(int argc, char *argv[]) {
       KALDI_ERR << "No output code archive is specified for learning";
     }
 
-    std::string adapt_model_filename = po.GetArg(1),
-        feature_rspecifier = po.GetArg(2),
-        targets_rspecifier = po.GetArg(3),
-        set2utt_rspecifier = po.GetArg(4),
-        code_vec_rspecifier = po.GetArg(5);
+    std::string ref_adapt_model_filename = po.GetArg(1),
+      ref_feature_rspecifier = po.GetArg(2),
+      adapt_model_filename = po.GetArg(3),
+      feature_rspecifier = po.GetArg(4),
+      set2utt_rspecifier = po.GetArg(5),
+      code_vec_rspecifier = po.GetArg(6);
 
     //set the seed to the pre-defined value
     srand(seed);
@@ -117,10 +118,11 @@ int main(int argc, char *argv[]) {
     CuDevice::Instantiate().SelectGpuId(use_gpu_id);
 #endif
 
-    Nnet nnet_transf;
+    Nnet nnet_transf, nnet_ref;
     if (feature_transform != "") {
       nnet_transf.Read(feature_transform);
     }
+    nnet_ref.Read(ref_adapt_model_filename);
 
     Nnet nnet;
     nnet.Read(adapt_model_filename);
@@ -152,7 +154,7 @@ int main(int argc, char *argv[]) {
     RandomAccessBaseFloatVectorReader code_vec_reader(code_vec_rspecifier);
 
     RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessBaseFloatMatrixReader targets_reader(targets_rspecifier);
+    RandomAccessBaseFloatMatrixReader ref_feature_reader(ref_feature_rspecifier);
 
     BaseFloatVectorWriter code_vec_writer(code_vec_wspecifier);
 
@@ -165,14 +167,14 @@ int main(int argc, char *argv[]) {
     CuMatrix<BaseFloat> code_diff;
     CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out,
         obj_diff, in_diff;
-    CuMatrix<BaseFloat> labs, targets;
+    CuMatrix<BaseFloat> ref_feats, ref_feats_transf, ref_in, ref_out;
 
     Timer time;
     double time_now = 0;
     double time_next = 0;
     KALDI_LOG<< (crossvalidate?"CROSSVALIDATE":"TRAINING") << " STARTED";
 
-    int32 num_done = 0, num_no_targets = 0, num_other_error = 0,
+    int32 num_done = 0, num_no_ref = 0, num_other_error = 0,
         num_cache = 0, num_set = 0;
     for (; !set2utt_reader.Done(); set2utt_reader.Next()) {
       std::string setkey = set2utt_reader.Key();
@@ -203,14 +205,14 @@ int main(int argc, char *argv[]) {
           std::string utt = uttlst[uid];
           KALDI_VLOG(2) << "Reading utt " << utt;
           // check that we have alignments
-          if (!targets_reader.HasKey(utt)) {
-            num_no_targets++;
+          if (!ref_feature_reader.HasKey(utt)) {
+            num_no_ref++;
             uid++;
             continue;
           }
           // get feature alignment pair
           const Matrix<BaseFloat> &mat = feature_reader.Value(utt);
-          const Matrix<BaseFloat> &tgt = targets_reader.Value(utt);
+          const Matrix<BaseFloat> &ref_mat = ref_feature_reader.Value(utt);
           // check maximum length of utterance
           if (mat.NumRows() > max_frames) {
             KALDI_WARN<< "Utterance " << utt << ": Skipped because it has " << mat.NumRows() <<
@@ -220,9 +222,9 @@ int main(int argc, char *argv[]) {
             continue;
           }
             // check length match of features/alignments
-          if (tgt.NumRows()!= mat.NumRows() || tgt.NumCols() != nnet.OutputDim()) {
-            KALDI_WARN<< "Target has wrong size [" << tgt.NumRows() << "," << tgt.NumCols() 
-            << "] vs. expected ["<< mat.NumRows() << "," << nnet.OutputDim() << "], for utt " << utt;
+          if (ref_mat.NumRows()!= mat.NumRows() || ref_mat.NumCols() != mat.NumCols()) {
+            KALDI_WARN<< "Reference feature has wrong size [" << ref_mat.NumRows() << "," << ref_mat.NumCols() 
+            << "] vs. expected ["<< mat.NumRows() << "," << mat.NumCols() << "], for utt " << utt;
             num_other_error++;
             uid++;
             continue;
@@ -231,11 +233,12 @@ int main(int argc, char *argv[]) {
             // All the checks OK,
             // push features to GPU
           feats=mat;
-          labs=tgt;
+          ref_feats=ref_mat;
           // possibly apply transform
           nnet_transf.Feedforward(feats, &feats_transf);
+          nnet_transf.Feedforward(ref_feats, &ref_feats_transf);
           // add to cache
-          cache.AddData(feats_transf, labs);
+          cache.AddData(feats_transf, ref_feats_transf);
           num_done++;
 
           // measure the time needed to get next feature file
@@ -265,11 +268,16 @@ int main(int argc, char *argv[]) {
         // train with the cache
         while (!cache.Empty()) {
           // get block of feature/target pairs
-          cache.GetBunch(&nnet_in, &targets);
+          cache.GetBunch(&nnet_in, &ref_in);
+
+          // generate reference hidden activations
+          nnet_ref.Feedforward(ref_in, &ref_out);
+
           // train
           nnet.Propagate(nnet_in, &nnet_out);
 
-          mse.Eval(nnet_out, targets, &obj_diff);
+          mse.Eval(nnet_out, ref_out, &obj_diff);
+
           if (!crossvalidate) {
             // we need the nnet work to propagate throught the first layer
             nnet.Backpropagate(obj_diff, &in_diff);
@@ -308,7 +316,7 @@ int main(int argc, char *argv[]) {
     << ", feature wait " << time_next << "s";
 
     KALDI_LOG << "Done " << num_set << " sets.";
-    KALDI_LOG<< "Done " << num_done << " files, " << num_no_targets
+    KALDI_LOG<< "Done " << num_done << " files, " << num_no_ref
     << " with no alignments, " << num_other_error
     << " with other errors.";
 
