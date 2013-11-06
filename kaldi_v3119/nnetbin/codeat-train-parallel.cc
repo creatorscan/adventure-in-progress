@@ -7,6 +7,7 @@
  *      Learning the <codeat> layers using stochastic gradients,
  *      Using parallel data to guide the learning of noise parameters.
  *      Needs to specify which parameters to update.
+ *      The data lists and the set2utt mapping should have the same utterance order.
  */
 
 #include "nnet/nnet-trnopts.h"
@@ -40,15 +41,12 @@ int main(int argc, char *argv[]) {
 
     bool binary = true,
         crossvalidate = false,
-        randomize = true,
-        shuffle = true;
+        randomize = true;
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("cross-validate", &crossvalidate,
                 "Perform cross-validation (don't backpropagate)");
     po.Register("randomize", &randomize,
                 "Perform the frame-level shuffling within the Cache::");
-    po.Register("shuffle", &shuffle,
-                "Perform the utterance-level shuffling");
 
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
@@ -153,8 +151,8 @@ int main(int argc, char *argv[]) {
     SequentialTokenVectorReader set2utt_reader(set2utt_rspecifier);
     RandomAccessBaseFloatVectorReader code_vec_reader(code_vec_rspecifier);
 
-    RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessBaseFloatMatrixReader ref_feature_reader(ref_feature_rspecifier);
+    SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
+    SequentialBaseFloatMatrixReader ref_feature_reader(ref_feature_rspecifier);
 
     BaseFloatVectorWriter code_vec_writer(code_vec_wspecifier);
 
@@ -194,9 +192,6 @@ int main(int argc, char *argv[]) {
 
       // all the utterances belong to this set
       std::vector<std::string> uttlst(set2utt_reader.Value());
-      if (shuffle) {
-        std::random_shuffle(uttlst.begin(), uttlst.end());
-      }
 
       for (int32 uid = 0; uid < uttlst.size();) {
 
@@ -205,14 +200,16 @@ int main(int argc, char *argv[]) {
           std::string utt = uttlst[uid];
           KALDI_VLOG(2) << "Reading utt " << utt;
           // check that we have alignments
-          if (!ref_feature_reader.HasKey(utt)) {
+          std::string feat_key = feature_reader.Key();
+          std::string ref_feat_key = ref_feature_reader.Key();
+          if (feat_key!=utt || ref_feat_key!=utt) {
             num_no_ref++;
             uid++;
             continue;
           }
           // get feature alignment pair
-          const Matrix<BaseFloat> &mat = feature_reader.Value(utt);
-          const Matrix<BaseFloat> &ref_mat = ref_feature_reader.Value(utt);
+          const Matrix<BaseFloat> &mat = feature_reader.Value();
+          const Matrix<BaseFloat> &ref_mat = ref_feature_reader.Value();
           // check maximum length of utterance
           if (mat.NumRows() > max_frames) {
             KALDI_WARN<< "Utterance " << utt << ": Skipped because it has " << mat.NumRows() <<
