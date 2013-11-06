@@ -7,6 +7,7 @@
  *      Learning the <codeat> layers using stochastic gradients,
  *      Using standard error back-propagation of the prediction errors to guide the learning of noise parameters.
  *      Needs to specify which parameters to update.
+ *      The set2utt and scp should have the same utt order.
  */
 
 #include "nnet/nnet-trnopts.h"
@@ -41,15 +42,12 @@ int main(int argc, char *argv[]) {
 
     bool binary = true,
         crossvalidate = false,
-        randomize = true,
-        shuffle = true;
+        randomize = true;
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("cross-validate", &crossvalidate,
                 "Perform cross-validation (don't backpropagate)");
     po.Register("randomize", &randomize,
                 "Perform the frame-level shuffling within the Cache::");
-    po.Register("shuffle", &shuffle,
-                "Perform the utterance-level shuffling");
 
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
@@ -160,7 +158,7 @@ int main(int argc, char *argv[]) {
     SequentialTokenVectorReader set2utt_reader(set2utt_rspecifier);
     RandomAccessBaseFloatVectorReader code_vec_reader(code_vec_rspecifier);
 
-    RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);
+    SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     RandomAccessInt32VectorReader alignments_reader(alignments_rspecifier);
 
     BaseFloatVectorWriter code_vec_writer(code_vec_wspecifier);
@@ -181,7 +179,7 @@ int main(int argc, char *argv[]) {
     double time_next = 0;
     KALDI_LOG<< (crossvalidate?"CROSSVALIDATE":"TRAINING") << " STARTED";
 
-    int32 num_done = 0, num_no_alignments = 0, num_other_error = 0,
+    int32 num_done = 0, num_no_feats = 0, num_no_alignments = 0, num_other_error = 0,
         num_cache = 0, num_set = 0;
     for (; !set2utt_reader.Done(); set2utt_reader.Next()) {
       std::string setkey = set2utt_reader.Key();
@@ -201,9 +199,6 @@ int main(int argc, char *argv[]) {
 
       // all the utterances belong to this set
       std::vector<std::string> uttlst(set2utt_reader.Value());
-      if (shuffle) {
-        std::random_shuffle(uttlst.begin(), uttlst.end());
-      }
 
       for (int32 uid = 0; uid < uttlst.size();) {
 
@@ -211,6 +206,13 @@ int main(int argc, char *argv[]) {
         while (!cache.Full() && uid < uttlst.size()) {
           std::string utt = uttlst[uid];
           KALDI_VLOG(2) << "Reading utt " << utt;
+
+          std::string feat_key = feature_reader.Key();
+          if (feat_key != utt) {
+            num_no_feats++;
+            uid++;
+            continue;
+          }
           // check that we have alignments
           if (!alignments_reader.HasKey(utt)) {
             num_no_alignments++;
@@ -218,7 +220,7 @@ int main(int argc, char *argv[]) {
             continue;
           }
           // get feature alignment pair
-          const Matrix<BaseFloat> &mat = feature_reader.Value(utt);
+          const Matrix<BaseFloat> &mat = feature_reader.Value();
           const std::vector<int32> &alignment = alignments_reader.Value(utt);
           // check maximum length of utterance
           if (mat.NumRows() > max_frames) {
@@ -249,6 +251,7 @@ int main(int argc, char *argv[]) {
           // measure the time needed to get next feature file
           Timer t_features;
           uid++;
+          feature_reader.Next();
           time_next += t_features.Elapsed();
           // report the speed
           if (num_done % 1000 == 0) {
@@ -315,7 +318,8 @@ int main(int argc, char *argv[]) {
     << ", feature wait " << time_next << "s";
 
     KALDI_LOG << "Done " << num_set << " sets.";
-    KALDI_LOG<< "Done " << num_done << " files, " << num_no_alignments
+    KALDI_LOG<< "Done " << num_done << " files, " << num_no_feats 
+    << " with no features, " << num_no_alignments
     << " with no alignments, " << num_other_error
     << " with other errors.";
 
