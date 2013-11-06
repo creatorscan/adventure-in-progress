@@ -284,15 +284,17 @@ int main(int argc, char *argv[]) {
             // we need the nnet work to propagate throught the first layer
             nnet.Backpropagate(obj_diff, &in_diff);
 
-            // accumulate code corr through different layers
-            code_diff=layers_codeat[0]->GetCodeDiff();
-            for (int32 c = 1; c < num_codeat; ++c) {
-              code_diff.AddMat(1.0, layers_codeat[c]->GetCodeDiff(), 1.0);
-            }
-            code_diff.Scale(1.0 / num_codeat);
-            // update the code
-            for (int32 c = 0; c < num_codeat; ++c) {
-              layers_codeat[c]->UpdateCode(code_diff);
+            if(update_code_vec) {
+              // accumulate code corr through different layers
+              code_diff=layers_codeat[0]->GetCodeDiff();
+              for (int32 c = 1; c < num_codeat; ++c) {
+                code_diff.AddMat(1.0, layers_codeat[c]->GetCodeDiff(), 1.0);
+              }
+              code_diff.Scale(1.0 / num_codeat);
+              // update the code
+              for (int32 c = 0; c < num_codeat; ++c) {
+                layers_codeat[c]->UpdateCode(code_diff);
+              }
             }
           }
           total_frames += nnet_in.NumRows();

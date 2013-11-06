@@ -169,6 +169,8 @@ int main(int argc, char *argv[]) {
 
     Xent xent;
 
+    Vector<BaseFloat> code(code_dim);
+
     CuMatrix<BaseFloat> code_vec_diff;
     CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, back_out,
         obj_diff, back_diff, in_diff;
@@ -187,14 +189,10 @@ int main(int argc, char *argv[]) {
         KALDI_ERR<< "No code for set " << setkey;
       }
       KALDI_LOG<< "Set # " << ++num_set << " - " << setkey << ":";
-      // copy the code to GPU
-      Vector<BaseFloat> code(code_vec_reader.Value(setkey));
+
       // update the nnet's codeat layers with new code
       for (int32 c = 0; c < num_codeat; ++c) {
-        layers_codeat[c]->SetCode(code);
-        // also clean the code_corr so that the gradient doesn't accumulate
-        // through different sets
-        layers_codeat[c]->ZeroCodeCorr();
+        layers_codeat[c]->SetCode(code_vec_reader.Value(setkey));
       }
 
       // all the utterances belong to this set
@@ -286,16 +284,19 @@ int main(int argc, char *argv[]) {
             nnet_back.Backpropagate(obj_diff, &back_diff);
             nnet.Backpropagate(back_diff, &in_diff);
 
-            // accumulate code corr through different layers
-            code_vec_diff=layers_codeat[0]->GetCodeDiff();
-            for (int32 c = 1; c < num_codeat; ++c) {
-              code_vec_diff.AddMat(1.0, layers_codeat[c]->GetCodeDiff(), 1.0);
+            if(update_code_vec) {
+              // accumulate code corr through different layers
+              code_vec_diff=layers_codeat[0]->GetCodeDiff();
+              for (int32 c = 1; c < num_codeat; ++c) {
+                code_vec_diff.AddMat(1.0, layers_codeat[c]->GetCodeDiff(), 1.0);
+              }
+              code_vec_diff.Scale(1.0 / num_codeat);
+              // update the code
+              for (int32 c = 0; c < num_codeat; ++c) {
+                layers_codeat[c]->UpdateCode(code_vec_diff);
+              }
             }
-            code_vec_diff.Scale(1.0 / num_codeat);
-            // update the code
-            for (int32 c = 0; c < num_codeat; ++c) {
-              layers_codeat[c]->UpdateCode(code_vec_diff);
-            }
+            
           }
           total_frames += nnet_in.NumRows();
         }
@@ -305,12 +306,14 @@ int main(int argc, char *argv[]) {
       if (!crossvalidate && update_code_vec) {
         (layers_codeat[0]->GetCode()).CopyToVec(&code);
         code_vec_writer.Write(setkey, code);
+        KALDI_LOG << "Write code vector for " << setkey;
       }
 
     }  // end for set2utt
 
     if(!crossvalidate && (update_weight || update_code_xform)) {
       nnet.Write(out_adapt_filename, binary);
+      KALDI_LOG << "Write model file to " << out_adapt_filename;
     }
 
     KALDI_LOG<< (crossvalidate?"CROSSVALIDATE":"TRAINING") << " FINISHED "
