@@ -247,6 +247,8 @@ int main(int argc, char *argv[]) {
           // measure the time needed to get next feature file
           Timer t_features;
           uid++;
+          feature_reader.Next();
+          ref_feature_reader.Next();
           time_next += t_features.Elapsed();
           // report the speed
           if (num_done % 1000 == 0) {
