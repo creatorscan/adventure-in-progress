@@ -185,9 +185,6 @@ int main(int argc, char *argv[]) {
       // update the nnet's codeat layers with new code
       for (int32 c = 0; c < num_codeat; ++c) {
         layers_codeat[c]->SetCode(code_vec_reader.Value(setkey));
-        // also clean the code_corr so that the gradient doesn't accumulate
-        // through different sets
-        layers_codeat[c]->ZeroCodeCorr();
       }
 
       // all the utterances belong to this set
