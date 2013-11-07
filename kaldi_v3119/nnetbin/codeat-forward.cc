@@ -27,9 +27,9 @@ int main(int argc, char *argv[]) {
         "Perform forward pass through Neural Network with codes.\n"
             "\n"
             "Usage:  codeat-forward [options] <adapt-model-in> <back-model-in>"
-            " <feature-rspecifier> <utt2set-map> <code-rspecifier> <feature-wspecifier>\n"
+            " <feature-rspecifier> <code-rspecifier> <feature-wspecifier>\n"
             "e.g.: \n"
-            " codeat-forward adapt.nnet back.nnet ark:features.ark ark:utt2set.ark ark:code.ark ark:mlpoutput.ark\n";
+            " codeat-forward adapt.nnet back.nnet ark:features.ark ark:code.ark ark:mlpoutput.ark\n";
 
     ParseOptions po(usage);
 
@@ -48,6 +48,9 @@ int main(int argc, char *argv[]) {
     bool apply_log = false;
     po.Register("apply-log", &apply_log, "Transform MLP output to logscale");
 
+    std::string utt2set;
+    po.Register("utt2set", &utt2set, "Utterance to set mapping archive");
+
 #if HAVE_CUDA==1
     int32 use_gpu_id=-2;
     po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID (-2 automatic selection, -1 disable GPU, 0..N select GPU)");
@@ -59,7 +62,7 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 6) {
+    if (po.NumArgs() != 5) {
       po.PrintUsage();
       exit(1);
     }
@@ -67,9 +70,8 @@ int main(int argc, char *argv[]) {
     std::string adapt_model_filename = po.GetArg(1),
         back_model_filename = po.GetArg(2),
         feature_rspecifier = po.GetArg(3),
-        utt2set_rspecifier = po.GetArg(4),
-        code_rspecifier = po.GetArg(5),
-        feature_wspecifier = po.GetArg(6);
+        code_rspecifier = po.GetArg(4),
+        feature_wspecifier = po.GetArg(5);
 
     //Select the GPU
 #if HAVE_CUDA==1
@@ -131,7 +133,7 @@ int main(int argc, char *argv[]) {
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     BaseFloatMatrixWriter feature_writer(feature_wspecifier);
 
-    RandomAccessTokenReader utt2set_reader(utt2set_rspecifier);
+    RandomAccessTokenReader utt2set_reader(utt2set);
     RandomAccessBaseFloatVectorReader code_reader(code_rspecifier);
 
     CuMatrix<BaseFloat> feats, feats_transf, nnet_out, back_out;
@@ -163,10 +165,15 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      if (!utt2set_reader.HasKey(key)) {
-        KALDI_ERR<< "Cannot find set key for " << key;
+      // if no utt2set, each utterance should have a code vector
+      std::string setkey = key;
+      if (utt2set != "") {
+        if (!utt2set_reader.HasKey(key)) {
+          KALDI_ERR<< "Cannot find set key for " << key;
+        }
+        setkey = utt2set_reader.Value(key);
       }
-      std::string setkey = utt2set_reader.Value(key);
+
       if (setkey != prev_setkey) {
         // update the code vector
         if (!code_reader.HasKey(setkey)) {
