@@ -53,9 +53,6 @@ int main(int argc, char *argv[]) {
     po.Register("out-codennet-filename", &out_codennet_filename, "Output code transfromation nnet");
     po.Register("code-wspecifier", &code_wspecifier, "Output code vector archieve");
 
-    BaseFloat code_learn_rate = 0.0001;
-    po.Register("code-learn-rate", &code_learn_rate, "Learning rate for the code vectors");
-
 #if HAVE_CUDA==1
     int32 use_gpu_id=-2;
     po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID (-2 automatic selection, -1 disable GPU, 0..N select GPU)");
@@ -210,7 +207,7 @@ int main(int argc, char *argv[]) {
 
           // update the code 
           if(update_code_vec) {
-            codes.AddMat(-1 * code_learn_rate, code_diff, 1.0);
+            codes.AddMat(-1 * trn_opts.learn_rate, code_diff, 1.0);
             codes_host.Resize(codes.NumRows(), codes.NumCols());
             codes.CopyToMat(&codes_host);
             code_writer.Write(code_key, codes_host);
