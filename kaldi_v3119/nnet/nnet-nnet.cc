@@ -73,38 +73,50 @@ void Nnet::Backpropagate(const CuMatrix<BaseFloat> &out_diff, CuMatrix<BaseFloat
   // Backpropagation
   //
 
-  // we don't copy the out_diff to buffers, we use it as it is...
-  int32 i = components_.size()-1;
-  components_.back()->Backpropagate(propagate_buf_[i], propagate_buf_[i+1], 
-                              out_diff, &backpropagate_buf_[i-1]);
-  if (components_[i]->IsUpdatable()) {
-    UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[i]);
-    uc->Update(propagate_buf_[i], out_diff);
-  }
-
-  // backpropagate by using buffers
-  for(i--; i >= 1; i--) {
-    components_[i]->Backpropagate(propagate_buf_[i], propagate_buf_[i+1],
-                            backpropagate_buf_[i], &backpropagate_buf_[i-1]);
+  // if only one layer
+  if (NumComponents()==1) {
+    if(NULL != in_diff) {
+      components_[0]->Backpropagate(propagate_buf_[0], propagate_buf_[1],
+                            out_diff, in_diff);
+    }
+    // update the first layer 
+    if (components_[0]->IsUpdatable()) {
+      UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[0]);
+      uc->Update(propagate_buf_[0], out_diff);
+    }
+  } else {
+    // we don't copy the out_diff to buffers, we use it as it is...
+    int32 i = components_.size()-1;
+    components_.back()->Backpropagate(propagate_buf_[i], propagate_buf_[i+1], 
+                                out_diff, &backpropagate_buf_[i-1]);
     if (components_[i]->IsUpdatable()) {
       UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[i]);
-      uc->Update(propagate_buf_[i], backpropagate_buf_[i]);
+      uc->Update(propagate_buf_[i], out_diff);
+    }
+
+    // backpropagate by using buffers
+    for(i--; i >= 1; i--) {
+      components_[i]->Backpropagate(propagate_buf_[i], propagate_buf_[i+1],
+                              backpropagate_buf_[i], &backpropagate_buf_[i-1]);
+      if (components_[i]->IsUpdatable()) {
+        UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[i]);
+        uc->Update(propagate_buf_[i], backpropagate_buf_[i]);
+      }
+    }
+
+    // now backpropagate through first layer, 
+    // but only if asked to (by in_diff pointer)
+    if (NULL != in_diff) {
+      components_[0]->Backpropagate(propagate_buf_[0], propagate_buf_[1],
+                              backpropagate_buf_[0], in_diff);
+    }
+
+    // update the first layer 
+    if (components_[0]->IsUpdatable()) {
+      UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[0]);
+      uc->Update(propagate_buf_[0], backpropagate_buf_[0]);
     }
   }
-
-  // now backpropagate through first layer, 
-  // but only if asked to (by in_diff pointer)
-  if (NULL != in_diff) {
-    components_[0]->Backpropagate(propagate_buf_[0], propagate_buf_[1],
-                            backpropagate_buf_[0], in_diff);
-  }
-
-  // update the first layer 
-  if (components_[0]->IsUpdatable()) {
-    UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[0]);
-    uc->Update(propagate_buf_[0], backpropagate_buf_[0]);
-  }
-
   //
   // End of Backpropagation
   //////////////////////////////////////
