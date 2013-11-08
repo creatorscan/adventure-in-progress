@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
       std::string key = feat_reader.Key();
       const Matrix<BaseFloat> &mat = feat_reader.Value();
 
-      code.Resize(mat.NumRows(), mat.NumCols(), kSetZero);
+      code.Resize(mat.NumRows(), code_dim, kSetZero);
 
       if(add_gauss_noise){
         code.SetRandn();
