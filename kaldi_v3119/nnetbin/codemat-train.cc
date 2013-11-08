@@ -111,11 +111,9 @@ int main(int argc, char *argv[]) {
     dummy_trn_opts.learn_rate=0.0;
     // backpropagation is needed for nnet_back and nnet_code
     Nnet nnet_back;
-    if(nnet_back_filename != "") {
-      nnet_back.Read(nnet_back_filename);
-      // disable the update of this back end nnet
-      nnet_back.SetTrainOptions(dummy_trn_opts);
-    }
+    nnet_back.Read(nnet_back_filename);
+    // disable the update of this back end nnet
+    nnet_back.SetTrainOptions(dummy_trn_opts);
 
     Nnet nnet_code;
     nnet_code.Read(nnet_code_filename);
