@@ -25,6 +25,7 @@
 #include "nnet/nnet-rbm.h"
 #include "nnet/nnet-various.h"
 #include "nnet/nnet-codeat.h"
+#include "nnet/nnet-linat.h"
 
 namespace kaldi {
 namespace nnet1 {
@@ -42,6 +43,7 @@ const struct Component::key_value Component::kMarkerMap[] = {
   { Component::kAddShift,"<addshift>" },
   { Component::kRescale,"<rescale>" },
   { Component::kCodeAT,"<codeat>" },
+  { Component::kLinAT, "<linat>"}
 };
 
 
@@ -123,6 +125,9 @@ Component* Component::Read(std::istream &is, bool binary) {
       break;
     case Component::kCodeAT:
       p_comp = new CodeAT(dim_in, dim_out);
+      break;
+    case Component::kLinAT:
+      p_comp = new LinAT(dim_in, dim_out);
       break;
     case Component::kUnknown :
     default :
