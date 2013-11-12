@@ -17,7 +17,8 @@ BINFILES = nnet-train-xent-hardlab-perutt \
 	nnet-hidmask-mse-tgtmat-frmshuff \
 	codeat-convert codeat-forward codeat-init-code \
 	codeat-train codeat-train-parallel \
-	codemat-init-code codemat-train codemat-forward
+	codemat-init-code codemat-train codemat-forward \
+	linat-forward
 
 OBJFILES =
 
