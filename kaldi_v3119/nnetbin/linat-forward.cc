@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         new_lin = utt2xform_reader.Value(key);
       }
 
-      if(!weight_reader.HasKey(new_lin) || bias_reader.HasKey(new_lin)) {
+      if(!weight_reader.HasKey(new_lin) || !bias_reader.HasKey(new_lin)) {
         KALDI_ERR << "No LIN weight/bias for the utterance " << key;
       }
 
