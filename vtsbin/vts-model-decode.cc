@@ -254,9 +254,14 @@ int main(int argc, char *argv[]) {
         fst::VectorFst<LatticeArc> decoded;  // linear FST.
         decoder.GetBestPath(&decoded);
 
-        if (!decoder.ReachedFinal())
-          KALDI_ERR << "Decoder did not reach end-state, "
+        if (!decoder.ReachedFinal()){
+          if(!allow_partial)
+            KALDI_ERR << "Decoder did not reach end-state, "
               << "noise model estimation is stopped!";
+          else
+            KALDI_WARN << "Decoder did not reach end-state, "
+              << "noise model estimation using partial stats!";
+        }
 
         std::vector<int32> alignment;
         std::vector<int32> words;
