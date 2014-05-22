@@ -29,6 +29,7 @@ sqaure errors as the second learning objective.
 #include "util/common-utils.h"
 #include "util/timer.h"
 #include "cudamatrix/cu-device.h"
+#include <sstream>
 
 
 int main(int argc, char *argv[]) {
@@ -87,13 +88,13 @@ int main(int argc, char *argv[]) {
     // process options
     po.Read(argc, argv);
 
-    if (num_regularized_hid<=0) {
-      KALDI_ERR << "No hidden layers to regularize, choose a proper training tool!"
-    }
-
     if (po.NumArgs() != 5) {
       po.PrintUsage();
       exit(1);
+    }
+
+    if (num_regularized_hid<=0) {
+      KALDI_ERR << "No hidden layers to regularize, choose a proper training tool!";
     }
 
     std::string model_filename = po.GetArg(1),
@@ -118,19 +119,24 @@ int main(int argc, char *argv[]) {
     //
     // Totally, there will be num_regularized_hid+1 nnets, 
     // the extra one is the output layer
-    std::vector<Nnet> layers(num_regularized_hid+1);
+    std::vector<Nnet*> layers;
+    std::stringstream ss;
     for(int32 i=0; i<=num_regularized_hid; ++i){
-      layers[i].Read(model_filename+"."+std::to_string(i));
+      ss.clear();
+      ss << i;
+      Nnet nnet;
+      nnet.Read(model_filename+"."+ss.str());
       if(g_kaldi_verbose_level > 1) {
         KALDI_LOG << "Loaded layer: " << model_filename << "." << i;
       }
+      layers.push_back(&nnet);
 
       // learning configurations
-      layers[i].SetLearnRate(learn_rate, NULL);
-      layers[i].SetMomentum(momentum);
-      layers[i].SetL2Penalty(l2_penalty);
-      layers[i].SetL1Penalty(l1_penalty);
-      layers[i].SetAverageGrad(average_grad);
+      layers[i]->SetLearnRate(learn_rate, NULL);
+      layers[i]->SetMomentum(momentum);
+      layers[i]->SetL2Penalty(l2_penalty);
+      layers[i]->SetL1Penalty(l1_penalty);
+      layers[i]->SetAverageGrad(average_grad);
     }
 
     kaldi::int64 tot_t = 0;
@@ -207,11 +213,12 @@ int main(int argc, char *argv[]) {
           num_done++;
         }
         Timer t_features;
-        feature_reader.Next(); 
+        noisyfeat_reader.Next(); 
+        cleanfeat_reader.Next();
         time_next += t_features.Elapsed();
       }
       // randomize
-      if (!crossvalidate && randomize) {
+      if (randomize) {
         cache.Randomize();
       }
       // report
@@ -228,11 +235,11 @@ int main(int argc, char *argv[]) {
         for (int32 i=0; i<num_regularized_hid; ++i) {
           // forward propagation
           if (i==0) {
-            layers[i].Propagate(nnet_in_noisy, &hid_acts_noisy[i]);
-            layers[i].Propagate(nnet_in_clean, &hid_acts_clean[i]);
+            layers[i]->Propagate(nnet_in_noisy, &hid_acts_noisy[i]);
+            layers[i]->Propagate(nnet_in_clean, &hid_acts_clean[i]);
           }else{
-            layers[i].Propagate(hid_acts_noisy[i-1], &hid_acts_noisy[i]);
-            layers[i].Propagate(hid_acts_clean[i-1], &hid_acts_clean[i]);
+            layers[i]->Propagate(hid_acts_noisy[i-1], &hid_acts_noisy[i]);
+            layers[i]->Propagate(hid_acts_clean[i-1], &hid_acts_clean[i]);
           }
           // evaluate the MSE 
           mse[i].Eval(hid_acts_noisy[i], hid_acts_clean[i], &hid_err[i]);
@@ -240,12 +247,12 @@ int main(int argc, char *argv[]) {
         //===============================
         // forward through the last layer
         int32 lastID=num_regularized_hid;
-        layers[lastID].Propagate(hid_acts_noisy[lastID-1], &nnet_out);
+        layers[lastID]->Propagate(hid_acts_noisy[lastID-1], &nnet_out);
         // evaluate the Xent
         xent.EvalVec(nnet_out, targets, &glob_err);
         //================================
         // backpropagate the last layer first
-        layers[lastID].Backpropagate(glob_err, &backward_err[lastID-1]);
+        layers[lastID]->Backpropagate(glob_err, &backward_err[lastID-1]);
         //================================
         // backpropagate hidden layers
         for (int32 i=num_regularized_hid-1; i>=0; --i) {
@@ -253,22 +260,24 @@ int main(int argc, char *argv[]) {
           backward_err[i].AddMat(diff_scaling, hid_err[i], 1.0);
           // backpropagate
           if (i>0) {
-            layers[i].Backpropagate(backward_err[i], &backward_err[i-1]);
+            layers[i]->Backpropagate(backward_err[i], &backward_err[i-1]);
           } else {
-            layers[i].Backpropagate(backward_err[i], NULL);
+            layers[i]->Backpropagate(backward_err[i], NULL);
           }
         }
 
-        tot_t += nnet_in.NumRows();
+        tot_t += nnet_in_noisy.NumRows();
       }
 
       // stop training when no more data
-      if (feature_reader.Done()) break;
+      if (noisyfeat_reader.Done() || cleanfeat_reader.Done()) break;
     }
 
     // write out the model
     for (int32 i=0; i<num_regularized_hid+1; ++i) {
-      layers[i].Write(target_model_filename + "." +std::to_string(i), binary);
+      ss.clear();
+      ss << i;
+      layers[i]->Write(target_model_filename + "." +ss.str(), binary);
     }
     
     std::cout << "\n" << std::flush;
