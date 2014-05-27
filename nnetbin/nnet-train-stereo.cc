@@ -120,9 +120,8 @@ int main(int argc, char *argv[]) {
     // Totally, there will be num_regularized_hid+1 nnets, 
     // the extra one is the output layer
     std::vector<Nnet*> layers;
-    std::stringstream ss;
     for(int32 i=0; i<=num_regularized_hid; ++i){
-      ss.clear();
+      std::stringstream ss;
       ss << i;
       Nnet nnet;
       nnet.Read(model_filename+"."+ss.str());
@@ -275,9 +274,12 @@ int main(int argc, char *argv[]) {
 
     // write out the model
     for (int32 i=0; i<num_regularized_hid+1; ++i) {
-      ss.clear();
+      std::stringstream ss;
       ss << i;
       layers[i]->Write(target_model_filename + "." +ss.str(), binary);
+      if(g_kaldi_verbose_level > 1) {
+        KALDI_LOG << "Saved layer: " << model_filename << "." << i;
+      }
     }
     
     std::cout << "\n" << std::flush;
