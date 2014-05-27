@@ -157,10 +157,15 @@ int main(int argc, char *argv[]) {
     std::vector<int32> targets;
 
     // hidden activations
-    std::vector<CuMatrix<BaseFloat> > hid_acts_noisy(num_regularized_hid), 
-      hid_acts_clean(num_regularized_hid), 
-      hid_err(num_regularized_hid), 
-      backward_err(num_regularized_hid);
+    std::vector<CuMatrix<BaseFloat> > hid_acts_noisy, hid_acts_clean, hid_err, backward_err;
+
+    // explicitly initialize the CuMatrix vectors
+    for(int32 i=0; i<num_regularized_hid; ++i) {
+      hid_acts_noisy.push_back(CuMatrix<BaseFloat>());
+      hid_acts_clean.push_back(CuMatrix<BaseFloat>());
+      hid_err.push_back(CuMatrix<BaseFloat>());
+      backward_err.push_back(CuMatrix<BaseFloat>());
+    }
 
     Timer tim;
     double time_next=0;
