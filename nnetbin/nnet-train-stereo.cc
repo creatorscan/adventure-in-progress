@@ -239,9 +239,6 @@ int main(int argc, char *argv[]) {
         // forward through hidden layers
         for (int32 i=0; i<num_regularized_hid; ++i) {
           // forward propagation
-          if (g_kaldi_verbose_level > 1){
-            KALDI_LOG << "Layer " << i << " foward propagation";
-          } 
           if (i==0) {
             layers[i]->Propagate(nnet_in_noisy, &hid_acts_noisy[i]);
             layers[i]->Propagate(nnet_in_clean, &hid_acts_clean[i]);
@@ -264,9 +261,6 @@ int main(int argc, char *argv[]) {
         //================================
         // backpropagate hidden layers
         for (int32 i=num_regularized_hid-1; i>=0; --i) {
-          if (g_kaldi_verbose_level > 1){
-            KALDI_LOG << "Layer " << i << " backward propagation";
-          } 
           // adding the hidden errors
           backward_err[i].AddMat(diff_scaling, hid_err[i], 1.0);
           // backpropagate
