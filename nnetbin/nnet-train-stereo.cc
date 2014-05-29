@@ -300,6 +300,13 @@ int main(int argc, char *argv[]) {
 
     KALDI_LOG << xent.Report();
 
+    KALDI_LOG << "Hidden layer stats:";
+    for(int32 i=0; i<num_regularized_hid; ++i) {
+      KALDI_LOG << "Layer " << i << ":";
+      KALDI_LOG << mse[i].Report();
+      KALDI_LOG << "-----------------------------------------";
+    }
+
 #if HAVE_CUDA==1
     CuDevice::Instantiate().PrintProfile();
 #endif
