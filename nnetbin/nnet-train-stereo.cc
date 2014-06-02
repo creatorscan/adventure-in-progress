@@ -103,8 +103,11 @@ int main(int argc, char *argv[]) {
         noisyfeat_rspecifier = po.GetArg(2),
         cleanfeat_rspecifier = po.GetArg(3),
         alignments_rspecifier = po.GetArg(4),
-        target_model_filename = po.GetArg(5);
+        target_model_filename;
 
+    if(!crossvalidate) {
+      target_model_filename = po.GetArg(5);
+    } 
      
     using namespace kaldi;
     typedef kaldi::int32 int32;
