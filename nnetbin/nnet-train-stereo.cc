@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
     
     std::cout << "\n" << std::flush;
 
-    KALDI_LOG << (crossvalidate? "CV" : "TRAINING FINISHED ") 
+    KALDI_LOG << (crossvalidate? "CV " : "TRAINING ") << "FINISHED " 
               << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
               << ", feature wait " << time_next << "s"; 
 
