@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
       layers[i]->Read(model_filename+"."+ss.str());
       if(g_kaldi_verbose_level > 1) {
         KALDI_LOG << "Loaded layer: " << model_filename+"."+ss.str();
-        KALDI_LOG << "Layer count " << i << " : " << layers[i]->LayerCount();
+        KALDI_LOG << "Layer " << i << " count: " << layers[i]->LayerCount();
       }
 
       // learning configurations
