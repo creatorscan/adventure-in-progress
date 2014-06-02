@@ -48,8 +48,10 @@ int main(int argc, char *argv[]) {
     // Common options
     //
     bool binary = false, 
-         randomize = true;
+        crossvalidate = false,
+        randomize = true;
     po.Register("binary", &binary, "Write output in binary mode");
+    po.Register("cross-validate", &crossvalidate, "Perform cross-validation (don't backpropagate)");
     po.Register("randomize", &randomize, "Perform the frame-level shuffling within the Cache::");
 
     BaseFloat learn_rate = 0.008,
@@ -88,7 +90,7 @@ int main(int argc, char *argv[]) {
     // process options
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 5) {
+    if (po.NumArgs() != 5 - (crossvalidate?1:0)) {
       po.PrintUsage();
       exit(1);
     }
@@ -170,7 +172,7 @@ int main(int argc, char *argv[]) {
 
     Timer tim;
     double time_next=0;
-    KALDI_LOG << "TRAINING STARTED";
+    KALDI_LOG << (crossvalidate? "CV" : "TRAINING") << " STARTED";
 
     int32 num_done = 0, num_no_alignment = 0, num_other_error = 0, num_cache = 0;
     while (1) {
@@ -223,7 +225,7 @@ int main(int argc, char *argv[]) {
         time_next += t_features.Elapsed();
       }
       // randomize
-      if (randomize) {
+      if (!crossvalidate && randomize) {
         cache.Randomize();
       }
       // report
@@ -255,19 +257,21 @@ int main(int argc, char *argv[]) {
         layers[lastID]->Propagate(hid_acts_noisy[lastID-1], &nnet_out);
         // evaluate the Xent
         xent.EvalVec(nnet_out, targets, &glob_err);
-        //================================
-        // backpropagate the last layer first
-        layers[lastID]->Backpropagate(glob_err, &backward_err[lastID-1]);
-        //================================
-        // backpropagate hidden layers
-        for (int32 i=num_regularized_hid-1; i>=0; --i) {
-          // adding the hidden errors
-          backward_err[i].AddMat(diff_scaling, hid_err[i], 1.0);
-          // backpropagate
-          if (i>0) {
-            layers[i]->Backpropagate(backward_err[i], &backward_err[i-1]);          
-          } else {
-            layers[i]->Backpropagate(backward_err[i], NULL);
+        if(!crossvalidate) {
+          //================================
+          // backpropagate the last layer first
+          layers[lastID]->Backpropagate(glob_err, &backward_err[lastID-1]);
+          //================================
+          // backpropagate hidden layers
+          for (int32 i=num_regularized_hid-1; i>=0; --i) {
+            // adding the hidden errors
+            backward_err[i].AddMat(diff_scaling, hid_err[i], 1.0);
+            // backpropagate
+            if (i>0) {
+              layers[i]->Backpropagate(backward_err[i], &backward_err[i-1]);          
+            } else {
+              layers[i]->Backpropagate(backward_err[i], NULL);
+            }
           }
         }
 
@@ -278,19 +282,22 @@ int main(int argc, char *argv[]) {
       if (noisyfeat_reader.Done() || cleanfeat_reader.Done()) break;
     }
 
-    // write out the model
-    for (int32 i=0; i<num_regularized_hid+1; ++i) {
-      std::stringstream ss;
-      ss << i;
-      layers[i]->Write(target_model_filename + "." +ss.str(), binary);
-      if(g_kaldi_verbose_level > 1) {
-        KALDI_LOG << "Saved layer: " << model_filename << "." << i;
+    if(!crossvalidate) {
+
+      // write out the model
+      for (int32 i=0; i<num_regularized_hid+1; ++i) {
+        std::stringstream ss;
+        ss << i;
+        layers[i]->Write(target_model_filename + "." +ss.str(), binary);
+        if(g_kaldi_verbose_level > 1) {
+          KALDI_LOG << "Saved layer: " << model_filename << "." << i;
+        }
       }
     }
     
     std::cout << "\n" << std::flush;
 
-    KALDI_LOG << "TRAINING FINISHED " 
+    KALDI_LOG << (crossvalidate? "CV" : "TRAINING FINISHED ") 
               << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed()
               << ", feature wait " << time_next << "s"; 
 
@@ -304,7 +311,6 @@ int main(int argc, char *argv[]) {
     for(int32 i=0; i<num_regularized_hid; ++i) {
       KALDI_LOG << "Layer " << i << ":";
       KALDI_LOG << mse[i].Report();
-      KALDI_LOG << "-----------------------------------------";
     }
 
 #if HAVE_CUDA==1
