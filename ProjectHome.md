@@ -1,0 +1,1 @@
+Some code from my research based on Kaldi\_v1420. More descriptions will come soon once the code is finished. Thank you for visiting!
